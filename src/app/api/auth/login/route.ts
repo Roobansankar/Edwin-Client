@@ -71,7 +71,6 @@ export async function POST(request: NextRequest) {
 
     const cookieOptions = {
       httpOnly: true,
-      secure: false,
       sameSite: 'lax' as const,
       path: '/',
       maxAge: 60 * 60 * 24 * 7, // 7 days
