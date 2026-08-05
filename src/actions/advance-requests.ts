@@ -29,8 +29,8 @@ export async function createAdvanceRequest(data: {
   });
 
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to send advance request' }));
-    throw new Error(error.message || 'Failed to send advance request');
+    const error = await res.json().catch(() => ({ message: 'Failed to send vendor payment request' }));
+    throw new Error(error.message || 'Failed to send vendor payment request');
   }
 
   revalidatePath('/dashboard/advance');

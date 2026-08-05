@@ -45,7 +45,7 @@ export function AdvanceRequestsClient({ requests }: Props) {
     startTransition(async () => {
       try {
         await respondAdvanceRequest(id, action);
-        message.success(action === 'accepted' ? 'Advance request accepted' : 'Request rejected');
+        message.success(action === 'accepted' ? 'Vendor payment request accepted' : 'Request rejected');
       } catch (error) {
         message.error(error instanceof Error ? error.message : 'Failed to respond to request');
       }
@@ -82,8 +82,8 @@ export function AdvanceRequestsClient({ requests }: Props) {
         record.status === 'pending' ? (
           <Flex gap={8}>
             <Popconfirm
-              title="Accept advance request?"
-              description={`Marks the ${formatCurrency(record.amount)} advance request as accepted.`}
+              title="Accept vendor payment request?"
+              description={`Marks the ${formatCurrency(record.amount)} vendor payment request as accepted.`}
               onConfirm={() => handleRespond(record.id, 'accepted')}
               okText="Yes, accept"
               cancelText="No"
@@ -116,7 +116,7 @@ export function AdvanceRequestsClient({ requests }: Props) {
     <div>
       <Flex justify="space-between" align="center" className={pageHeaderClassName} gap={16} wrap="wrap">
         <Typography.Title level={3} className={pageTitleClassName}>
-          <DollarOutlined className={titleIconClassName} /> Advance Requests
+          <DollarOutlined className={titleIconClassName} /> Vendor Payment Requests
         </Typography.Title>
       </Flex>
 
@@ -156,7 +156,7 @@ export function AdvanceRequestsClient({ requests }: Props) {
           rowKey="id"
           pagination={{ pageSize: 10 }}
           scroll={{ x: 900 }}
-          locale={{ emptyText: 'No advance requests from purchase team' }}
+          locale={{ emptyText: 'No vendor payment requests from purchase team' }}
         />
       </Card>
     </div>

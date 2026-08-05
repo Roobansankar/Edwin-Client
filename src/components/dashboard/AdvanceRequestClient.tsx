@@ -98,7 +98,7 @@ export function AdvanceRequestClient({ projects, vendorQuotations, advanceReques
           amount,
           notes: notes.trim() || undefined,
         });
-        message.success('Advance request sent to accounts');
+        message.success('Vendor payment request sent to accounts');
         resetForm();
       } catch (error) {
         message.error(error instanceof Error ? error.message : 'Failed to send request');
@@ -125,7 +125,7 @@ export function AdvanceRequestClient({ projects, vendorQuotations, advanceReques
     <div>
       <Flex justify="space-between" align="center" className={pageHeaderClassName}>
         <Typography.Title level={3} className={pageTitleClassName}>
-          <DollarOutlined className={titleIconClassName} /> Advance
+          <DollarOutlined className={titleIconClassName} /> Vendor Payments
         </Typography.Title>
       </Flex>
 
@@ -181,11 +181,11 @@ export function AdvanceRequestClient({ projects, vendorQuotations, advanceReques
           )}
 
           <Form.Item label="Amount" required>
-            <InputNumber className="w-full" min={0} value={amount} onChange={setAmount} placeholder="Enter advance amount" />
+            <InputNumber className="w-full" min={0} value={amount} onChange={setAmount} placeholder="Enter payment amount" />
           </Form.Item>
 
           <Form.Item label="Notes">
-            <Input.TextArea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Reason for the advance (optional)" />
+            <Input.TextArea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Reason for the payment (optional)" />
           </Form.Item>
 
           <Button type="primary" loading={isPending} onClick={handleSubmit} disabled={!vendorId}>
@@ -195,7 +195,7 @@ export function AdvanceRequestClient({ projects, vendorQuotations, advanceReques
       </Card>
 
       <Card className={cardClassName} styles={{ body: { padding: 0 } }}>
-        <Table dataSource={advanceRequests} columns={columns} rowKey="id" size="middle" pagination={{ pageSize: 10 }} locale={{ emptyText: 'No advance requests yet' }} />
+        <Table dataSource={advanceRequests} columns={columns} rowKey="id" size="middle" pagination={{ pageSize: 10 }} locale={{ emptyText: 'No vendor payment requests yet' }} />
       </Card>
     </div>
   );
