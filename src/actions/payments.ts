@@ -24,6 +24,7 @@ export async function createPayment(data: Record<string, unknown>) {
   revalidatePath('/dashboard/accounts/bills');
   revalidatePath('/dashboard/accounts/invoices');
   revalidatePath('/dashboard/payments');
+  revalidatePath('/dashboard/purchase-orders');
   return res.json();
 }
 

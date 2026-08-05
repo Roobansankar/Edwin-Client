@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition, useCallback } from 'react';
-import { Button, Card, Drawer, Flex, Form, Input, InputNumber, Popconfirm, Select, Space, Table, Typography, Upload, App } from 'antd';
+import { Button, Card, DatePicker, Drawer, Flex, Form, Input, InputNumber, Popconfirm, Select, Space, Table, Typography, Upload, App } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DeleteOutlined, EditOutlined, FilePdfOutlined, PlusOutlined, ShoppingCartOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import { createPurchaseOrder, updatePurchaseOrderStatus, updatePurchaseOrder, deletePurchaseOrder, uploadBillFile } from '@/actions/purchase-orders';
 import { createItemDescription, deleteItemDescription } from '@/actions/item-descriptions';
-import type { Project, Vendor, PurchaseOrder, ItemDescription, VendorQuotation } from '@/types/erp';
+import { createPayment } from '@/actions/payments';
+import type { Project, Vendor, PurchaseOrder, ItemDescription, VendorQuotation, Payment } from '@/types/erp';
 import { useAuthStore } from '@/store/auth';
 import {
   cardClassName,
@@ -62,8 +64,14 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
   const [selectedQuotationId, setSelectedQuotationId] = useState<string | null>(null);
   const [selectedMRNo, setSelectedMRNo] = useState<string | null>(null);
   const [projectId, setProjectId] = useState('');
-  const [paymentTerms, setPaymentTerms] = useState('');
   const [vendorSections, setVendorSections] = useState<VendorPoSection[]>([]);
+
+  const [poPayments, setPoPayments] = useState<Payment[]>([]);
+  const [paymentAmount, setPaymentAmount] = useState<number | null>(null);
+  const [paymentDate, setPaymentDate] = useState(dayjs().format('YYYY-MM-DD'));
+  const [paymentMode, setPaymentMode] = useState('upi');
+  const [paymentReference, setPaymentReference] = useState('');
+  const [paymentPending, startPaymentTransition] = useTransition();
 
   const vendorQuotations = useMemo(() => vendorQuotationsProp || [], [vendorQuotationsProp]);
   const peOptions = useMemo(() => approvedQuotations(vendorQuotations), [vendorQuotations]);
@@ -169,7 +177,6 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
             vendorId: section.vendorId,
             projectId,
             materialRequirementNo: selectedMRNo || undefined,
-            paymentTerms: paymentTerms || undefined,
             gstPercent: section.gstPercent || undefined,
             items,
             billFileUrl,
@@ -191,15 +198,51 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
     setSelectedQuotationId(null);
     setSelectedMRNo(null);
     setProjectId('');
-    setPaymentTerms('');
     setVendorSections([]);
     setBillFile(null);
+    setPoPayments([]);
+    setPaymentAmount(null);
+    setPaymentReference('');
+  };
+
+  const loadPoPayments = async (poId: string) => {
+    try {
+      const res = await fetch(`/api/backend/payments?purchaseOrderId=${poId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setPoPayments(data?.data || []);
+      }
+    } catch { /* silent */ }
+  };
+
+  const handleAddPayment = (po: PurchaseOrder) => {
+    if (!paymentAmount || paymentAmount <= 0) { message.error('Enter a valid amount'); return; }
+    startPaymentTransition(async () => {
+      try {
+        await createPayment({
+          purchaseOrderId: po.id,
+          projectId: po.projectId,
+          vendorId: po.vendorId,
+          paymentType: 'material',
+          amount: paymentAmount,
+          paymentDate,
+          paymentMode,
+          referenceNumber: paymentReference || undefined,
+        });
+        message.success('Payment recorded');
+        setPaymentAmount(null);
+        setPaymentReference('');
+        loadPoPayments(po.id);
+      } catch (err) {
+        message.error(err instanceof Error ? err.message : 'Failed to record payment');
+      }
+    });
   };
 
   const handleEdit = (po: PurchaseOrder) => {
     setEditingPo(po);
     setProjectId(po.projectId);
-    setPaymentTerms(po.paymentTerms || '');
+    loadPoPayments(po.id);
     setVendorSections([
       {
         vendorId: po.vendorId,
@@ -241,7 +284,6 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
         await updatePurchaseOrder(editingPo.id, {
           vendorId: section.vendorId,
           projectId,
-          paymentTerms: paymentTerms || undefined,
           gstPercent: section.gstPercent || undefined,
           items,
           billFileUrl,
@@ -282,9 +324,13 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
         <Typography.Text>{value.charAt(0).toUpperCase() + value.slice(1)}</Typography.Text>
       ),
     },
-    { title: 'Basic Amount', dataIndex: 'totalAmount', align: 'right', responsive: ['lg'], sorter: (a, b) => Number(a.totalAmount) - Number(b.totalAmount), render: (value: number | string) => formatCurrency(value) },
     { title: 'GST', key: 'gst', align: 'right', width: 100, responsive: ['xl'], render: (_, r) => (r.gstPercent ? `${Number(r.gstPercent)}%` : '-') },
     { title: 'Total w/ GST', key: 'totalWithGst', align: 'right', width: 130, responsive: ['lg'], sorter: (a, b) => Number(a.totalWithGst || 0) - Number(b.totalWithGst || 0), render: (_, r) => formatCurrency(r.totalWithGst || r.totalAmount) },
+    { title: 'Advance', key: 'advanceAmount', align: 'right', width: 120, responsive: ['lg'], sorter: (a, b) => Number(a.advanceAmount || 0) - Number(b.advanceAmount || 0), render: (_, r) => r.advanceAmount ? formatCurrency(r.advanceAmount) : <Typography.Text type="secondary">-</Typography.Text> },
+    { title: 'Balance Total', key: 'balanceTotal', align: 'right', width: 130, responsive: ['lg'], sorter: (a, b) => (Number(a.totalWithGst || a.totalAmount) - Number(a.paidAmount || 0)) - (Number(b.totalWithGst || b.totalAmount) - Number(b.paidAmount || 0)), render: (_, r) => {
+      const balance = Number(r.totalWithGst || r.totalAmount) - Number(r.paidAmount || 0);
+      return <Typography.Text strong={balance > 0}>{formatCurrency(balance)}</Typography.Text>;
+    } },
     { title: 'PO', key: 'billFile', width: 120, responsive: ['lg'], render: (_, record) =>
       record.billFileUrl ? <Button type="link" size="small" icon={<FilePdfOutlined />} href={record.billFileUrl} target="_blank">View PO</Button> : <Typography.Text type="secondary">—</Typography.Text>,
     },
@@ -390,9 +436,47 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
             </Form.Item>
           )}
 
-          <Form.Item label="Payment Terms">
-            <Input.TextArea rows={3} placeholder="Net 30, 50% advance, etc..." value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} />
-          </Form.Item>
+          {editingPo && (
+            <Card size="small" title="Payments" className="border! border-gray-200! mb-4">
+              <Table
+                dataSource={poPayments}
+                rowKey="id"
+                size="small"
+                pagination={false}
+                className="mb-3"
+                locale={{ emptyText: 'No payments recorded yet' }}
+                columns={[
+                  { title: 'Date', dataIndex: 'paymentDate', render: formatDate },
+                  { title: 'Amount', dataIndex: 'amount', align: 'right', render: (v: number | string) => formatCurrency(v) },
+                  { title: 'Mode', dataIndex: 'paymentMode', render: (v: string) => v?.toUpperCase() },
+                  { title: 'Reference', dataIndex: 'referenceNumber', render: (v?: string | null) => v || '-' },
+                ]}
+              />
+              <Flex gap={8} wrap="wrap" align="flex-end">
+                <InputNumber min={0} placeholder="Amount" value={paymentAmount} onChange={setPaymentAmount} style={{ width: 140 }} />
+                <DatePicker
+                  value={dayjs(paymentDate)}
+                  onChange={(_, dateStr) => setPaymentDate(typeof dateStr === 'string' ? dateStr : paymentDate)}
+                  style={{ width: 140 }}
+                />
+                <Select
+                  value={paymentMode}
+                  onChange={setPaymentMode}
+                  style={{ width: 120 }}
+                  options={[
+                    { label: 'UPI', value: 'upi' },
+                    { label: 'RTGS', value: 'rtgs' },
+                    { label: 'Cash', value: 'cash' },
+                    { label: 'Cheque', value: 'cheque' },
+                  ]}
+                />
+                <Input placeholder="Reference" value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} style={{ width: 140 }} />
+                <Button type="primary" loading={paymentPending} onClick={() => handleAddPayment(editingPo)}>
+                  Add Payment
+                </Button>
+              </Flex>
+            </Card>
+          )}
 
           {vendorSections.map((section, vIdx) => {
             const { basicAmount, gstAmount, totalWithGst } = calcSectionTotals(section);

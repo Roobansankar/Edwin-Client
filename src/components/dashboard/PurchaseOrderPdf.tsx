@@ -280,13 +280,6 @@ export function PurchaseOrderPdf({ purchaseOrder }: Props) {
           </View>
         </View>
 
-        {purchaseOrder.paymentTerms && (
-          <View style={{ marginBottom: 40 }}>
-            <Text style={styles.sectionLabel}>Payment Terms</Text>
-            <Text style={[styles.vendorText, { lineHeight: 1.6 }]}>{purchaseOrder.paymentTerms}</Text>
-          </View>
-        )}
-
         <View style={styles.footer}>
           <View style={styles.sigBlock}>
             <Text style={styles.sigLine}>Vendor Acknowledgement</Text>

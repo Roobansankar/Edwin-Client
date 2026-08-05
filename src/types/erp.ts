@@ -319,12 +319,13 @@ export type PurchaseOrder = {
   materialRequirementNo?: string | null;
   vendor?: Vendor;
   project?: Project;
-  paymentTerms?: string | null;
   status: PurchaseOrderStatus;
   totalAmount: number | string;
   gstPercent?: number | null;
   gstAmount?: number | null;
   totalWithGst?: number | null;
+  advanceAmount?: number;
+  paidAmount?: number;
   items?: LineItem[];
   billFileUrl?: string | null;
   billFileKey?: string | null;
@@ -486,6 +487,8 @@ export type Payment = {
   paymentType: PaymentType;
   purchaseBillId?: string | null;
   purchaseBill?: PurchaseBill;
+  purchaseOrderId?: string | null;
+  purchaseOrder?: PurchaseOrder;
   salesInvoiceId?: string | null;
   salesInvoice?: SalesInvoice;
   expenseId?: string | null;
@@ -577,6 +580,25 @@ export type WeeklyTimesheet = {
     role?: string;
     salaryGrade?: Salary | null;
   };
+};
+
+export type AdvanceRequestStatus = 'pending' | 'accepted' | 'rejected';
+
+export type AdvanceRequest = {
+  id: string;
+  vendorId: string;
+  vendor?: Vendor;
+  projectId: string;
+  project?: Project;
+  materialRequirementNo?: string | null;
+  amount: number | string;
+  notes?: string | null;
+  status: AdvanceRequestStatus;
+  requestedById: string;
+  respondedById?: string | null;
+  respondedAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type EmployeeQueryStatus = 'pending' | 'approved' | 'rejected';

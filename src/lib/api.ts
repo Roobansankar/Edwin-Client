@@ -30,6 +30,7 @@ import type {
   AppUser,
   SchemaTable,
   EmployeeQuery,
+  AdvanceRequest,
   OfficeStaff,
   OfficeReport,
   StaffAccessEntry,
@@ -116,6 +117,8 @@ export const fetchTimesheets = (params?: string) =>
 export const fetchSchemas = () => apiFetch<SchemaTable[]>('/schemas');
 export const fetchEmployeeQueries = (status?: string) =>
   apiFetch<EmployeeQuery[]>(`/employee-queries${status ? `?status=${status}` : ''}`);
+export const fetchAdvanceRequests = (status?: string) =>
+  apiFetch<AdvanceRequest[]>(`/advance-requests${status ? `?status=${status}` : ''}`);
 export const fetchProjectAccessStaff = (projectId?: string) =>
   apiFetch<StaffAccessEntry[]>(`/project-access/staff${projectId ? `?projectId=${projectId}` : ''}`);
 export const fetchProjectAccessRecords = () => apiFetch<any[]>('/project-access');

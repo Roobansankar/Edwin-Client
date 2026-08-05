@@ -1,0 +1,158 @@
+'use client';
+
+import { useCallback, useMemo, useState, useTransition } from 'react';
+import { Button, Card, Flex, Form, Input, InputNumber, Select, Table, Tag, Typography, App } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import { DollarOutlined } from '@ant-design/icons';
+import { createAdvanceRequest } from '@/actions/advance-requests';
+import type { Project, VendorQuotation, AdvanceRequest } from '@/types/erp';
+import {
+  cardClassName,
+  formatCurrency,
+  formatDate,
+  pageHeaderClassName,
+  pageTitleClassName,
+  titleIconClassName,
+} from './ui';
+
+type Props = {
+  projects: Project[];
+  vendorQuotations: VendorQuotation[];
+  advanceRequests: AdvanceRequest[];
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  pending: 'orange',
+  accepted: 'green',
+  rejected: 'red',
+};
+
+const approvedQuotations = (vqs: VendorQuotation[]) => vqs.filter((vq) => vq.status === 'approved');
+
+export function AdvanceRequestClient({ projects, vendorQuotations, advanceRequests }: Props) {
+  const [selectedQuotationId, setSelectedQuotationId] = useState<string | null>(null);
+  const [vendorId, setVendorId] = useState('');
+  const [projectId, setProjectId] = useState('');
+  const [materialRequirementNo, setMaterialRequirementNo] = useState<string | null>(null);
+  const [amount, setAmount] = useState<number | null>(null);
+  const [notes, setNotes] = useState('');
+  const [isPending, startTransition] = useTransition();
+  const { message } = App.useApp();
+
+  const peOptions = useMemo(() => approvedQuotations(vendorQuotations), [vendorQuotations]);
+
+  const handleQuotationSelect = useCallback((value: string) => {
+    const q = peOptions.find((vq) => vq.id === value);
+    if (!q) return;
+    setSelectedQuotationId(value);
+    setVendorId(q.vendorId);
+    setProjectId(q.projectId);
+    setMaterialRequirementNo(q.materialRequirement?.enquiryNo || null);
+  }, [peOptions]);
+
+  const resetForm = () => {
+    setSelectedQuotationId(null);
+    setVendorId('');
+    setProjectId('');
+    setMaterialRequirementNo(null);
+    setAmount(null);
+    setNotes('');
+  };
+
+  const handleSubmit = () => {
+    if (!vendorId || !projectId) {
+      message.error('Select an approved vendor/MR first');
+      return;
+    }
+    if (!amount || amount <= 0) {
+      message.error('Enter a valid amount');
+      return;
+    }
+    startTransition(async () => {
+      try {
+        await createAdvanceRequest({
+          vendorId,
+          projectId,
+          materialRequirementNo: materialRequirementNo || undefined,
+          amount,
+          notes: notes.trim() || undefined,
+        });
+        message.success('Advance request sent to accounts');
+        resetForm();
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : 'Failed to send request');
+      }
+    });
+  };
+
+  const columns: ColumnsType<AdvanceRequest> = [
+    { title: '#', key: 'sno', width: 50, render: (_, __, i) => i + 1 },
+    { title: 'Vendor', key: 'vendor', render: (_, record) => record.vendor?.name || record.vendorId },
+    { title: 'Project', key: 'project', render: (_, record) => record.project?.name || '-' },
+    { title: 'MR Ref', dataIndex: 'materialRequirementNo', render: (value?: string | null) => value || <Typography.Text type="secondary">-</Typography.Text> },
+    { title: 'Amount', dataIndex: 'amount', align: 'right', render: (value: number | string) => formatCurrency(value) },
+    { title: 'Requested At', dataIndex: 'createdAt', render: formatDate },
+    { title: 'Status', key: 'status', render: (_, record) => <Tag color={STATUS_COLORS[record.status] || 'default'}>{record.status.toUpperCase()}</Tag> },
+  ];
+
+  return (
+    <div>
+      <Flex justify="space-between" align="center" className={pageHeaderClassName}>
+        <Typography.Title level={3} className={pageTitleClassName}>
+          <DollarOutlined className={titleIconClassName} /> Advance
+        </Typography.Title>
+      </Flex>
+
+      <Card className={`${cardClassName} mb-6`}>
+        <Form layout="vertical">
+          {peOptions.length > 0 && (
+            <Form.Item label="MR Ref / Vendor" required>
+              <Select
+                showSearch
+                placeholder="Search MR Ref or vendor..."
+                optionFilterProp="label"
+                value={selectedQuotationId || undefined}
+                onChange={handleQuotationSelect}
+                options={peOptions.map((q) => {
+                  const mrRef = q.materialRequirement?.enquiryNo;
+                  const vendorName = q.vendor?.name || q.vendorId;
+                  const projectName = q.project?.name || 'Unknown project';
+                  return {
+                    value: q.id,
+                    label: mrRef ? `${mrRef} — ${vendorName} (${projectName})` : `${projectName} — ${vendorName}`,
+                  };
+                })}
+              />
+            </Form.Item>
+          )}
+
+          {peOptions.length === 0 && (
+            <Typography.Text type="secondary">No approved vendors available yet — approve a vendor quotation first.</Typography.Text>
+          )}
+
+          {projectId && (
+            <Form.Item label="Project">
+              <Typography.Text>{projects.find((p) => p.id === projectId)?.name || projectId}</Typography.Text>
+            </Form.Item>
+          )}
+
+          <Form.Item label="Amount" required>
+            <InputNumber className="w-full" min={0} value={amount} onChange={setAmount} placeholder="Enter advance amount" />
+          </Form.Item>
+
+          <Form.Item label="Notes">
+            <Input.TextArea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Reason for the advance (optional)" />
+          </Form.Item>
+
+          <Button type="primary" loading={isPending} onClick={handleSubmit} disabled={!vendorId}>
+            Send Request
+          </Button>
+        </Form>
+      </Card>
+
+      <Card className={cardClassName} styles={{ body: { padding: 0 } }}>
+        <Table dataSource={advanceRequests} columns={columns} rowKey="id" size="middle" pagination={{ pageSize: 10 }} locale={{ emptyText: 'No advance requests yet' }} />
+      </Card>
+    </div>
+  );
+}

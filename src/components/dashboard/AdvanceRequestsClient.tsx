@@ -1,0 +1,156 @@
+'use client';
+
+import { useMemo, useState, useTransition } from 'react';
+import { App, Button, Card, Col, Flex, Popconfirm, Row, Select, Statistic, Table, Tag, Typography } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import { CheckOutlined, CloseOutlined, DollarOutlined } from '@ant-design/icons';
+import { respondAdvanceRequest } from '@/actions/advance-requests';
+import type { AdvanceRequest } from '@/types/erp';
+import { cardClassName, formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
+
+const STATUS_COLORS: Record<string, string> = {
+  pending: 'orange',
+  accepted: 'green',
+  rejected: 'red',
+};
+
+const STATUS_OPTIONS = [
+  { label: 'Pending', value: 'pending' },
+  { label: 'Accepted', value: 'accepted' },
+  { label: 'Rejected', value: 'rejected' },
+];
+
+type Props = { requests: AdvanceRequest[] };
+
+export function AdvanceRequestsClient({ requests }: Props) {
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [isPending, startTransition] = useTransition();
+  const { message } = App.useApp();
+
+  const filtered = useMemo(
+    () => (statusFilter ? requests.filter((r) => r.status === statusFilter) : requests),
+    [requests, statusFilter],
+  );
+
+  const counts = useMemo(
+    () => ({
+      pending: requests.filter((r) => r.status === 'pending').length,
+      accepted: requests.filter((r) => r.status === 'accepted').length,
+      rejected: requests.filter((r) => r.status === 'rejected').length,
+    }),
+    [requests],
+  );
+
+  const handleRespond = (id: string, action: 'accepted' | 'rejected') => {
+    startTransition(async () => {
+      try {
+        await respondAdvanceRequest(id, action);
+        message.success(action === 'accepted' ? 'Advance request accepted' : 'Request rejected');
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : 'Failed to respond to request');
+      }
+    });
+  };
+
+  const columns: ColumnsType<AdvanceRequest> = [
+    { title: '#', key: 'sno', width: 50, render: (_, __, i) => i + 1 },
+    { title: 'Vendor', key: 'vendor', render: (_, record) => record.vendor?.name || record.vendorId },
+    { title: 'Project', key: 'project', render: (_, record) => record.project?.name || '-' },
+    { title: 'MR Ref', dataIndex: 'materialRequirementNo', render: (value?: string | null) => value || <Typography.Text type="secondary">-</Typography.Text> },
+    { title: 'Amount', dataIndex: 'amount', align: 'right', render: (value: number | string) => formatCurrency(value) },
+    { title: 'Notes', dataIndex: 'notes', ellipsis: true, render: (value?: string | null) => value || '-' },
+    { title: 'Requested At', dataIndex: 'createdAt', width: 130, render: formatDate },
+    {
+      title: 'Status',
+      key: 'status',
+      width: 110,
+      render: (_, record) => <Tag color={STATUS_COLORS[record.status] || 'default'}>{record.status.toUpperCase()}</Tag>,
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      width: 180,
+      render: (_, record) =>
+        record.status === 'pending' ? (
+          <Flex gap={8}>
+            <Popconfirm
+              title="Accept advance request?"
+              description={`Marks the ${formatCurrency(record.amount)} advance request as accepted.`}
+              onConfirm={() => handleRespond(record.id, 'accepted')}
+              okText="Yes, accept"
+              cancelText="No"
+            >
+              <Button size="small" type="primary" ghost icon={<CheckOutlined />} loading={isPending}>
+                Accept
+              </Button>
+            </Popconfirm>
+            <Popconfirm
+              title="Reject this request?"
+              onConfirm={() => handleRespond(record.id, 'rejected')}
+              okText="Yes"
+              cancelText="No"
+              okButtonProps={{ danger: true }}
+            >
+              <Button size="small" danger icon={<CloseOutlined />} loading={isPending}>
+                Reject
+              </Button>
+            </Popconfirm>
+          </Flex>
+        ) : (
+          <Typography.Text type="secondary" className="text-xs">
+            {record.respondedAt ? `Responded ${formatDate(record.respondedAt)}` : '-'}
+          </Typography.Text>
+        ),
+    },
+  ];
+
+  return (
+    <div>
+      <Flex justify="space-between" align="center" className={pageHeaderClassName} gap={16} wrap="wrap">
+        <Typography.Title level={3} className={pageTitleClassName}>
+          <DollarOutlined className={titleIconClassName} /> Advance Requests
+        </Typography.Title>
+      </Flex>
+
+      <Card className={cardClassName}>
+        <Row gutter={16} className="mb-4">
+          <Col xs={12} sm={6} md={4}>
+            <Card size="small" className="border! border-amber-500/20! bg-amber-500/5!">
+              <Statistic title={<Tag color="warning">Pending</Tag>} value={counts.pending} />
+            </Card>
+          </Col>
+          <Col xs={12} sm={6} md={4}>
+            <Card size="small" className="border! border-emerald-500/20! bg-emerald-500/5!">
+              <Statistic title={<Tag color="success">Accepted</Tag>} value={counts.accepted} />
+            </Card>
+          </Col>
+          <Col xs={12} sm={6} md={4}>
+            <Card size="small" className="border! border-red-500/20! bg-red-500/5!">
+              <Statistic title={<Tag color="error">Rejected</Tag>} value={counts.rejected} />
+            </Card>
+          </Col>
+        </Row>
+
+        <Flex justify="flex-end" className="mb-4">
+          <Select
+            allowClear
+            placeholder="Filter by status"
+            style={{ width: 200 }}
+            value={statusFilter || undefined}
+            onChange={(val) => setStatusFilter(val || '')}
+            options={STATUS_OPTIONS}
+          />
+        </Flex>
+
+        <Table
+          dataSource={filtered}
+          columns={columns}
+          rowKey="id"
+          pagination={{ pageSize: 10 }}
+          scroll={{ x: 900 }}
+          locale={{ emptyText: 'No advance requests from purchase team' }}
+        />
+      </Card>
+    </div>
+  );
+}
