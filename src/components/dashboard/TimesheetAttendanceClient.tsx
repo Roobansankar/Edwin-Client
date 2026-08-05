@@ -204,12 +204,21 @@ export function TimesheetAttendanceClient({ projects }: Props) {
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.role === 'admin';
 
+  const isDayVisible = (dayIdx: number, weekStartDate: Date) => {
+    if (isAdmin) return true;
+    const dateObj = new Date(weekStartDate);
+    dateObj.setDate(dateObj.getDate() + dayIdx);
+    const dStr = formatDate(dateObj);
+    const yesterdayStr = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
+    return dStr === todayStr || dStr === yesterdayStr;
+  };
+
   const weekStartStr = formatDate(weekStart);
   const todayStr = dayjs().format('YYYY-MM-DD');
 
   const tsStatus = existingTs?.status;
   const isSubmitted = tsStatus === 'submitted';
-  const isFullyLocked = !!existingTs && ['verified', 'admin_approved', 'approved'].includes(tsStatus);
+  const isFullyLocked = !!existingTs && ['verified', 'admin_approved', 'approved'].includes(tsStatus) && !isAdmin;
 
   const weeksInMonth = useMemo(() => {
     const start = month.startOf('month').toDate();
@@ -494,6 +503,7 @@ export function TimesheetAttendanceClient({ projects }: Props) {
                   Project / Category
                 </th>
                 {DAY_LABELS.map((label, i) => {
+                  if (!isDayVisible(i, weekStart)) return null;
                   const dateObj = new Date(weekStart);
                   dateObj.setDate(dateObj.getDate() + i);
                   return (
@@ -511,7 +521,7 @@ export function TimesheetAttendanceClient({ projects }: Props) {
             </thead>
             <tbody>
               {rows.filter((r) => r.kind === 'project').map((row) => {
-                const rowLocked = row.submittedMask !== 0;
+                const rowLocked = !isAdmin && row.submittedMask !== 0;
                 return (
                 <tr key={row.key}>
                   <td className="border border-[var(--border)] px-2 py-1.5">
@@ -530,16 +540,17 @@ export function TimesheetAttendanceClient({ projects }: Props) {
                     />
                   </td>
                   {DAYS.map((_, dayIdx) => {
+                    if (!isDayVisible(dayIdx, weekStart)) return null;
                     const dateObj = new Date(weekStart);
                     dateObj.setDate(dateObj.getDate() + dayIdx);
                     const isToday = formatDate(dateObj) === todayStr;
-                    const cellLocked = (row.submittedMask & (1 << dayIdx)) !== 0;
+                    const cellLocked = !isAdmin && (row.submittedMask & (1 << dayIdx)) !== 0;
                     return (
                       <td key={dayIdx} className="border border-[var(--border)] p-1 text-center">
                         <HoursCell
                           value={row.hours[dayIdx] || 0}
                           onChange={(v) => setHour(row.key, dayIdx, v)}
-                          disabled={isFullyLocked || !isToday || cellLocked}
+                          disabled={isFullyLocked || (!isAdmin && !isToday) || cellLocked}
                         />
                       </td>
                     );
@@ -579,23 +590,24 @@ export function TimesheetAttendanceClient({ projects }: Props) {
               </tr>
 
               {rows.filter((r) => r.kind !== 'project').map((row) => {
-                const rowLocked = row.submittedMask !== 0;
+                const rowLocked = !isAdmin && row.submittedMask !== 0;
                 return (
                 <tr key={row.key}>
                   <td className="border border-[var(--border)] px-3 py-1.5 text-[var(--text-muted)] italic">
                     {FIXED_CATEGORIES.find((c) => c.kind === row.kind)?.label}
                   </td>
                   {DAYS.map((_, dayIdx) => {
+                    if (!isDayVisible(dayIdx, weekStart)) return null;
                     const dateObj = new Date(weekStart);
                     dateObj.setDate(dateObj.getDate() + dayIdx);
                     const isToday = formatDate(dateObj) === todayStr;
-                    const cellLocked = (row.submittedMask & (1 << dayIdx)) !== 0;
+                    const cellLocked = !isAdmin && (row.submittedMask & (1 << dayIdx)) !== 0;
                     return (
                       <td key={dayIdx} className="border border-[var(--border)] p-1 text-center">
                         <HoursCell
                           value={row.hours[dayIdx] || 0}
                           onChange={(v) => setHour(row.key, dayIdx, v)}
-                          disabled={isFullyLocked || !isToday || cellLocked}
+                          disabled={isFullyLocked || (!isAdmin && !isToday) || cellLocked}
                         />
                       </td>
                     );
