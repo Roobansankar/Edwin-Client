@@ -445,11 +445,13 @@ export function TimesheetAttendanceClient({ projects }: Props) {
           </Flex>
 
           <Flex gap={12} align="center">
-            <div className="rounded-md border border-emerald-500/30 bg-emerald-500/15 px-4 py-1.5">
-              <Typography.Text strong className="text-emerald-300">
-                Total: {totalHours.toFixed(1)} / {STANDARD_WEEKLY_HOURS.toFixed(1)} hrs
-              </Typography.Text>
-            </div>
+            {isAdmin && (
+              <div className="rounded-md border border-emerald-500/30 bg-emerald-500/15 px-4 py-1.5">
+                <Typography.Text strong className="text-emerald-300">
+                  Total: {totalHours.toFixed(1)} / {STANDARD_WEEKLY_HOURS.toFixed(1)} hrs
+                </Typography.Text>
+              </div>
+            )}
             {isSubmitted && <Tag color="green">Submitted</Tag>}
             {isSubmitted && (
               latestQuery?.status === 'pending' ? (
@@ -615,21 +617,23 @@ export function TimesheetAttendanceClient({ projects }: Props) {
                 );
               })}
             </tbody>
-            <tfoot>
-              <tr>
-                <td className="border border-[var(--border)] px-3 py-2 font-semibold text-[var(--text-secondary)]">Daily Total</td>
-                {dayTotals.map((t, i) => (
-                  <td
-                    key={i}
-                    className={`border border-[var(--border)] px-2 py-2 text-center font-semibold ${t > DAY_LIMIT_HOURS ? 'text-red-400' : 'text-[var(--text-secondary)]'}`}
-                  >
-                    {Math.min(t, DAY_LIMIT_HOURS).toFixed(1)}
-                  </td>
-                ))}
-                <td className="border border-[var(--border)]" />
-                <td className="border border-[var(--border)]" />
-              </tr>
-            </tfoot>
+            {isAdmin && (
+              <tfoot>
+                <tr>
+                  <td className="border border-[var(--border)] px-3 py-2 font-semibold text-[var(--text-secondary)]">Daily Total</td>
+                  {dayTotals.map((t, i) => (
+                    <td
+                      key={i}
+                      className={`border border-[var(--border)] px-2 py-2 text-center font-semibold ${t > DAY_LIMIT_HOURS ? 'text-red-400' : 'text-[var(--text-secondary)]'}`}
+                    >
+                      {Math.min(t, DAY_LIMIT_HOURS).toFixed(1)}
+                    </td>
+                  ))}
+                  <td className="border border-[var(--border)]" />
+                  <td className="border border-[var(--border)]" />
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
         </Spin>
