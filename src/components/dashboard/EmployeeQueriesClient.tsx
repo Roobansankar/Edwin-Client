@@ -4,9 +4,20 @@ import { useMemo, useState, useTransition } from 'react';
 import { App, Button, Card, Col, Flex, Popconfirm, Row, Select, Statistic, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { CheckOutlined, CloseOutlined, SolutionOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import { respondEmployeeQuery } from '@/actions/employee-queries';
 import type { EmployeeQuery } from '@/types/erp';
 import { cardClassName, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
+
+const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+function dayLabel(record: EmployeeQuery): string {
+  if (record.dayIndex === null || record.dayIndex === undefined || !record.timesheet?.weekStart) {
+    return 'Whole week';
+  }
+  const date = dayjs(record.timesheet.weekStart).add(record.dayIndex, 'day');
+  return `${DAY_LABELS[record.dayIndex]} (${date.format('D MMM')})`;
+}
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'orange',
@@ -66,6 +77,12 @@ export function EmployeeQueriesClient({ queries }: Props) {
         record.timesheet ? `${formatDate(record.timesheet.weekStart)} - ${formatDate(record.timesheet.weekEnd)}` : '-',
     },
     {
+      title: 'Day',
+      key: 'day',
+      width: 130,
+      render: (_, record) => <Tag color={record.dayIndex !== null && record.dayIndex !== undefined ? 'geekblue' : 'default'}>{dayLabel(record)}</Tag>,
+    },
+    {
       title: 'Reason',
       dataIndex: 'reason',
       ellipsis: true,
@@ -91,7 +108,7 @@ export function EmployeeQueriesClient({ queries }: Props) {
           <Flex gap={8}>
             <Popconfirm
               title="Grant edit access?"
-              description="This reopens the site engineer's timesheet so they can correct their entries."
+              description={`Reopens ${dayLabel(record)} only — the rest of the week stays locked.`}
               onConfirm={() => handleRespond(record.id, 'approved')}
               okText="Yes, grant access"
               cancelText="No"

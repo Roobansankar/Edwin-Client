@@ -593,6 +593,7 @@ export type EmployeeQuery = {
     role?: string;
   };
   reason: string;
+  dayIndex: number | null;
   status: EmployeeQueryStatus;
   respondedById?: string | null;
   respondedAt?: string | null;

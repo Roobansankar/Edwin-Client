@@ -198,6 +198,7 @@ export function TimesheetAttendanceClient({ projects }: Props) {
   const [myQueries, setMyQueries] = useState<EmployeeQuery[]>([]);
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [requestReason, setRequestReason] = useState('');
+  const [requestDayIndex, setRequestDayIndex] = useState<number | null>(null);
   const [requestPending, startRequestTransition] = useTransition();
   const [approvePending, startApproveTransition] = useTransition();
   const { message } = App.useApp();
@@ -278,18 +279,62 @@ export function TimesheetAttendanceClient({ projects }: Props) {
       .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))[0] || null;
   }, [myQueries, existingTs?.id]);
 
+  const approvedDayIndices = useMemo(() => {
+    if (!existingTs?.id) return new Set<number>();
+    return new Set(
+      myQueries
+        .filter((q) => q.timesheetId === existingTs.id && q.status === 'approved' && q.dayIndex !== null)
+        .map((q) => q.dayIndex as number),
+    );
+  }, [myQueries, existingTs?.id]);
+
+  const pendingDayIndices = useMemo(() => {
+    if (!existingTs?.id) return new Set<number>();
+    return new Set(
+      myQueries
+        .filter((q) => q.timesheetId === existingTs.id && q.status === 'pending' && q.dayIndex !== null)
+        .map((q) => q.dayIndex as number),
+    );
+  }, [myQueries, existingTs?.id]);
+
+  const lockedDayIndices = useMemo(() => {
+    const set = new Set<number>();
+    for (const row of rows) {
+      for (let d = 0; d < DAYS.length; d++) {
+        if ((row.submittedMask & (1 << d)) !== 0) set.add(d);
+      }
+    }
+    return set;
+  }, [rows]);
+
+  const eligibleRequestDays = useMemo(() => {
+    return [...lockedDayIndices]
+      .filter((d) => !pendingDayIndices.has(d))
+      .sort((a, b) => a - b)
+      .map((d) => {
+        const dateObj = new Date(weekStart);
+        dateObj.setDate(dateObj.getDate() + d);
+        return { value: d, label: `${DAY_LABELS[d]} (${dayjs(dateObj).format('D MMM')})` };
+      });
+  }, [lockedDayIndices, pendingDayIndices, weekStart]);
+
   const submitEditRequest = () => {
     if (!existingTs?.id) return;
+    if (requestDayIndex === null) {
+      message.error('Please select which day you need to correct');
+      return;
+    }
     if (requestReason.trim().length < 5) {
       message.error('Please describe the issue (at least 5 characters)');
       return;
     }
     startRequestTransition(async () => {
       try {
-        await createEmployeeQuery({ timesheetId: existingTs.id, reason: requestReason.trim() });
+        await createEmployeeQuery({ timesheetId: existingTs.id, reason: requestReason.trim(), dayIndex: requestDayIndex });
         message.success('Edit request sent to admin');
         setRequestModalOpen(false);
         setRequestReason('');
+        setRequestDayIndex(null);
         loadQueries();
       } catch (error) {
         message.error(error instanceof Error ? error.message : 'Failed to send request');
@@ -463,7 +508,7 @@ export function TimesheetAttendanceClient({ projects }: Props) {
             )}
             {isSubmitted && <Tag color="green">Submitted</Tag>}
             {isSubmitted && (
-              latestQuery?.status === 'pending' ? (
+              eligibleRequestDays.length === 0 ? (
                 <Tag color="blue">Edit Request Pending</Tag>
               ) : (
                 <Button size="small" icon={<EditOutlined />} onClick={() => setRequestModalOpen(true)}>
@@ -550,7 +595,7 @@ export function TimesheetAttendanceClient({ projects }: Props) {
                         <HoursCell
                           value={row.hours[dayIdx] || 0}
                           onChange={(v) => setHour(row.key, dayIdx, v)}
-                          disabled={isFullyLocked || (!isAdmin && !isToday) || cellLocked}
+                          disabled={isFullyLocked || cellLocked || (!isAdmin && !isToday && !approvedDayIndices.has(dayIdx))}
                         />
                       </td>
                     );
@@ -607,7 +652,7 @@ export function TimesheetAttendanceClient({ projects }: Props) {
                         <HoursCell
                           value={row.hours[dayIdx] || 0}
                           onChange={(v) => setHour(row.key, dayIdx, v)}
-                          disabled={isFullyLocked || (!isAdmin && !isToday) || cellLocked}
+                          disabled={isFullyLocked || cellLocked || (!isAdmin && !isToday && !approvedDayIndices.has(dayIdx))}
                         />
                       </td>
                     );
@@ -663,14 +708,22 @@ export function TimesheetAttendanceClient({ projects }: Props) {
       <Modal
         title="Request Edit Access"
         open={requestModalOpen}
-        onCancel={() => setRequestModalOpen(false)}
+        onCancel={() => { setRequestModalOpen(false); setRequestDayIndex(null); }}
         onOk={submitEditRequest}
         okText="Send Request"
         confirmLoading={requestPending}
       >
         <Typography.Paragraph type="secondary">
-          This timesheet is already submitted and locked. Describe what you entered wrong — an admin will review and can reopen it for editing.
+          Pick the day you got wrong. Describe what you entered wrong — an admin will review and can reopen just that day for editing.
         </Typography.Paragraph>
+        <Select
+          className="w-full mb-3"
+          placeholder="Select day"
+          value={requestDayIndex ?? undefined}
+          onChange={(v) => setRequestDayIndex(v)}
+          options={eligibleRequestDays.map((d) => ({ label: d.label, value: d.value }))}
+          notFoundContent="No locked days available to request"
+        />
         <Input.TextArea
           rows={4}
           maxLength={1000}

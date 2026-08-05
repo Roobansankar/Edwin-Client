@@ -13,7 +13,7 @@ async function getAuthHeaders() {
   };
 }
 
-export async function createEmployeeQuery(data: { timesheetId: string; reason: string }) {
+export async function createEmployeeQuery(data: { timesheetId: string; reason: string; dayIndex: number }) {
   const headers = await getAuthHeaders();
   const res = await fetch(`${getApiBaseUrl()}/employee-queries`, {
     method: 'POST',
