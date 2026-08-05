@@ -297,26 +297,17 @@ export function TimesheetAttendanceClient({ projects }: Props) {
     );
   }, [myQueries, existingTs?.id]);
 
-  const lockedDayIndices = useMemo(() => {
-    const set = new Set<number>();
-    for (const row of rows) {
-      for (let d = 0; d < DAYS.length; d++) {
-        if ((row.submittedMask & (1 << d)) !== 0) set.add(d);
-      }
-    }
-    return set;
-  }, [rows]);
-
   const eligibleRequestDays = useMemo(() => {
-    return [...lockedDayIndices]
-      .filter((d) => !pendingDayIndices.has(d))
-      .sort((a, b) => a - b)
-      .map((d) => {
-        const dateObj = new Date(weekStart);
-        dateObj.setDate(dateObj.getDate() + d);
-        return { value: d, label: `${DAY_LABELS[d]} (${dayjs(dateObj).format('D MMM')})` };
-      });
-  }, [lockedDayIndices, pendingDayIndices, weekStart]);
+    const result: { value: number; label: string }[] = [];
+    for (let d = 0; d < DAYS.length; d++) {
+      if (!isDayVisible(d, weekStart)) continue;
+      if (pendingDayIndices.has(d)) continue; // already requested — avoid a duplicate
+      const dateObj = new Date(weekStart);
+      dateObj.setDate(dateObj.getDate() + d);
+      result.push({ value: d, label: `${DAY_LABELS[d]} (${dayjs(dateObj).format('D MMM')})` });
+    }
+    return result;
+  }, [weekStart, pendingDayIndices]);
 
   const submitEditRequest = () => {
     if (!existingTs?.id) return;
@@ -383,7 +374,8 @@ export function TimesheetAttendanceClient({ projects }: Props) {
   const setHour = (key: string, dayIdx: number, value: number) => {
     const dateObj = new Date(weekStart);
     dateObj.setDate(dateObj.getDate() + dayIdx);
-    if (formatDate(dateObj) !== todayStr) return;
+    const isTodayCell = formatDate(dateObj) === todayStr;
+    if (!isAdmin && !isTodayCell && !approvedDayIndices.has(dayIdx)) return;
 
     const target = rows.find((r) => r.key === key);
 
