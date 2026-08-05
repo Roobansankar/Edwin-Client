@@ -16,7 +16,7 @@ type Props = {
 };
 
 type QuotationItem = { description: string; quantity: number };
-type VendorSection = { vendorId: string; itemIndices: number[]; file: File | null };
+type VendorSection = { vendorId: string; itemIndices: number[]; file: File | null; totalAmount: number | null };
 
 const apiPost = async (path: string, data: unknown) => {
   const res = await fetch(`/api/backend${path}`, {
@@ -93,7 +93,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
   const [materialRequirements, setMaterialRequirements] = useState<PurchaseEnquiry[]>([]);
   const [mrItems, setMrItems] = useState<QuotationItem[]>([]);
   const [vendorSections, setVendorSections] = useState<VendorSection[]>([
-    { vendorId: '', itemIndices: [], file: null },
+    { vendorId: '', itemIndices: [], file: null, totalAmount: null },
   ]);
 
   const [editOpen, setEditOpen] = useState(false);
@@ -101,6 +101,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
   const [editProjectId, setEditProjectId] = useState('');
   const [editVendorId, setEditVendorId] = useState('');
   const [editItems, setEditItems] = useState<QuotationItem[]>([]);
+  const [editTotalAmount, setEditTotalAmount] = useState<number | null>(null);
   const [editFile, setEditFile] = useState<File | null>(null);
   const [editSaving, setEditSaving] = useState(false);
 
@@ -124,13 +125,13 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
     setProjectId('');
     setSelectedMR(null);
     setMrItems([]);
-    setVendorSections([{ vendorId: '', itemIndices: [], file: null }]);
+    setVendorSections([{ vendorId: '', itemIndices: [], file: null, totalAmount: null }]);
   };
 
   useEffect(() => { fetchData(); }, []);
 
   const addVendorSection = () => {
-    setVendorSections([...vendorSections, { vendorId: '', itemIndices: [], file: null }]);
+    setVendorSections([...vendorSections, { vendorId: '', itemIndices: [], file: null, totalAmount: null }]);
   };
 
   const removeVendorSection = (idx: number) => {
@@ -157,6 +158,12 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
     setVendorSections(copy);
   };
 
+  const setSectionTotalAmount = (sectionIdx: number, totalAmount: number | null) => {
+    const copy = [...vendorSections];
+    copy[sectionIdx].totalAmount = totalAmount;
+    setVendorSections(copy);
+  };
+
   const submit = () => {
     if (!projectId) { message.error('Select a project'); return; }
     if (vendorSections.some((s) => !s.vendorId)) { message.error('Select a vendor for each section'); return; }
@@ -177,6 +184,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
             projectId,
             vendorId: section.vendorId,
             items,
+            totalAmount: section.totalAmount || undefined,
             materialRequirementId: selectedMR || undefined,
           };
           if (groupId) body.groupId = groupId;
@@ -210,6 +218,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
     setEditProjectId(record.projectId);
     setEditVendorId(record.vendorId);
     setEditItems(record.items.map((i) => ({ description: i.description, quantity: i.quantity })));
+    setEditTotalAmount(record.totalAmount ? Number(record.totalAmount) : null);
     setEditFile(null);
     setEditOpen(true);
   };
@@ -220,6 +229,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
     setEditProjectId('');
     setEditVendorId('');
     setEditItems([]);
+    setEditTotalAmount(null);
     setEditFile(null);
   };
 
@@ -247,6 +257,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
         projectId: editProjectId,
         vendorId: editVendorId,
         items: editItems.map((i) => ({ description: i.description, quantity: Number(i.quantity) })),
+        totalAmount: editTotalAmount || undefined,
       });
 
       if (editFile) {
@@ -436,11 +447,11 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
                 if (mr) {
                   setProjectId(mr.projectId);
                   setMrItems(mr.items.map((i) => ({ description: i.description, quantity: i.quantity })));
-                  setVendorSections([{ vendorId: '', itemIndices: [], file: null }]);
+                  setVendorSections([{ vendorId: '', itemIndices: [], file: null, totalAmount: null }]);
                 } else {
                   setMrItems([]);
                   setProjectId('');
-                  setVendorSections([{ vendorId: '', itemIndices: [], file: null }]);
+                  setVendorSections([{ vendorId: '', itemIndices: [], file: null, totalAmount: null }]);
                 }
               }}
               options={materialRequirements.map((m) => ({
@@ -510,6 +521,16 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
                     </Checkbox.Group>
                   )}
                 </div>
+
+                <Form.Item label="Total Amount" className="mb-0">
+                  <InputNumber
+                    className="w-full"
+                    min={0}
+                    placeholder="Enter quoted total amount"
+                    value={section.totalAmount}
+                    onChange={(v) => setSectionTotalAmount(sIdx, v)}
+                  />
+                </Form.Item>
 
                 <Upload
                   accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx"
@@ -605,6 +626,16 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
               Add Item
             </Button>
           </div>
+
+          <Form.Item label="Total Amount">
+            <InputNumber
+              className="w-full"
+              min={0}
+              placeholder="Enter quoted total amount"
+              value={editTotalAmount}
+              onChange={setEditTotalAmount}
+            />
+          </Form.Item>
 
           <Form.Item label="Quotation Bill">
             {editRecord?.quotationUrl && !editFile && (

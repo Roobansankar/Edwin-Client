@@ -591,6 +591,8 @@ export type AdvanceRequest = {
   projectId: string;
   project?: Project;
   materialRequirementNo?: string | null;
+  vendorQuotationId?: string | null;
+  vendorQuotation?: VendorQuotation | null;
   amount: number | string;
   notes?: string | null;
   status: AdvanceRequestStatus;
@@ -646,6 +648,7 @@ export type VendorQuotation = {
   materialRequirementId?: string | null;
   materialRequirement?: { id: string; enquiryNo: string; project?: Project; items?: { description: string; quantity: number }[] };
   items: { description: string; quantity: number }[];
+  totalAmount?: number | null;
   quotationUrl?: string | null;
   quotationKey?: string | null;
   status: string;

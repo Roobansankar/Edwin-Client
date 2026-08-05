@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState, useTransition } from 'react';
 import { Button, Card, Flex, Form, Input, InputNumber, Select, Table, Tag, Typography, App } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { DollarOutlined } from '@ant-design/icons';
+import { DollarOutlined, FileTextOutlined } from '@ant-design/icons';
 import { createAdvanceRequest } from '@/actions/advance-requests';
 import type { Project, VendorQuotation, AdvanceRequest } from '@/types/erp';
 import {
@@ -40,6 +40,10 @@ export function AdvanceRequestClient({ projects, vendorQuotations, advanceReques
   const { message } = App.useApp();
 
   const peOptions = useMemo(() => approvedQuotations(vendorQuotations), [vendorQuotations]);
+  const selectedQuotation = useMemo(
+    () => peOptions.find((vq) => vq.id === selectedQuotationId) || null,
+    [peOptions, selectedQuotationId],
+  );
 
   const handleQuotationSelect = useCallback((value: string) => {
     const q = peOptions.find((vq) => vq.id === value);
@@ -74,6 +78,7 @@ export function AdvanceRequestClient({ projects, vendorQuotations, advanceReques
           vendorId,
           projectId,
           materialRequirementNo: materialRequirementNo || undefined,
+          vendorQuotationId: selectedQuotationId || undefined,
           amount,
           notes: notes.trim() || undefined,
         });
@@ -91,6 +96,11 @@ export function AdvanceRequestClient({ projects, vendorQuotations, advanceReques
     { title: 'Project', key: 'project', render: (_, record) => record.project?.name || '-' },
     { title: 'MR Ref', dataIndex: 'materialRequirementNo', render: (value?: string | null) => value || <Typography.Text type="secondary">-</Typography.Text> },
     { title: 'Amount', dataIndex: 'amount', align: 'right', render: (value: number | string) => formatCurrency(value) },
+    { title: 'Quotation', key: 'quotation', render: (_, record) =>
+      record.vendorQuotation?.quotationUrl ? (
+        <Button type="link" size="small" icon={<FileTextOutlined />} href={record.vendorQuotation.quotationUrl} target="_blank">View</Button>
+      ) : <Typography.Text type="secondary">-</Typography.Text>,
+    },
     { title: 'Requested At', dataIndex: 'createdAt', render: formatDate },
     { title: 'Status', key: 'status', render: (_, record) => <Tag color={STATUS_COLORS[record.status] || 'default'}>{record.status.toUpperCase()}</Tag> },
   ];
@@ -133,6 +143,24 @@ export function AdvanceRequestClient({ projects, vendorQuotations, advanceReques
           {projectId && (
             <Form.Item label="Project">
               <Typography.Text>{projects.find((p) => p.id === projectId)?.name || projectId}</Typography.Text>
+            </Form.Item>
+          )}
+
+          {selectedQuotation && (
+            <Form.Item label="Quotation Reference">
+              <Flex align="center" gap={16} wrap="wrap">
+                <Typography.Text>
+                  Quoted Total:{' '}
+                  <Typography.Text strong>
+                    {selectedQuotation.totalAmount ? formatCurrency(selectedQuotation.totalAmount) : 'Not entered'}
+                  </Typography.Text>
+                </Typography.Text>
+                {selectedQuotation.quotationUrl && (
+                  <Button size="small" icon={<FileTextOutlined />} href={selectedQuotation.quotationUrl} target="_blank">
+                    View Quotation Bill
+                  </Button>
+                )}
+              </Flex>
             </Form.Item>
           )}
 

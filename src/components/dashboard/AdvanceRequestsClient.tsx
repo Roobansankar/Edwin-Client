@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from 'react';
 import { App, Button, Card, Col, Flex, Popconfirm, Row, Select, Statistic, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { CheckOutlined, CloseOutlined, DollarOutlined } from '@ant-design/icons';
+import { CheckOutlined, CloseOutlined, DollarOutlined, FileTextOutlined } from '@ant-design/icons';
 import { respondAdvanceRequest } from '@/actions/advance-requests';
 import type { AdvanceRequest } from '@/types/erp';
 import { cardClassName, formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
@@ -58,6 +58,14 @@ export function AdvanceRequestsClient({ requests }: Props) {
     { title: 'Project', key: 'project', render: (_, record) => record.project?.name || '-' },
     { title: 'MR Ref', dataIndex: 'materialRequirementNo', render: (value?: string | null) => value || <Typography.Text type="secondary">-</Typography.Text> },
     { title: 'Amount', dataIndex: 'amount', align: 'right', render: (value: number | string) => formatCurrency(value) },
+    { title: 'Quoted Total', key: 'quotedTotal', align: 'right', render: (_, record) =>
+      record.vendorQuotation?.totalAmount ? formatCurrency(record.vendorQuotation.totalAmount) : <Typography.Text type="secondary">-</Typography.Text>,
+    },
+    { title: 'Quotation', key: 'quotation', render: (_, record) =>
+      record.vendorQuotation?.quotationUrl ? (
+        <Button type="link" size="small" icon={<FileTextOutlined />} href={record.vendorQuotation.quotationUrl} target="_blank">View</Button>
+      ) : <Typography.Text type="secondary">-</Typography.Text>,
+    },
     { title: 'Notes', dataIndex: 'notes', ellipsis: true, render: (value?: string | null) => value || '-' },
     { title: 'Requested At', dataIndex: 'createdAt', width: 130, render: formatDate },
     {

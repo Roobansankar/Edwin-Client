@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition, useCallback } from 'react';
-import { Button, Card, DatePicker, Drawer, Flex, Form, Input, InputNumber, Popconfirm, Select, Space, Table, Typography, Upload, App } from 'antd';
+import { Button, Card, DatePicker, Drawer, Flex, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Typography, Upload, App } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { DeleteOutlined, EditOutlined, FilePdfOutlined, PlusOutlined, ShoppingCartOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, FilePdfOutlined, HistoryOutlined, PlusOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { createPurchaseOrder, updatePurchaseOrderStatus, updatePurchaseOrder, deletePurchaseOrder, uploadBillFile } from '@/actions/purchase-orders';
 import { createItemDescription, deleteItemDescription } from '@/actions/item-descriptions';
@@ -39,17 +39,6 @@ type VendorPoSection = { vendorId: string; vendorName: string; items: PoItem[]; 
 
 const approvedQuotations = (vqs: VendorQuotation[]) => vqs.filter((vq) => vq.status === 'approved');
 
-const peGroupByGroupId = (vqs: VendorQuotation[]) => {
-  const map = new Map<string, VendorQuotation[]>();
-  for (const vq of approvedQuotations(vqs)) {
-    if (!map.has(vq.groupId)) map.set(vq.groupId, []);
-    map.get(vq.groupId)!.push(vq);
-  }
-  return Array.from(map.entries())
-    .filter(([, quotations]) => quotations.length > 1)
-    .map(([groupId, quotations]) => ({ groupId, quotations }));
-};
-
 export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDescriptions, vendorQuotations: vendorQuotationsProp }: PurchaseOrdersClientProps) {
   const user = useAuthStore((s) => s.user);
   const canUpdateStatus = user?.role === 'admin' || user?.role === 'accounts_manager' || user?.role === 'purchase_team';
@@ -73,9 +62,13 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
   const [paymentReference, setPaymentReference] = useState('');
   const [paymentPending, startPaymentTransition] = useTransition();
 
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyPo, setHistoryPo] = useState<PurchaseOrder | null>(null);
+  const [historyPayments, setHistoryPayments] = useState<Payment[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
   const vendorQuotations = useMemo(() => vendorQuotationsProp || [], [vendorQuotationsProp]);
   const peOptions = useMemo(() => approvedQuotations(vendorQuotations), [vendorQuotations]);
-  const peGroups = useMemo(() => peGroupByGroupId(vendorQuotations), [vendorQuotations]);
 
   const statusOptions = user?.role === 'purchase_team'
     ? STATUS_OPTIONS.filter((opt) => opt.value !== 'admin_approved')
@@ -94,23 +87,13 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
   });
 
   const handleEnquirySelect = useCallback((value: string) => {
-    if (value.startsWith('group:')) {
-      const groupId = value.slice('group:'.length);
-      const group = peGroups.find((g) => g.groupId === groupId);
-      if (!group) return;
-      setSelectedQuotationId(value);
-      setSelectedMRNo(group.quotations[0].materialRequirement?.enquiryNo || null);
-      setProjectId(group.quotations[0].projectId);
-      setVendorSections(group.quotations.map(quotationToSection));
-      return;
-    }
     const q = peOptions.find((vq) => vq.id === value);
     if (!q) return;
     setSelectedQuotationId(value);
     setSelectedMRNo(q.materialRequirement?.enquiryNo || null);
     setProjectId(q.projectId);
     setVendorSections([quotationToSection(q)]);
-  }, [peOptions, peGroups]);
+  }, [peOptions]);
 
   const updateItemRate = (vIdx: number, iIdx: number, rate: number) => {
     setVendorSections((prev) => {
@@ -173,7 +156,7 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
             description: i.description, quantity: i.quantity, unit: i.unit, rate: i.rate,
           }));
           if (!items.length) continue;
-          await createPurchaseOrder({
+          const createdPo = await createPurchaseOrder({
             vendorId: section.vendorId,
             projectId,
             materialRequirementNo: selectedMRNo || undefined,
@@ -183,6 +166,23 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
             billFileKey,
           });
           successCount++;
+
+          if (vendorSections.length === 1 && paymentAmount && paymentAmount > 0) {
+            try {
+              await createPayment({
+                purchaseOrderId: createdPo.id,
+                projectId,
+                vendorId: section.vendorId,
+                paymentType: 'material',
+                amount: paymentAmount,
+                paymentDate,
+                paymentMode,
+                referenceNumber: paymentReference || undefined,
+              });
+            } catch {
+              message.warning('PO created, but recording the payment failed — add it from the PO edit view.');
+            }
+          }
         }
         message.success(`${successCount} PO(s) created`);
         handleClose();
@@ -213,6 +213,20 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
         setPoPayments(data?.data || []);
       }
     } catch { /* silent */ }
+  };
+
+  const openHistory = async (po: PurchaseOrder) => {
+    setHistoryPo(po);
+    setHistoryOpen(true);
+    setHistoryLoading(true);
+    try {
+      const res = await fetch(`/api/backend/payments?purchaseOrderId=${po.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setHistoryPayments(data?.data || []);
+      }
+    } catch { /* silent */ }
+    finally { setHistoryLoading(false); }
   };
 
   const handleAddPayment = (po: PurchaseOrder) => {
@@ -331,6 +345,9 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
       const balance = Number(r.totalWithGst || r.totalAmount) - Number(r.paidAmount || 0);
       return <Typography.Text strong={balance > 0}>{formatCurrency(balance)}</Typography.Text>;
     } },
+    { title: 'History', key: 'history', width: 90, render: (_, record) => (
+      <Button size="small" icon={<HistoryOutlined />} onClick={() => openHistory(record)}>History</Button>
+    ) },
     { title: 'PO', key: 'billFile', width: 120, responsive: ['lg'], render: (_, record) =>
       record.billFileUrl ? <Button type="link" size="small" icon={<FilePdfOutlined />} href={record.billFileUrl} target="_blank">View PO</Button> : <Typography.Text type="secondary">—</Typography.Text>,
     },
@@ -389,30 +406,17 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
                 optionFilterProp="label"
                 onChange={handleEnquirySelect}
                 value={selectedQuotationId || undefined}
-                options={[
-                  ...peGroups.map((g) => {
-                    const mrRef = g.quotations[0]?.materialRequirement?.enquiryNo;
-                    const projectName = g.quotations[0]?.project?.name || 'Unknown project';
-                    const vendorCount = g.quotations.length;
-                    return {
-                      value: `group:${g.groupId}`,
-                      label: mrRef
-                        ? `${mrRef} — All Vendors (${vendorCount}) (${projectName})`
-                        : `${projectName} — All Vendors (${vendorCount}) (${formatDate(g.quotations[0]?.createdAt)})`,
-                    };
-                  }),
-                  ...peOptions.map((q) => {
-                    const mrRef = q.materialRequirement?.enquiryNo;
-                    const vendorName = q.vendor?.name || q.vendorId;
-                    const projectName = q.project?.name || 'Unknown project';
-                    return {
-                      value: q.id,
-                      label: mrRef
-                        ? `${mrRef} — ${vendorName} (${projectName})`
-                        : `${projectName} — ${vendorName} (${formatDate(q.createdAt)})`,
-                    };
-                  }),
-                ].sort((a, b) => a.label.localeCompare(b.label))}
+                options={peOptions.map((q) => {
+                  const mrRef = q.materialRequirement?.enquiryNo;
+                  const vendorName = q.vendor?.name || q.vendorId;
+                  const projectName = q.project?.name || 'Unknown project';
+                  return {
+                    value: q.id,
+                    label: mrRef
+                      ? `${mrRef} — ${vendorName} (${projectName})`
+                      : `${projectName} — ${vendorName} (${formatDate(q.createdAt)})`,
+                  };
+                }).sort((a, b) => a.label.localeCompare(b.label))}
               />
             </Form.Item>
           )}
@@ -474,6 +478,34 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
                 <Button type="primary" loading={paymentPending} onClick={() => handleAddPayment(editingPo)}>
                   Add Payment
                 </Button>
+              </Flex>
+            </Card>
+          )}
+
+          {!editingPo && vendorSections.length === 1 && (
+            <Card size="small" title="Payment (optional)" className="border! border-gray-200! mb-4">
+              <Typography.Text type="secondary" className="mb-2 block text-xs">
+                Record a payment made at the time this PO is created — it'll be saved once you click Create.
+              </Typography.Text>
+              <Flex gap={8} wrap="wrap" align="flex-end">
+                <InputNumber min={0} placeholder="Amount" value={paymentAmount} onChange={setPaymentAmount} style={{ width: 140 }} />
+                <DatePicker
+                  value={dayjs(paymentDate)}
+                  onChange={(_, dateStr) => setPaymentDate(typeof dateStr === 'string' ? dateStr : paymentDate)}
+                  style={{ width: 140 }}
+                />
+                <Select
+                  value={paymentMode}
+                  onChange={setPaymentMode}
+                  style={{ width: 120 }}
+                  options={[
+                    { label: 'UPI', value: 'upi' },
+                    { label: 'RTGS', value: 'rtgs' },
+                    { label: 'Cash', value: 'cash' },
+                    { label: 'Cheque', value: 'cheque' },
+                  ]}
+                />
+                <Input placeholder="Reference" value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} style={{ width: 140 }} />
               </Flex>
             </Card>
           )}
@@ -557,6 +589,28 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
           ))}
         </Flex>
       </Drawer>
+
+      <Modal
+        title={historyPo ? `Payment History — ${historyPo.poNumber}` : 'Payment History'}
+        open={historyOpen}
+        onCancel={() => { setHistoryOpen(false); setHistoryPo(null); setHistoryPayments([]); }}
+        footer={null}
+      >
+        <Table
+          dataSource={historyPayments}
+          rowKey="id"
+          size="small"
+          loading={historyLoading}
+          pagination={false}
+          locale={{ emptyText: 'No payments recorded yet' }}
+          columns={[
+            { title: 'Date', dataIndex: 'paymentDate', render: formatDate },
+            { title: 'Amount', dataIndex: 'amount', align: 'right', render: (v: number | string) => formatCurrency(v) },
+            { title: 'Mode', dataIndex: 'paymentMode', render: (v: string) => v?.toUpperCase() },
+            { title: 'Reference', dataIndex: 'referenceNumber', render: (v?: string | null) => v || '-' },
+          ]}
+        />
+      </Modal>
     </div>
   );
 }
