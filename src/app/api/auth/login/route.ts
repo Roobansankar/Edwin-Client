@@ -1,18 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getApiBaseUrl } from '@/lib/api-url';
 
-function getSecureCookieSetting(request: NextRequest) {
-  const value = process.env.AUTH_COOKIE_SECURE;
-  if (value !== undefined && value !== '') {
-    return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase());
-  }
-
-  const forwardedProto = request.headers.get('x-forwarded-proto');
-  const protocol = forwardedProto || request.nextUrl.protocol.replace(':', '');
-
-  return protocol === 'https';
-}
-
 export async function POST(request: NextRequest) {
   const body = await request.json();
   const apiUrl = `${getApiBaseUrl()}/auth/login`;
@@ -36,7 +24,7 @@ export async function POST(request: NextRequest) {
     // Set httpOnly cookie with JWT
     response.cookies.set('token', data.access_token, {
       httpOnly: true,
-      secure: getSecureCookieSetting(request),
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
     });
