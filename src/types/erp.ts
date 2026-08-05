@@ -654,3 +654,36 @@ export type SchemaTable = {
   createSql?: string;
   alterSql?: string;
 };
+
+export type ProjectAccessStatus = 'active' | 'expired' | 'revoked';
+
+export type ProjectAccess = {
+  id: string;
+  projectId: string;
+  project?: Project;
+  userId: string;
+  user?: AppUser;
+  approvedDays: number;
+  approvedAt: string;
+  expiresAt: string;
+  status: ProjectAccessStatus;
+  approvedById?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type StaffAccessEntry = AppUser & {
+  employeeId?: string | null;
+  phone?: string | null;
+  staffType?: string | null;
+  isActive: boolean;
+  projects?: Project[];
+  salaryGrade?: Salary | null;
+  access?: {
+    id: string;
+    approvedDays: number;
+    approvedAt: string;
+    expiresAt: string;
+    status: ProjectAccessStatus;
+  } | null;
+};

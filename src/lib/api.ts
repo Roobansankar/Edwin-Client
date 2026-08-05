@@ -32,14 +32,14 @@ import type {
   EmployeeQuery,
   OfficeStaff,
   OfficeReport,
+  StaffAccessEntry,
 } from '@/types/erp';
 import { getApiBaseUrl } from './api-url';
 
 /**
  * Typed fetch wrapper for server-side API calls.
  * Reads JWT from httpOnly cookie and attaches Authorization header.
- */
-export async function apiFetch<T>(
+ */export async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
@@ -116,3 +116,6 @@ export const fetchTimesheets = (params?: string) =>
 export const fetchSchemas = () => apiFetch<SchemaTable[]>('/schemas');
 export const fetchEmployeeQueries = (status?: string) =>
   apiFetch<EmployeeQuery[]>(`/employee-queries${status ? `?status=${status}` : ''}`);
+export const fetchProjectAccessStaff = (projectId?: string) =>
+  apiFetch<StaffAccessEntry[]>(`/project-access/staff${projectId ? `?projectId=${projectId}` : ''}`);
+export const fetchProjectAccessRecords = () => apiFetch<any[]>('/project-access');

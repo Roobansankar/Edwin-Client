@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   Col,
+  DatePicker,
   Empty,
   Flex,
   Row,
@@ -15,6 +16,7 @@ import {
   Tag,
   Typography,
 } from 'antd';
+import type { Dayjs } from 'dayjs';
 import type { ColumnsType } from 'antd/es/table';
 import {
   BarChartOutlined,
@@ -38,6 +40,14 @@ import {
 
 const DAY_KEYS = ['monHours', 'tueHours', 'wedHours', 'thuHours', 'friHours', 'satHours', 'sunHours'] as const;
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+function inRange(dateStr: string | null | undefined, range: [Dayjs | null, Dayjs | null]) {
+  if (!range[0] || !range[1] || !dateStr) return true;
+  const from = range[0].format('YYYY-MM-DD');
+  const to = range[1].format('YYYY-MM-DD');
+  const d = dateStr.split('T')[0];
+  return d >= from && d <= to;
+}
 
 type ReportsClientProps = {
   reports: OfficeReport[];
@@ -69,6 +79,8 @@ export function ReportsClient({ reports, categories, projects, bills, timesheets
   const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>();
   const [tsProjectId, setTsProjectId] = useState<string | undefined>();
   const [tsEngineerId, setTsEngineerId] = useState<string | undefined>();
+  const [projectDateRange, setProjectDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
+  const [tsDateRange, setTsDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
 
   const projectNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -88,8 +100,8 @@ export function ReportsClient({ reports, categories, projects, bills, timesheets
 
   const projectBills = useMemo(() => {
     if (!selectedProjectId) return [];
-    return bills.filter((b) => b.projectId === selectedProjectId);
-  }, [bills, selectedProjectId]);
+    return bills.filter((b) => b.projectId === selectedProjectId && inRange(b.billDate, projectDateRange));
+  }, [bills, selectedProjectId, projectDateRange]);
 
   const projectSummary = useMemo(() => {
     let totalAmount = 0;
@@ -104,9 +116,9 @@ export function ReportsClient({ reports, categories, projects, bills, timesheets
   const projectExpenses = useMemo(() => {
     if (!selectedProjectId) return [];
     return expenses
-      .filter((e) => e.projectId === selectedProjectId)
+      .filter((e) => e.projectId === selectedProjectId && inRange(e.expenseDate, projectDateRange))
       .sort((a, b) => (b.expenseDate || '').localeCompare(a.expenseDate || ''));
-  }, [expenses, selectedProjectId]);
+  }, [expenses, selectedProjectId, projectDateRange]);
 
   const projectExpenseSummary = useMemo(() => {
     let total = 0;
@@ -123,6 +135,7 @@ export function ReportsClient({ reports, categories, projects, bills, timesheets
         if (!row.projectId) continue;
         if (tsProjectId && row.projectId !== tsProjectId) continue;
         if (tsEngineerId && ts.siteEngineerId !== tsEngineerId) continue;
+        if (!inRange(ts.weekStart, tsDateRange)) continue;
         let totalHours = 0;
         for (const day of DAY_KEYS) totalHours += Number(row[day] || 0);
         if (totalHours === 0) continue;
@@ -145,7 +158,7 @@ export function ReportsClient({ reports, categories, projects, bills, timesheets
       }
     }
     return rows;
-  }, [timesheets, tsProjectId, tsEngineerId, projectNameById]);
+  }, [timesheets, tsProjectId, tsEngineerId, tsDateRange, projectNameById]);
 
   const timesheetSummary = useMemo(() => {
     const engineers = new Set<string>();
@@ -324,17 +337,31 @@ export function ReportsClient({ reports, categories, projects, bills, timesheets
     children: (
       <div>
         <Flex justify="space-between" align="center" gap={16} wrap="wrap" className="mb-4">
-          <Select
-            showSearch
-            placeholder="Select a project to see its purchase bills"
-            style={{ minWidth: 320 }}
-            value={selectedProjectId}
-            onChange={setSelectedProjectId}
-            options={projects.map((p) => ({ value: p.id, label: p.name }))}
-            filterOption={(input, option) =>
-              String(option?.label || '').toLowerCase().includes(input.toLowerCase())
-            }
-          />
+          <Flex gap={12} wrap="wrap">
+            <Select
+              showSearch
+              placeholder="Select a project to see its purchase bills"
+              style={{ minWidth: 320 }}
+              value={selectedProjectId}
+              onChange={setSelectedProjectId}
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              filterOption={(input, option) =>
+                String(option?.label || '').toLowerCase().includes(input.toLowerCase())
+              }
+            />
+            <DatePicker
+              picker="month"
+              placeholder="Month"
+              allowClear
+              onChange={(month) => setProjectDateRange(month ? [month.startOf('month'), month.endOf('month')] : [null, null])}
+            />
+            <DatePicker.RangePicker
+              value={projectDateRange[0] || projectDateRange[1] ? projectDateRange : [null, null]}
+              onChange={(dates) => setProjectDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+              allowClear
+              placeholder={['From', 'To']}
+            />
+          </Flex>
           <Button
             type="primary"
             icon={<FileExcelOutlined />}
@@ -464,6 +491,18 @@ export function ReportsClient({ reports, categories, projects, bills, timesheets
               filterOption={(input, option) =>
                 String(option?.label || '').toLowerCase().includes(input.toLowerCase())
               }
+            />
+            <DatePicker
+              picker="month"
+              placeholder="Month"
+              allowClear
+              onChange={(month) => setTsDateRange(month ? [month.startOf('month'), month.endOf('month')] : [null, null])}
+            />
+            <DatePicker.RangePicker
+              value={tsDateRange[0] || tsDateRange[1] ? tsDateRange : [null, null]}
+              onChange={(dates) => setTsDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+              allowClear
+              placeholder={['From', 'To']}
             />
           </Flex>
           <Button
