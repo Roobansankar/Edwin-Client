@@ -5,7 +5,7 @@ import { Button, Card, Flex, Form, Input, InputNumber, Select, Table, Tag, Typog
 import type { ColumnsType } from 'antd/es/table';
 import { DollarOutlined, FileTextOutlined } from '@ant-design/icons';
 import { createAdvanceRequest } from '@/actions/advance-requests';
-import type { Project, VendorQuotation, AdvanceRequest } from '@/types/erp';
+import type { Project, VendorQuotation, AdvanceRequest, PurchaseOrder } from '@/types/erp';
 import {
   cardClassName,
   formatCurrency,
@@ -19,6 +19,7 @@ type Props = {
   projects: Project[];
   vendorQuotations: VendorQuotation[];
   advanceRequests: AdvanceRequest[];
+  purchaseOrders: PurchaseOrder[];
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -29,7 +30,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 const approvedQuotations = (vqs: VendorQuotation[]) => vqs.filter((vq) => vq.status === 'approved');
 
-export function AdvanceRequestClient({ projects, vendorQuotations, advanceRequests }: Props) {
+export function AdvanceRequestClient({ projects, vendorQuotations, advanceRequests, purchaseOrders }: Props) {
   const [selectedQuotationId, setSelectedQuotationId] = useState<string | null>(null);
   const [vendorId, setVendorId] = useState('');
   const [projectId, setProjectId] = useState('');
@@ -39,7 +40,22 @@ export function AdvanceRequestClient({ projects, vendorQuotations, advanceReques
   const [isPending, startTransition] = useTransition();
   const { message } = App.useApp();
 
-  const peOptions = useMemo(() => approvedQuotations(vendorQuotations), [vendorQuotations]);
+  const fullyPaidKeys = useMemo(() => {
+    const set = new Set<string>();
+    for (const po of purchaseOrders) {
+      if (!po.materialRequirementNo) continue;
+      const balance = Number(po.totalWithGst || po.totalAmount) - Number(po.paidAmount || 0);
+      if (balance <= 0) set.add(`${po.vendorId}|${po.materialRequirementNo}`);
+    }
+    return set;
+  }, [purchaseOrders]);
+
+  const peOptions = useMemo(
+    () => approvedQuotations(vendorQuotations).filter(
+      (q) => !fullyPaidKeys.has(`${q.vendorId}|${q.materialRequirement?.enquiryNo || ''}`),
+    ),
+    [vendorQuotations, fullyPaidKeys],
+  );
   const selectedQuotation = useMemo(
     () => peOptions.find((vq) => vq.id === selectedQuotationId) || null,
     [peOptions, selectedQuotationId],

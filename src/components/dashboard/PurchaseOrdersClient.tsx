@@ -68,7 +68,14 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
   const [historyLoading, setHistoryLoading] = useState(false);
 
   const vendorQuotations = useMemo(() => vendorQuotationsProp || [], [vendorQuotationsProp]);
-  const peOptions = useMemo(() => approvedQuotations(vendorQuotations), [vendorQuotations]);
+  const usedQuotationKeys = useMemo(
+    () => new Set(purchaseOrders.filter((po) => po.materialRequirementNo).map((po) => `${po.vendorId}|${po.materialRequirementNo}`)),
+    [purchaseOrders],
+  );
+  const peOptions = useMemo(
+    () => approvedQuotations(vendorQuotations).filter((q) => !usedQuotationKeys.has(`${q.vendorId}|${q.materialRequirement?.enquiryNo || ''}`)),
+    [vendorQuotations, usedQuotationKeys],
+  );
 
   const statusOptions = user?.role === 'purchase_team'
     ? STATUS_OPTIONS.filter((opt) => opt.value !== 'admin_approved')

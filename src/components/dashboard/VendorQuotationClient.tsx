@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import {
   Button, Card, Checkbox, Drawer, Flex, Form, Input, InputNumber, Modal, Select, Space, Table, Tag, Typography, App, Upload,
 } from 'antd';
@@ -104,6 +104,15 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
   const [editTotalAmount, setEditTotalAmount] = useState<number | null>(null);
   const [editFile, setEditFile] = useState<File | null>(null);
   const [editSaving, setEditSaving] = useState(false);
+
+  const quotedMrIds = useMemo(
+    () => new Set(data.filter((q) => q.materialRequirementId).map((q) => q.materialRequirementId as string)),
+    [data],
+  );
+  const availableMrs = useMemo(
+    () => materialRequirements.filter((m) => !quotedMrIds.has(m.id) || m.id === selectedMR),
+    [materialRequirements, quotedMrIds, selectedMR],
+  );
 
   const fetchData = async () => {
     try {
@@ -443,7 +452,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
               value={selectedMR}
               onChange={(v) => {
                 setSelectedMR(v);
-                const mr = materialRequirements.find((m) => m.id === v);
+                const mr = availableMrs.find((m) => m.id === v);
                 if (mr) {
                   setProjectId(mr.projectId);
                   setMrItems(mr.items.map((i) => ({ description: i.description, quantity: i.quantity })));
@@ -454,7 +463,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
                   setVendorSections([{ vendorId: '', itemIndices: [], file: null, totalAmount: null }]);
                 }
               }}
-              options={materialRequirements.map((m) => ({
+              options={availableMrs.map((m) => ({
                 value: m.id,
                 label: `${m.enquiryNo} — ${m.project?.name || ''}`,
               }))}
