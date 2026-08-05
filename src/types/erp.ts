@@ -582,7 +582,7 @@ export type WeeklyTimesheet = {
   };
 };
 
-export type AdvanceRequestStatus = 'pending' | 'accepted' | 'rejected';
+export type AdvanceRequestStatus = 'pending' | 'accepted' | 'admin_approved' | 'rejected';
 
 export type AdvanceRequest = {
   id: string;

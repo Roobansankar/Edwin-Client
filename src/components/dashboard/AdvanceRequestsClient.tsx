@@ -6,17 +6,27 @@ import type { ColumnsType } from 'antd/es/table';
 import { CheckOutlined, CloseOutlined, DollarOutlined, FileTextOutlined } from '@ant-design/icons';
 import { respondAdvanceRequest } from '@/actions/advance-requests';
 import type { AdvanceRequest } from '@/types/erp';
+import { useAuthStore } from '@/store/auth';
 import { cardClassName, formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'orange',
-  accepted: 'green',
+  accepted: 'blue',
+  admin_approved: 'green',
   rejected: 'red',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  pending: 'PENDING',
+  accepted: 'ACCEPTED BY ACCOUNTS',
+  admin_approved: 'ADMIN APPROVED',
+  rejected: 'REJECTED',
 };
 
 const STATUS_OPTIONS = [
   { label: 'Pending', value: 'pending' },
-  { label: 'Accepted', value: 'accepted' },
+  { label: 'Accepted by Accounts', value: 'accepted' },
+  { label: 'Admin Approved', value: 'admin_approved' },
   { label: 'Rejected', value: 'rejected' },
 ];
 
@@ -26,6 +36,8 @@ export function AdvanceRequestsClient({ requests }: Props) {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [isPending, startTransition] = useTransition();
   const { message } = App.useApp();
+  const user = useAuthStore((s) => s.user);
+  const isAdmin = user?.role === 'admin';
 
   const filtered = useMemo(
     () => (statusFilter ? requests.filter((r) => r.status === statusFilter) : requests),
@@ -36,16 +48,23 @@ export function AdvanceRequestsClient({ requests }: Props) {
     () => ({
       pending: requests.filter((r) => r.status === 'pending').length,
       accepted: requests.filter((r) => r.status === 'accepted').length,
+      adminApproved: requests.filter((r) => r.status === 'admin_approved').length,
       rejected: requests.filter((r) => r.status === 'rejected').length,
     }),
     [requests],
   );
 
-  const handleRespond = (id: string, action: 'accepted' | 'rejected') => {
+  const handleRespond = (id: string, action: 'accepted' | 'admin_approved' | 'rejected') => {
     startTransition(async () => {
       try {
         await respondAdvanceRequest(id, action);
-        message.success(action === 'accepted' ? 'Vendor payment request accepted' : 'Request rejected');
+        message.success(
+          action === 'accepted'
+            ? 'Accepted — awaiting final admin approval'
+            : action === 'admin_approved'
+              ? 'Vendor payment request given final approval'
+              : 'Request rejected',
+        );
       } catch (error) {
         message.error(error instanceof Error ? error.message : 'Failed to respond to request');
       }
@@ -71,44 +90,79 @@ export function AdvanceRequestsClient({ requests }: Props) {
     {
       title: 'Status',
       key: 'status',
-      width: 110,
-      render: (_, record) => <Tag color={STATUS_COLORS[record.status] || 'default'}>{record.status.toUpperCase()}</Tag>,
+      width: 150,
+      render: (_, record) => <Tag color={STATUS_COLORS[record.status] || 'default'}>{STATUS_LABELS[record.status] || record.status.toUpperCase()}</Tag>,
     },
     {
       title: 'Actions',
       key: 'actions',
-      width: 180,
-      render: (_, record) =>
-        record.status === 'pending' ? (
-          <Flex gap={8}>
-            <Popconfirm
-              title="Accept vendor payment request?"
-              description={`Marks the ${formatCurrency(record.amount)} vendor payment request as accepted.`}
-              onConfirm={() => handleRespond(record.id, 'accepted')}
-              okText="Yes, accept"
-              cancelText="No"
-            >
-              <Button size="small" type="primary" ghost icon={<CheckOutlined />} loading={isPending}>
-                Accept
-              </Button>
-            </Popconfirm>
-            <Popconfirm
-              title="Reject this request?"
-              onConfirm={() => handleRespond(record.id, 'rejected')}
-              okText="Yes"
-              cancelText="No"
-              okButtonProps={{ danger: true }}
-            >
-              <Button size="small" danger icon={<CloseOutlined />} loading={isPending}>
-                Reject
-              </Button>
-            </Popconfirm>
-          </Flex>
-        ) : (
+      width: 200,
+      render: (_, record) => {
+        if (record.status === 'pending') {
+          return (
+            <Flex gap={8}>
+              <Popconfirm
+                title="Accept vendor payment request?"
+                description={`Marks the ${formatCurrency(record.amount)} request as accepted — it will still need final admin approval.`}
+                onConfirm={() => handleRespond(record.id, 'accepted')}
+                okText="Yes, accept"
+                cancelText="No"
+              >
+                <Button size="small" type="primary" ghost icon={<CheckOutlined />} loading={isPending}>
+                  Accept
+                </Button>
+              </Popconfirm>
+              <Popconfirm
+                title="Reject this request?"
+                onConfirm={() => handleRespond(record.id, 'rejected')}
+                okText="Yes"
+                cancelText="No"
+                okButtonProps={{ danger: true }}
+              >
+                <Button size="small" danger icon={<CloseOutlined />} loading={isPending}>
+                  Reject
+                </Button>
+              </Popconfirm>
+            </Flex>
+          );
+        }
+        if (record.status === 'accepted') {
+          if (!isAdmin) {
+            return <Typography.Text type="secondary" className="text-xs">Awaiting admin approval</Typography.Text>;
+          }
+          return (
+            <Flex gap={8}>
+              <Popconfirm
+                title="Give final approval?"
+                description={`Marks the ${formatCurrency(record.amount)} request as fully approved — it will count toward the vendor's advance on Purchase Orders.`}
+                onConfirm={() => handleRespond(record.id, 'admin_approved')}
+                okText="Yes, approve"
+                cancelText="No"
+              >
+                <Button size="small" type="primary" ghost icon={<CheckOutlined />} loading={isPending}>
+                  Final Approve
+                </Button>
+              </Popconfirm>
+              <Popconfirm
+                title="Reject this request?"
+                onConfirm={() => handleRespond(record.id, 'rejected')}
+                okText="Yes"
+                cancelText="No"
+                okButtonProps={{ danger: true }}
+              >
+                <Button size="small" danger icon={<CloseOutlined />} loading={isPending}>
+                  Reject
+                </Button>
+              </Popconfirm>
+            </Flex>
+          );
+        }
+        return (
           <Typography.Text type="secondary" className="text-xs">
             {record.respondedAt ? `Responded ${formatDate(record.respondedAt)}` : '-'}
           </Typography.Text>
-        ),
+        );
+      },
     },
   ];
 
@@ -128,8 +182,13 @@ export function AdvanceRequestsClient({ requests }: Props) {
             </Card>
           </Col>
           <Col xs={12} sm={6} md={4}>
+            <Card size="small" className="border! border-blue-500/20! bg-blue-500/5!">
+              <Statistic title={<Tag color="blue">Accepted</Tag>} value={counts.accepted} />
+            </Card>
+          </Col>
+          <Col xs={12} sm={6} md={4}>
             <Card size="small" className="border! border-emerald-500/20! bg-emerald-500/5!">
-              <Statistic title={<Tag color="success">Accepted</Tag>} value={counts.accepted} />
+              <Statistic title={<Tag color="success">Admin Approved</Tag>} value={counts.adminApproved} />
             </Card>
           </Col>
           <Col xs={12} sm={6} md={4}>

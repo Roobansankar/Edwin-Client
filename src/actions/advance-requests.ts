@@ -38,7 +38,7 @@ export async function createAdvanceRequest(data: {
   return res.json();
 }
 
-export async function respondAdvanceRequest(id: string, action: 'accepted' | 'rejected') {
+export async function respondAdvanceRequest(id: string, action: 'accepted' | 'admin_approved' | 'rejected') {
   const headers = await getAuthHeaders();
   const res = await fetch(`${getApiBaseUrl()}/advance-requests/${id}/respond`, {
     method: 'PATCH',

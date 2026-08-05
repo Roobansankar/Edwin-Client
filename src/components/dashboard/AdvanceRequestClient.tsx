@@ -24,8 +24,16 @@ type Props = {
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'orange',
-  accepted: 'green',
+  accepted: 'blue',
+  admin_approved: 'green',
   rejected: 'red',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  pending: 'PENDING',
+  accepted: 'ACCEPTED BY ACCOUNTS',
+  admin_approved: 'ADMIN APPROVED',
+  rejected: 'REJECTED',
 };
 
 const approvedQuotations = (vqs: VendorQuotation[]) => vqs.filter((vq) => vq.status === 'approved');
@@ -118,7 +126,7 @@ export function AdvanceRequestClient({ projects, vendorQuotations, advanceReques
       ) : <Typography.Text type="secondary">-</Typography.Text>,
     },
     { title: 'Requested At', dataIndex: 'createdAt', render: formatDate },
-    { title: 'Status', key: 'status', render: (_, record) => <Tag color={STATUS_COLORS[record.status] || 'default'}>{record.status.toUpperCase()}</Tag> },
+    { title: 'Status', key: 'status', render: (_, record) => <Tag color={STATUS_COLORS[record.status] || 'default'}>{STATUS_LABELS[record.status] || record.status.toUpperCase()}</Tag> },
   ];
 
   return (
