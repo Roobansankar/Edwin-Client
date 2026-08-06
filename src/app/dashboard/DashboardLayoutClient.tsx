@@ -131,7 +131,6 @@ const navigationSections: Array<{ title: string; items: NavItem[]; allowedRoles?
     items: [
       { key: '/dashboard/profile', icon: <UserOutlined />, label: 'Profile', allowedRoles: ['admin'] },
       { key: '/dashboard/salary', icon: <DollarOutlined />, label: 'Salary', allowedRoles: ['admin'] },
-      { key: '/dashboard/schemas', icon: <FileTextOutlined />, label: 'DB Schemas', allowedRoles: ['admin'] },
     ],
   },
 ];

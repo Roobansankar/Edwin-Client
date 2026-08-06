@@ -155,22 +155,22 @@ export function EngineerReportClient() {
       <Row gutter={[16, 16]} className="mb-6">
         <Col xs={12} sm={6}>
           <Card className="rounded-xl! border! border-blue-500/20! bg-linear-to-br! from-blue-500/15! to-blue-500/5!">
-            <Statistic title="Projects" value={data.assignedProjects.length} prefix={<ProjectOutlined />} valueStyle={{ color: '#3b82f6' }} />
+            <Statistic title="Projects" value={data.assignedProjects.length} prefix={<ProjectOutlined />} styles={{ content: { color: '#3b82f6' } }} />
           </Card>
         </Col>
         <Col xs={12} sm={6}>
           <Card className="rounded-xl! border! border-amber-500/20! bg-linear-to-br! from-amber-500/15! to-amber-500/5!">
-            <Statistic title="Material Req." value={data.materialRequirements.length} prefix={<ShoppingCartOutlined />} valueStyle={{ color: '#f59e0b' }} />
+            <Statistic title="Material Req." value={data.materialRequirements.length} prefix={<ShoppingCartOutlined />} styles={{ content: { color: '#f59e0b' } }} />
           </Card>
         </Col>
         <Col xs={12} sm={6}>
           <Card className="rounded-xl! border! border-violet-500/20! bg-linear-to-br! from-violet-500/15! to-violet-500/5!">
-            <Statistic title="Timesheets" value={data.timesheets.length} prefix={<CalendarOutlined />} valueStyle={{ color: '#8b5cf6' }} />
+            <Statistic title="Timesheets" value={data.timesheets.length} prefix={<CalendarOutlined />} styles={{ content: { color: '#8b5cf6' } }} />
           </Card>
         </Col>
         <Col xs={12} sm={6}>
           <Card className="rounded-xl! border! border-emerald-500/20! bg-linear-to-br! from-emerald-500/15! to-emerald-500/5!">
-            <Statistic title="Attendance (30d)" value={totalAttendance} prefix={<UserOutlined />} valueStyle={{ color: '#10b981' }} />
+            <Statistic title="Attendance (30d)" value={totalAttendance} prefix={<UserOutlined />} styles={{ content: { color: '#10b981' } }} />
           </Card>
         </Col>
       </Row>
@@ -179,22 +179,22 @@ export function EngineerReportClient() {
       <Row gutter={[16, 16]} className="mb-6">
         <Col xs={12} sm={6}>
           <Card size="small" className="border! border-orange-500/20!">
-            <Statistic title="MR Pending" value={mrPending} valueStyle={{ color: '#f59e0b', fontSize: 20 }} />
+            <Statistic title="MR Pending" value={mrPending} styles={{ content: { color: '#f59e0b', fontSize: 20 } }} />
           </Card>
         </Col>
         <Col xs={12} sm={6}>
           <Card size="small" className="border! border-emerald-500/20!">
-            <Statistic title="MR Approved" value={mrApproved} valueStyle={{ color: '#10b981', fontSize: 20 }} prefix={<CheckCircleOutlined />} />
+            <Statistic title="MR Approved" value={mrApproved} styles={{ content: { color: '#10b981', fontSize: 20 } }} prefix={<CheckCircleOutlined />} />
           </Card>
         </Col>
         <Col xs={12} sm={6}>
           <Card size="small" className="border! border-red-500/20!">
-            <Statistic title="MR Rejected" value={mrRejected} valueStyle={{ color: '#ef4444', fontSize: 20 }} prefix={<CloseCircleOutlined />} />
+            <Statistic title="MR Rejected" value={mrRejected} styles={{ content: { color: '#ef4444', fontSize: 20 } }} prefix={<CloseCircleOutlined />} />
           </Card>
         </Col>
         <Col xs={12} sm={6}>
           <Card size="small" className="border! border-blue-500/20!">
-            <Statistic title="TS Approved" value={tsApproved} valueStyle={{ color: '#3b82f6', fontSize: 20 }} prefix={<CheckCircleOutlined />} />
+            <Statistic title="TS Approved" value={tsApproved} styles={{ content: { color: '#3b82f6', fontSize: 20 } }} prefix={<CheckCircleOutlined />} />
           </Card>
         </Col>
       </Row>

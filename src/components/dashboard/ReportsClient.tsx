@@ -435,7 +435,7 @@ export function ReportsClient({ projects, bills, timesheets, expenses, dprReport
                     value={projectSummary.outstanding}
                     precision={0}
                     prefix="₹"
-                    valueStyle={projectSummary.outstanding > 0 ? { color: '#cf1322' } : undefined}
+                    styles={{ content: projectSummary.outstanding > 0 ? { color: '#cf1322' } : undefined }}
                   />
                 </Card>
               </Col>

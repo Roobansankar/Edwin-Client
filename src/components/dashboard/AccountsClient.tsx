@@ -181,7 +181,7 @@ export function AccountsClient({ payables, receivables, projects }: AccountsClie
               title="Total Payables"
               value={totalPayables}
               precision={2}
-              valueStyle={{ color: '#cf1322' }}
+              styles={{ content: { color: '#cf1322' } }}
               prefix={<ArrowDownOutlined />}
               formatter={(val) => formatCurrency(val as number)}
             />
@@ -193,7 +193,7 @@ export function AccountsClient({ payables, receivables, projects }: AccountsClie
               title="Total Receivables"
               value={totalReceivables}
               precision={2}
-              valueStyle={{ color: '#3f8600' }}
+              styles={{ content: { color: '#3f8600' } }}
               prefix={<ArrowUpOutlined />}
               formatter={(val) => formatCurrency(val as number)}
             />
@@ -205,7 +205,7 @@ export function AccountsClient({ payables, receivables, projects }: AccountsClie
               title="Total Paid Amount"
               value={totalPaid}
               precision={2}
-              valueStyle={{ color: '#cf1322' }}
+              styles={{ content: { color: '#cf1322' } }}
               prefix={<ArrowDownOutlined />}
               formatter={(val) => formatCurrency(val as number)}
             />
@@ -217,7 +217,7 @@ export function AccountsClient({ payables, receivables, projects }: AccountsClie
               title="Total Received Amount"
               value={totalReceived}
               precision={2}
-              valueStyle={{ color: '#3f8600' }}
+              styles={{ content: { color: '#3f8600' } }}
               prefix={<ArrowUpOutlined />}
               formatter={(val) => formatCurrency(val as number)}
             />

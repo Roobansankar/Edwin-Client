@@ -350,7 +350,7 @@ export function ProjectsClient({ projects, projectCategories, users }: ProjectsC
                 <Statistic
                   title={<Tag color={item.color}>{item.label}</Tag>}
                   value={projects.filter((p) => p.status === item.status).length}
-                  valueStyle={{ fontSize: 24, fontWeight: 700, color: '#e2e8f0' }}
+                  styles={{ content: { fontSize: 24, fontWeight: 700, color: 'var(--text-primary)' } }}
                 />
               </Card>
             </Col>

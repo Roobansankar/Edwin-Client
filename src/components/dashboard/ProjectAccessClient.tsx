@@ -236,17 +236,17 @@ export function ProjectAccessClient({ projects, initialStaff, initialProjectId }
             </Col>
             <Col xs={12} sm={6}>
               <Card className={cardClassName}>
-                <Statistic title="Approved" value={stats.approved} valueStyle={{ color: '#16a34a' }} />
+                <Statistic title="Approved" value={stats.approved} styles={{ content: { color: '#16a34a' } }} />
               </Card>
             </Col>
             <Col xs={12} sm={6}>
               <Card className={cardClassName}>
-                <Statistic title="Expired" value={stats.expired} valueStyle={{ color: '#d97706' }} />
+                <Statistic title="Expired" value={stats.expired} styles={{ content: { color: '#d97706' } }} />
               </Card>
             </Col>
             <Col xs={12} sm={6}>
               <Card className={cardClassName}>
-                <Statistic title="Not Approved" value={stats.notApproved} valueStyle={{ color: '#6b7280' }} />
+                <Statistic title="Not Approved" value={stats.notApproved} styles={{ content: { color: '#6b7280' } }} />
               </Card>
             </Col>
           </Row>
