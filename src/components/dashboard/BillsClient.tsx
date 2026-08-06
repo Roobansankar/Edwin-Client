@@ -317,16 +317,14 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
     {
       title: 'Bill Number',
       dataIndex: 'billNumber',
-      render: (value: string, record) => (
-        <Space orientation="vertical" size={0}>
-          <Typography.Text strong>{value}</Typography.Text>
-          {record.purchaseOrder && (
-            <Typography.Text type="secondary" className="text-xs">
-              PO: {record.purchaseOrder.poNumber}
-            </Typography.Text>
-          )}
-        </Space>
-      ),
+      render: (value: string) => <Typography.Text strong>{value}</Typography.Text>,
+    },
+    {
+      title: 'Purchase Order',
+      key: 'purchaseOrder',
+      render: (_value, record) => record.purchaseOrder ? (
+        <Typography.Text>{record.purchaseOrder.poNumber}</Typography.Text>
+      ) : '-',
     },
     {
       title: 'Vendor',
@@ -357,15 +355,6 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
           onClick={() => window.open(`${getApiBaseUrl().replace('/api/v1', '')}${url}`, '_blank')}
         />
       ) : '-',
-    },
-    {
-      title: 'Balance',
-      key: 'balance',
-      align: 'right',
-      render: (_, record) => {
-        const balance = Number(record.amount) - Number(record.paidAmount);
-        return <Typography.Text type={balance > 0 ? 'danger' : 'secondary'}>{formatCurrency(balance)}</Typography.Text>;
-      },
     },
     {
       title: 'Status',

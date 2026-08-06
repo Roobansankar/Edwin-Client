@@ -41,7 +41,8 @@ const approvedQuotations = (vqs: VendorQuotation[]) => vqs.filter((vq) => vq.sta
 
 export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDescriptions, vendorQuotations: vendorQuotationsProp }: PurchaseOrdersClientProps) {
   const user = useAuthStore((s) => s.user);
-  const canUpdateStatus = user?.role === 'admin' || user?.role === 'accounts_manager' || user?.role === 'purchase_team';
+  const canManagePo = user?.role === 'admin' || user?.role === 'purchase_team';
+  const canUpdateStatus = canManagePo;
   const [open, setOpen] = useState(false);
   const [editingPo, setEditingPo] = useState<PurchaseOrder | null>(null);
   const [descOpen, setDescOpen] = useState(false);
@@ -359,14 +360,14 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
       record.billFileUrl ? <Button type="link" size="small" icon={<FilePdfOutlined />} href={record.billFileUrl} target="_blank">View PO</Button> : <Typography.Text type="secondary">—</Typography.Text>,
     },
     { title: 'Created', dataIndex: 'createdAt', responsive: ['lg'], sorter: (a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime(), render: formatDate },
-    { title: 'Actions', key: 'actions', width: 100, render: (_, record) => (
+    ...(canManagePo ? [{ title: 'Actions', key: 'actions', width: 100, render: (_: unknown, record: PurchaseOrder) => (
       <Space>
         <Button type="text" icon={<EditOutlined className="text-blue-500" />} title="Edit" onClick={() => handleEdit(record)} />
         <Popconfirm title="Delete Purchase Order?" description="This will permanently delete this PO." onConfirm={() => handleDelete(record.id)} okText="Yes" cancelText="No" okButtonProps={{ danger: true }}>
           <Button type="text" icon={<DeleteOutlined className="text-red-500" />} title="Delete" loading={isPending} />
         </Popconfirm>
       </Space>
-    )},
+    )}] : []),
   ];
 
   return (
@@ -375,9 +376,11 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
         <Typography.Title level={3} className={pageTitleClassName}>
           <ShoppingCartOutlined className={titleIconClassName} /> Purchase Orders
         </Typography.Title>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => { handleClose(); setOpen(true); }}>
-          Create PO
-        </Button>
+        {canManagePo && (
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => { handleClose(); setOpen(true); }}>
+            Create PO
+          </Button>
+        )}
       </Flex>
 
       <Card className={cardClassName} styles={{ body: { padding: 0 } }}>

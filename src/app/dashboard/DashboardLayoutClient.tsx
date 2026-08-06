@@ -92,7 +92,7 @@ const navigationSections: Array<{ title: string; items: NavItem[]; allowedRoles?
       { key: '/dashboard/report', icon: <FileTextOutlined />, label: 'My Report', allowedRoles: ['site_engineer'] },
       { key: '/dashboard/material-requirement', icon: <FileSearchOutlined />, label: 'Material Requirement Request', allowedRoles: ['purchase_team'] },
       { key: '/dashboard/purchase-enquiry', icon: <AuditOutlined />, label: 'Purchase Enquiry', allowedRoles: ['purchase_team'] },
-      { key: '/dashboard/purchase-orders', icon: <FileProtectOutlined />, label: 'Purchase Orders', allowedRoles: ['purchase_team'] },
+      { key: '/dashboard/purchase-orders', icon: <FileProtectOutlined />, label: 'Purchase Orders', allowedRoles: ['purchase_team', 'accounts_manager'] },
       { key: '/dashboard/advance', icon: <DollarOutlined />, label: 'Vendor Payments', allowedRoles: ['purchase_team'] },
       { key: '/dashboard/dpr', icon: <CalendarOutlined />, label: 'Daily Reports (DPR)', allowedRoles: ['office_staff'] },
       // { key: '/dashboard/drawings', icon: <FileImageOutlined />, label: 'Drawings', allowedRoles: ['admin'] },
