@@ -9,7 +9,6 @@ import {
   AuditOutlined,
   BankOutlined,
   BellOutlined,
-  CalculatorOutlined,
   CalendarOutlined,
   CloseOutlined,
   CreditCardOutlined,
@@ -94,7 +93,6 @@ const navigationSections: Array<{ title: string; items: NavItem[]; allowedRoles?
       { key: '/dashboard/purchase-enquiry', icon: <AuditOutlined />, label: 'Purchase Enquiry', allowedRoles: ['purchase_team'] },
       { key: '/dashboard/purchase-orders', icon: <FileProtectOutlined />, label: 'Purchase Orders', allowedRoles: ['purchase_team', 'accounts_manager'] },
       { key: '/dashboard/advance', icon: <DollarOutlined />, label: 'Vendor Payments', allowedRoles: ['purchase_team'] },
-      { key: '/dashboard/dpr', icon: <CalendarOutlined />, label: 'Daily Reports (DPR)', allowedRoles: ['office_staff'] },
       // { key: '/dashboard/drawings', icon: <FileImageOutlined />, label: 'Drawings', allowedRoles: ['admin'] },
       { key: '/dashboard/reports', icon: <FileTextOutlined />, label: 'Reports', allowedRoles: ['admin'] },
       { key: '/dashboard/project-access', icon: <SafetyCertificateOutlined />, label: 'Project Access', allowedRoles: ['admin'] },
@@ -122,9 +120,9 @@ const navigationSections: Array<{ title: string; items: NavItem[]; allowedRoles?
     allowedRoles: ['admin', 'office_staff'],
     items: [
       { key: '/dashboard/timesheet-attendance', icon: <CalendarOutlined />, label: 'Timesheet', allowedRoles: ['office_staff'] },
+      { key: '/dashboard/dpr', icon: <CalendarOutlined />, label: 'Daily Reports (DPR)', allowedRoles: ['office_staff'] },
       { key: '/dashboard/expenses/new', icon: <WalletOutlined />, label: 'Expense', allowedRoles: ['office_staff'] },
       { key: '/dashboard/drawings', icon: <FileImageOutlined />, label: 'Drawings', allowedRoles: ['office_staff'] },
-      { key: '/dashboard/estimate', icon: <CalculatorOutlined />, label: 'Estimate', allowedRoles: ['office_staff'] },
     ],
   },
   {
