@@ -12,7 +12,6 @@ import { getApiBaseUrl } from '@/lib/api-url';
 import dayjs from 'dayjs';
 import { updateBillStatus } from '@/actions/invoices';
 import { updateExpenseStatus } from '@/actions/expenses';
-import { updateDailyLabourReportStatus } from '@/actions/daily-labour';
 import type { PurchaseBill, Expense, DailyLabourReport } from '@/types/erp';
 import {
   StatusTag,
@@ -106,13 +105,6 @@ export function ApprovalsClient({ bills, expenses, dailyReports }: Props) {
     });
   };
 
-  const handleDailyStatusChange = (id: string, status: string) => {
-    startTransition(async () => {
-      try { await updateDailyLabourReportStatus(id, status); message.success('Daily report status updated'); }
-      catch (error) { message.error(error instanceof Error ? error.message : 'Failed'); }
-    });
-  };
-
   const expenseCounts = useMemo(() => ({
     pending: filteredExpenses.filter((e) => e.status === 'pending').length,
     admin_approved: filteredExpenses.filter((e) => e.status === 'admin_approved').length,
@@ -129,7 +121,6 @@ export function ApprovalsClient({ bills, expenses, dailyReports }: Props) {
 
   const dailyCounts = useMemo(() => ({
     pending: filteredDaily.filter((r) => r.status === 'pending').length,
-    admin_approved: filteredDaily.filter((r) => r.status === 'admin_approved').length,
     approved: filteredDaily.filter((r) => r.status === 'approved').length,
     rejected: filteredDaily.filter((r) => r.status === 'rejected').length,
   }), [filteredDaily]);
@@ -151,11 +142,9 @@ export function ApprovalsClient({ bills, expenses, dailyReports }: Props) {
     ...(isAdmin ? [{
       title: 'Status', key: 'status', width: 140,
       render: (_: unknown, record: DailyLabourReport) => (
-        <Select
-          defaultValue={record.status || 'pending'} size="small" variant="borderless" className="w-full"
-          onChange={(newStatus: string) => handleDailyStatusChange(record.id, newStatus)}
-          options={APPROVAL_STATUS_OPTIONS} popupMatchSelectWidth={false} disabled={isPending}
-        />
+        <Tag color={record.status === 'approved' ? 'success' : record.status === 'rejected' ? 'error' : 'warning'}>
+          {record.status === 'approved' ? 'Approved' : record.status === 'rejected' ? 'Rejected' : 'Pending'}
+        </Tag>
       ),
     }] : []),
   ];

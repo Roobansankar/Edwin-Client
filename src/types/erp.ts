@@ -688,6 +688,16 @@ export type ProjectTimesheetSummary = {
   totalAmount: number;
 };
 
+export type ProjectDailyLabourCost = {
+  reportId: string;
+  reportDate: string;
+  trade: string;
+  count: number;
+  shift: number;
+  rate: number;
+  amount: number;
+};
+
 export type ProjectDetails = {
   project: Project;
   expenses: Expense[];
@@ -696,6 +706,7 @@ export type ProjectDetails = {
   invoices: SalesInvoice[];
   payments: Payment[];
   timesheetSummary: ProjectTimesheetSummary[];
+  dailyLabourCost: ProjectDailyLabourCost[];
 };
 
 export type SchemaColumn = {

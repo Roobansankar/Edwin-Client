@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { Card, Descriptions, Flex, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { ProjectOutlined } from '@ant-design/icons';
-import type { Expense, Payment, ProjectDetails, ProjectTimesheetSummary, PurchaseBill, SalesInvoice } from '@/types/erp';
+import type { Expense, Payment, ProjectDailyLabourCost, ProjectDetails, ProjectTimesheetSummary, PurchaseBill, SalesInvoice } from '@/types/erp';
 import { StatusTag, formatCurrency, formatDate, pageTitleClassName, titleIconClassName } from './ui';
 
 const { Title, Text } = Typography;
@@ -22,7 +22,7 @@ type Props = {
 };
 
 export function ProjectDetailsClient({ data }: Props) {
-  const { project, expenses, purchaseBills, invoices, payments, timesheetSummary } = data;
+  const { project, expenses, purchaseBills, invoices, payments, timesheetSummary, dailyLabourCost } = data;
 
   const vendorPayments = useMemo(() => payments.filter((p) => p.vendorId), [payments]);
   const subcontractorPayments = useMemo(() => payments.filter((p) => p.subcontractWorkOrderId), [payments]);
@@ -33,6 +33,7 @@ export function ProjectDetailsClient({ data }: Props) {
   const totalVendorPayments = useMemo(() => vendorPayments.reduce((s, p) => s + Number(p.amount), 0), [vendorPayments]);
   const totalSubcontractorPayments = useMemo(() => subcontractorPayments.reduce((s, p) => s + Number(p.amount), 0), [subcontractorPayments]);
   const totalTimesheetAmount = useMemo(() => timesheetSummary.reduce((s, t) => s + Number(t.totalAmount), 0), [timesheetSummary]);
+  const totalDailyLabourCost = useMemo(() => dailyLabourCost.reduce((s, r) => s + Number(r.amount), 0), [dailyLabourCost]);
 
   const expenseColumns: ColumnsType<Expense> = [
     { title: 'Date', dataIndex: 'expenseDate', key: 'expenseDate', render: formatDate, width: 110 },
@@ -125,6 +126,36 @@ export function ProjectDetailsClient({ data }: Props) {
     },
   ];
 
+  const dailyLabourColumns: ColumnsType<ProjectDailyLabourCost> = [
+    { title: 'Date', dataIndex: 'reportDate', key: 'reportDate', render: formatDate, width: 110 },
+    { title: 'Trade', dataIndex: 'trade', key: 'trade', width: 140, render: (v: string) => <Tag color="blue">{v}</Tag> },
+    { title: 'Count', dataIndex: 'count', key: 'count', align: 'right', width: 80 },
+    { title: 'Shift', dataIndex: 'shift', key: 'shift', align: 'right', width: 80 },
+    {
+      title: 'Rate / Shift',
+      dataIndex: 'rate',
+      key: 'rate',
+      align: 'right',
+      width: 120,
+      render: formatCurrency,
+    },
+    {
+      title: 'Amount',
+      key: 'amount',
+      align: 'right',
+      width: 160,
+      sorter: (a, b) => Number(a.amount) - Number(b.amount),
+      render: (_, r) => (
+        <span>
+          {formatCurrency(r.amount)}
+          <Text type="secondary" className="ml-1 text-xs">
+            ({formatCurrency(r.rate)} × {r.shift} × {r.count})
+          </Text>
+        </span>
+      ),
+    },
+  ];
+
   const summaryCards = [
     { label: 'Total Expenses', value: totalExpenses, color: 'text-orange-600' },
     { label: 'Purchase Bills', value: totalBills, color: 'text-purple-600' },
@@ -132,6 +163,7 @@ export function ProjectDetailsClient({ data }: Props) {
     { label: 'Vendor Payments', value: totalVendorPayments, color: 'text-rose-600' },
     { label: 'Subcontractor Payments', value: totalSubcontractorPayments, color: 'text-cyan-600' },
     { label: 'Timesheet Cost', value: totalTimesheetAmount, color: 'text-amber-600' },
+    { label: 'Daily Labour Cost', value: totalDailyLabourCost, color: 'text-lime-600' },
   ];
 
   return (
@@ -248,6 +280,18 @@ export function ProjectDetailsClient({ data }: Props) {
           scroll={{ x: 600 }}
           pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `${t} users` }}
           locale={{ emptyText: 'No admin-approved timesheet hours for this project yet' }}
+        />
+      </Card>
+
+      <Card title={<Text strong>Daily Labour Cost ({dailyLabourCost.length})</Text>} size="small">
+        <Table
+          dataSource={dailyLabourCost}
+          columns={dailyLabourColumns}
+          rowKey={(r, i) => `${r.reportId}-${i}`}
+          size="small"
+          scroll={{ x: 700 }}
+          pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `${t} entries` }}
+          locale={{ emptyText: 'No accounts-approved daily labour entries for this project yet' }}
         />
       </Card>
     </Flex>
