@@ -234,7 +234,8 @@ export function DprClient({ projects, initialDprs }: DprClientProps) {
         <Flex gap={16} align="center" wrap="wrap">
           <Select
             placeholder="Filter by Project"
-            style={{ width: 250 }}
+            style={{ minWidth: 220 }}
+            className="w-full sm:w-auto"
             allowClear
             value={projectId}
             onChange={(val) => setProjectId(val)}
@@ -243,8 +244,9 @@ export function DprClient({ projects, initialDprs }: DprClientProps) {
           <RangePicker
             value={dateRange}
             onChange={(dates) => setDateRange(dates as any)}
+            className="w-full sm:w-auto"
           />
-          <Space>
+          <Space wrap>
             <Button
               type="primary"
               icon={<SearchOutlined />}
@@ -269,6 +271,7 @@ export function DprClient({ projects, initialDprs }: DprClientProps) {
           columns={columns}
           rowKey="id"
           loading={loading}
+          scroll={{ x: 800 }}
           pagination={{
             current: page,
             total: total,

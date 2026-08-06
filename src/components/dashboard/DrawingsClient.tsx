@@ -292,7 +292,8 @@ export function DrawingsClient({ projects, initialDrawings }: DrawingsClientProp
         <Flex gap={16} align="center" wrap="wrap">
           <Select
             placeholder="All Projects"
-            style={{ width: 250 }}
+            style={{ minWidth: 220 }}
+            className="w-full sm:w-auto"
             allowClear
             value={projectId}
             onChange={(val) => setProjectId(val)}
@@ -300,13 +301,14 @@ export function DrawingsClient({ projects, initialDrawings }: DrawingsClientProp
           />
           <Select
             placeholder="All Categories"
-            style={{ width: 200 }}
+            style={{ minWidth: 200 }}
+            className="w-full sm:w-auto"
             allowClear
             value={category}
             onChange={(val) => setCategory(val)}
             options={CATEGORIES}
           />
-          <Space>
+          <Space wrap>
             <Button
               type="primary"
               icon={<SearchOutlined />}
@@ -331,6 +333,7 @@ export function DrawingsClient({ projects, initialDrawings }: DrawingsClientProp
           columns={columns}
           rowKey="id"
           loading={loading}
+          scroll={{ x: 900 }}
           pagination={{
             pageSize: 10,
             showTotal: (total) => `Total ${total} drawings`,

@@ -33,7 +33,7 @@ const statusColors: Record<string, string> = {
 };
 
 export const cardClassName = 'rounded-xl! border! border-[var(--border)]! bg-[var(--subtle-bg)]!';
-export const pageHeaderClassName = 'mb-6 flex flex-wrap items-center justify-between gap-4';
+export const pageHeaderClassName = 'mb-[13px]! flex flex-wrap items-center justify-between gap-4';
 export const pageTitleClassName = 'm-0! text-[var(--text-primary)]!';
 export const titleIconClassName = 'mr-2';
 export const mutedTextClassName = 'text-[var(--text-very-muted)]!';

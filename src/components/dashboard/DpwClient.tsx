@@ -171,7 +171,6 @@ export function DpwClient({
       title: 'Actions',
       key: 'actions',
       width: 130,
-      fixed: 'right',
       render: (_, record) => (
         <Space>
           <Button 

@@ -132,7 +132,7 @@ export function EngineerReportClient() {
 
   return (
     <div>
-      <Flex justify="space-between" align="center" className={pageHeaderClassName}>
+      <Flex justify="space-between" align="center" className={pageHeaderClassName} wrap="wrap" gap={12}>
         <Typography.Title level={3} className={pageTitleClassName}>
           <UserOutlined className={titleIconClassName} style={{ marginBottom: 24 }} /> My Report
         </Typography.Title>
@@ -224,6 +224,7 @@ export function EngineerReportClient() {
                 rowKey="id"
                 pagination={false}
                 size="small"
+                scroll={{ x: 500 }}
               />
             ),
           },
@@ -280,6 +281,7 @@ export function EngineerReportClient() {
                   rowKey="id"
                   pagination={false}
                   size="small"
+                  scroll={{ x: 810 }}
                 />
               </>
             ),

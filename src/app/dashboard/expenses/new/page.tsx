@@ -158,11 +158,12 @@ export default function NewExpensePage() {
       </div>
 
       <Card className={cardClassName}>
-        <Table 
-          dataSource={data.expenses} 
-          columns={columns} 
+        <Table
+          dataSource={data.expenses}
+          columns={columns}
           rowKey="id"
           size="middle"
+          scroll={{ x: 1300 }}
           pagination={{ pageSize: 10 }}
         />
       </Card>

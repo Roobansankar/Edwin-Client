@@ -509,6 +509,7 @@ export function InvoicesClient({ invoices, projects }: InvoicesClientProps) {
             pagination={false}
             size="small"
             rowKey="id"
+            scroll={{ x: 600 }}
             columns={[
               {
                 title: 'Date',

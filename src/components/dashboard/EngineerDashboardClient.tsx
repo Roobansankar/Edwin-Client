@@ -141,7 +141,7 @@ export function EngineerDashboardClient() {
         <Col xs={24} sm={12} lg={8}>
           <Card className="rounded-xl! border! border-emerald-500/20! bg-linear-to-br! from-emerald-500/15! to-emerald-500/5!">
             <Typography.Text className={secondaryTextClassName}>MR Status</Typography.Text>
-            <div className="mt-2 flex items-center gap-4">
+            <div className="mt-2 flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-2">
                 <CheckCircleOutlined className="text-emerald-500" />
                 <span className="text-lg font-bold text-[var(--text-primary)]">{data.materialRequirementCounts?.approved ?? 0}</span>
@@ -182,6 +182,7 @@ export function EngineerDashboardClient() {
           rowKey="id"
           pagination={false}
           size="middle"
+          scroll={{ x: 400 }}
           locale={{ emptyText: <Space>No assigned projects</Space> }}
         />
       </Card>
@@ -189,6 +190,7 @@ export function EngineerDashboardClient() {
       <Card title={<Typography.Text strong>Recent Material Requirements</Typography.Text>} className={cardClassName}>
         <Table
           dataSource={data.recentMaterialRequirements}
+          scroll={{ x: 610 }}
           columns={[
             { title: 'Enquiry No', dataIndex: 'enquiryNo', key: 'enquiryNo', width: 150 },
             { title: 'Project', dataIndex: 'projectName', key: 'projectName', width: 200 },

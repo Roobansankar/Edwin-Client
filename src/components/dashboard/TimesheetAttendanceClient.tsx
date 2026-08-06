@@ -467,7 +467,7 @@ export function TimesheetAttendanceClient({ projects }: Props) {
 
       <Card className={cardClassName}>
         <Flex gap={16} wrap="wrap" className="mb-4!" align="center" justify="space-between">
-          <Flex gap={12} align="center">
+          <Flex gap={12} align="center" wrap="wrap">
             {isAdmin && (
               <DatePicker
                 picker="month"
@@ -496,7 +496,7 @@ export function TimesheetAttendanceClient({ projects }: Props) {
             )}
           </Flex>
 
-          <Flex gap={12} align="center">
+          <Flex gap={12} align="center" wrap="wrap">
             {isAdmin && (
               <div className="rounded-md border border-emerald-500/30 bg-emerald-500/15 px-4 py-1.5">
                 <Typography.Text strong className="text-emerald-300">

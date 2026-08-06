@@ -105,6 +105,12 @@ export function PurchaseTeamClient({ purchaseTeamMembers, projects, salaries }: 
 
   const columns: ColumnsType<PurchaseTeamMember> = [
     {
+      title: 'S.No',
+      key: 'sno',
+      width: 60,
+      render: (_text, _record, index) => index + 1,
+    },
+    {
       title: 'Employee ID',
       dataIndex: 'employeeId',
       key: 'employeeId',
