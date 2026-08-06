@@ -78,7 +78,6 @@ const navigationSections: Array<{ title: string; items: NavItem[]; allowedRoles?
       { key: '/dashboard/projects', icon: <FolderOpenOutlined />, label: 'Projects', allowedRoles: ['admin'] },
       { key: '/dashboard/vendors', icon: <TeamOutlined />, label: 'Vendors', allowedRoles: ['purchase_team'] },
       { key: '/dashboard/subcontractors', icon: <TeamOutlined />, label: 'Subcontractors', allowedRoles: ['purchase_team'] },
-      { key: '/dashboard/my-assigned-projects', icon: <ProjectOutlined />, label: 'Assigned Projects', allowedRoles: ['purchase_team'] },
       { key: '/dashboard/site-engineers', icon: <UserOutlined />, label: 'Site Engineers', allowedRoles: ['admin'] },
       { key: '/dashboard/assigned-projects', icon: <ProjectOutlined />, label: 'Assigned Projects', allowedRoles: ['admin'] },
       { key: '/dashboard/office-staff', icon: <TeamOutlined />, label: 'Office Staff', allowedRoles: ['admin'] },

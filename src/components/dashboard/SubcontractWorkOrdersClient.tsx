@@ -32,6 +32,7 @@ import {
   FileExcelOutlined,
   FileUnknownOutlined,
   UploadOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons';
 import { PDFDownloadLink, PDFViewer } from '@react-pdf/renderer';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -167,6 +168,25 @@ export function SubcontractWorkOrdersClient({
         message.error(err instanceof Error ? err.message : 'Failed to record payment');
       }
     });
+  };
+
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historySwo, setHistorySwo] = useState<SubcontractWorkOrder | null>(null);
+  const [historyPayments, setHistoryPayments] = useState<Payment[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const openHistory = async (swo: SubcontractWorkOrder) => {
+    setHistorySwo(swo);
+    setHistoryOpen(true);
+    setHistoryLoading(true);
+    try {
+      const res = await fetch(`/api/backend/payments?subcontractWorkOrderId=${swo.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setHistoryPayments(data?.data || []);
+      }
+    } catch { /* silent */ }
+    finally { setHistoryLoading(false); }
   };
 
   useEffect(() => {
@@ -318,6 +338,29 @@ export function SubcontractWorkOrdersClient({
       render: (value: number | string) => <Typography.Text strong>{formatCurrency(value)}</Typography.Text>,
     },
     {
+      title: 'Paid',
+      key: 'paidAmount',
+      align: 'right',
+      render: (_, record) => record.paidAmount ? formatCurrency(record.paidAmount) : <Typography.Text type="secondary">-</Typography.Text>,
+    },
+    {
+      title: 'Balance',
+      key: 'balance',
+      align: 'right',
+      render: (_, record) => {
+        const balance = Number(record.totalAmount) - Number(record.paidAmount || 0);
+        return <Typography.Text strong={balance > 0}>{formatCurrency(balance)}</Typography.Text>;
+      },
+    },
+    {
+      title: 'History',
+      key: 'history',
+      width: 90,
+      render: (_, record) => (
+        <Button size="small" icon={<HistoryOutlined />} onClick={() => openHistory(record)}>History</Button>
+      ),
+    },
+    {
       title: 'Description',
       dataIndex: 'description',
       key: 'description',
@@ -389,7 +432,6 @@ export function SubcontractWorkOrdersClient({
     {
       title: 'Actions',
       key: 'actions',
-      fixed: 'right',
       width: 100,
       render: (_, record) => (
         <Space>
@@ -759,6 +801,28 @@ export function SubcontractWorkOrdersClient({
             </PDFViewer>
           )}
         </div>
+      </Modal>
+
+      <Modal
+        title={historySwo ? `Payment History — ${historySwo.woNumber}` : 'Payment History'}
+        open={historyOpen}
+        onCancel={() => { setHistoryOpen(false); setHistorySwo(null); setHistoryPayments([]); }}
+        footer={null}
+      >
+        <Table
+          dataSource={historyPayments}
+          rowKey="id"
+          size="small"
+          loading={historyLoading}
+          pagination={false}
+          locale={{ emptyText: 'No payments recorded yet' }}
+          columns={[
+            { title: 'Date', dataIndex: 'paymentDate', render: formatDate },
+            { title: 'Amount', dataIndex: 'amount', align: 'right', render: (v: number | string) => formatCurrency(v) },
+            { title: 'Mode', dataIndex: 'paymentMode', render: (v: string) => v?.toUpperCase() },
+            { title: 'Reference', dataIndex: 'referenceNumber', render: (v?: string | null) => v || '-' },
+          ]}
+        />
       </Modal>
     </div>
   );

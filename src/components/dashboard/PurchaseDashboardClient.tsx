@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, Col, Row, Statistic, Table, Typography, Progress, Flex, Alert, Spin, Divider } from 'antd';
-import { ShoppingCartOutlined, InboxOutlined, FileTextOutlined, WarningOutlined, ProjectOutlined } from '@ant-design/icons';
+import { ShoppingCartOutlined, InboxOutlined, FileTextOutlined, WarningOutlined } from '@ant-design/icons';
 import { fetchPurchaseDashboard } from '@/lib/client-api';
 import { StatusTag, formatDate } from './ui';
 
@@ -65,20 +65,6 @@ export function PurchaseDashboardClient() {
       <Typography.Title level={2}>Purchase Dashboard</Typography.Title>
 
       <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card
-            bordered={false}
-            hoverable
-            className="bg-cyan-500/10 border border-cyan-500/20 cursor-pointer"
-            onClick={() => router.push('/dashboard/my-assigned-projects')}
-          >
-            <Statistic
-              title={<span className="text-cyan-400">Assigned Projects</span>}
-              value={data.kpis.assignedProjectCount}
-              prefix={<ProjectOutlined className="mr-2" />}
-            />
-          </Card>
-        </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card
             bordered={false}

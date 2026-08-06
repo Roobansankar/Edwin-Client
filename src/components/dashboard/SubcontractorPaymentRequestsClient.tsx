@@ -73,25 +73,29 @@ export function SubcontractorPaymentRequestsClient({ requests }: Props) {
 
   const columns: ColumnsType<SubcontractorPaymentRequest> = [
     { title: '#', key: 'sno', width: 50, render: (_, __, i) => i + 1 },
-    { title: 'Subcontractor', key: 'subcontractor', render: (_, record) => record.subcontractor?.name || record.subcontractorId },
-    { title: 'Project', key: 'project', render: (_, record) => record.project?.name || '-' },
-    { title: 'WO Number', key: 'wo', render: (_, record) => record.subcontractWorkOrder?.woNumber || <Typography.Text type="secondary">-</Typography.Text> },
-    { title: 'Amount', dataIndex: 'amount', align: 'right', render: (value: number | string) => formatCurrency(value) },
-    { title: 'WO Total', key: 'woTotal', align: 'right', render: (_, record) =>
+    { title: 'Subcontractor', key: 'subcontractor', width: 160, render: (_, record) => record.subcontractor?.name || record.subcontractorId },
+    { title: 'Project', key: 'project', width: 160, responsive: ['md'], render: (_, record) => record.project?.name || '-' },
+    { title: 'WO Number', key: 'wo', width: 130, responsive: ['lg'], render: (_, record) => record.subcontractWorkOrder?.woNumber || <Typography.Text type="secondary">-</Typography.Text> },
+    { title: 'Amount', dataIndex: 'amount', align: 'right', width: 120, render: (value: number | string) => formatCurrency(value) },
+    { title: 'WO Total', key: 'woTotal', align: 'right', width: 120, responsive: ['xl'], render: (_, record) =>
       record.subcontractWorkOrder?.totalAmount ? formatCurrency(record.subcontractWorkOrder.totalAmount) : <Typography.Text type="secondary">-</Typography.Text>,
     },
-    { title: 'Work Order', key: 'workorder', render: (_, record) =>
+    { title: 'Work Order', key: 'workorder', width: 100, responsive: ['xl'], render: (_, record) =>
       record.subcontractWorkOrder?.workorderUrl ? (
         <Button type="link" size="small" icon={<FileTextOutlined />} href={record.subcontractWorkOrder.workorderUrl} target="_blank">View</Button>
       ) : <Typography.Text type="secondary">-</Typography.Text>,
     },
-    { title: 'Notes', dataIndex: 'notes', ellipsis: true, render: (value?: string | null) => value || '-' },
-    { title: 'Requested At', dataIndex: 'createdAt', width: 130, render: formatDate },
+    { title: 'Notes', dataIndex: 'notes', width: 160, responsive: ['lg'], ellipsis: true, render: (value?: string | null) => value || '-' },
+    { title: 'Requested At', dataIndex: 'createdAt', width: 120, responsive: ['md'], render: formatDate },
     {
       title: 'Status',
       key: 'status',
-      width: 150,
-      render: (_, record) => <Tag color={STATUS_COLORS[record.status] || 'default'}>{STATUS_LABELS[record.status] || record.status.toUpperCase()}</Tag>,
+      width: 160,
+      render: (_, record) => (
+        <Tag color={STATUS_COLORS[record.status] || 'default'} className="whitespace-normal! text-center! leading-4! py-1!">
+          {STATUS_LABELS[record.status] || record.status.toUpperCase()}
+        </Tag>
+      ),
     },
     {
       title: 'Actions',
@@ -214,7 +218,7 @@ export function SubcontractorPaymentRequestsClient({ requests }: Props) {
           columns={columns}
           rowKey="id"
           pagination={{ pageSize: 10 }}
-          scroll={{ x: 1000 }}
+          scroll={{ x: 1300 }}
           locale={{ emptyText: 'No subcontractor payment requests from purchase team' }}
         />
       </Card>

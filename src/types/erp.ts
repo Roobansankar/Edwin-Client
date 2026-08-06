@@ -132,6 +132,7 @@ export type SubcontractWorkOrder = {
   gstPercentage: number | string;
   gstAmount: number | string;
   totalAmount: number | string;
+  paidAmount?: number;
   workorderUrl?: string | null;
   workorderKey?: string | null;
   startDate?: string | null;
