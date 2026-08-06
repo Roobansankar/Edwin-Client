@@ -140,7 +140,7 @@ export function DailyLabourDetailClient() {
 
   return (
     <div className="space-y-6 pb-10">
-      <Flex justify="space-between" align="center">
+      <Flex justify="space-between" align="center" wrap="wrap" gap={12}>
         <Typography.Title level={2} className="m-0">Daily Labour Detail</Typography.Title>
         <Button icon={<ArrowLeftOutlined />} onClick={() => router.back()}>Back to List</Button>
       </Flex>
@@ -210,6 +210,7 @@ export function DailyLabourDetailClient() {
               pagination={false}
               className="border-none"
               size="middle"
+              scroll={{ x: 800 }}
             />
           </Card>
 

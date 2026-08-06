@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Layout, Menu, Typography, Avatar, Dropdown, Popover, Space, App, Badge, Flex, Tag } from 'antd';
+import { Layout, Menu, Typography, Avatar, Dropdown, Popover, Drawer, Space, App, Badge, Flex, Tag } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   AppstoreOutlined,
@@ -379,6 +379,127 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
     { key: 'logout', icon: <LogoutOutlined />, label: 'Sign Out', danger: true },
   ];
 
+  const adminNotifBody = (
+    visiblePendingQueries.length === 0 ? (
+      <Typography.Text type="secondary" className="text-sm">
+        No pending edit requests
+      </Typography.Text>
+    ) : (
+      <Flex vertical gap={8}>
+        {visiblePendingQueries.slice(0, 20).map((q) => (
+          <div
+            key={q.id}
+            className="relative cursor-pointer rounded-lg border border-[var(--border)] p-2 pr-7 transition hover:bg-[var(--subtle-hover-bg)]"
+            onClick={() => {
+              setAdminNotifOpen(false);
+              router.push('/dashboard/employee-queries');
+            }}
+          >
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); dismissNotification(q.id); }}
+              className="absolute right-1.5 top-1.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-[var(--text-muted)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
+              aria-label="Dismiss notification"
+            >
+              <CloseOutlined style={{ fontSize: 11 }} />
+            </button>
+            <Typography.Text className="block text-sm">
+              <strong>{q.siteEngineer?.name || 'Someone'}</strong>
+              {q.siteEngineer?.role && ` (${titleCase(q.siteEngineer.role)})`} requested edit access for timesheet
+            </Typography.Text>
+            {q.timesheet && (
+              <Typography.Text type="secondary" className="mt-1 block text-xs">
+                Week: {formatDate(q.timesheet.weekStart)} - {formatDate(q.timesheet.weekEnd)}
+              </Typography.Text>
+            )}
+            <Typography.Text type="secondary" className="mt-1 block text-xs italic">
+              &ldquo;{q.reason}&rdquo;
+            </Typography.Text>
+          </div>
+        ))}
+      </Flex>
+    )
+  );
+
+  const notifBody = (
+    <>
+      {visibleAppNotifications.length > 0 && (
+        <div className="mb-2">
+          <Typography.Text className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--text-very-muted)]">
+            Updates
+          </Typography.Text>
+          <Flex vertical gap={8}>
+            {visibleAppNotifications.slice(0, 10).map((n) => (
+              <div
+                key={n.id}
+                className={`relative cursor-pointer rounded-lg border p-2 pr-7 transition hover:bg-[var(--subtle-hover-bg)] ${
+                  n.isRead ? 'border-[var(--border)] opacity-70' : 'border-sky-500/40 bg-sky-500/5'
+                }`}
+                onClick={() => {
+                  setNotifOpen(false);
+                  router.push(n.link || (user?.role === 'accounts_manager' ? '/dashboard/accounts/bills' : '/dashboard/material-requirement'));
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); dismissNotification(n.id); }}
+                  className="absolute right-1.5 top-1.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-[var(--text-muted)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
+                  aria-label="Dismiss notification"
+                >
+                  <CloseOutlined style={{ fontSize: 11 }} />
+                </button>
+                <Typography.Text className="block text-sm">
+                  {n.actorName && <strong>{n.actorName}: </strong>}
+                  {n.title} — {n.message}
+                </Typography.Text>
+                {n.createdAt && (
+                  <Typography.Text type="secondary" className="mt-0.5 block text-xs">
+                    {formatDate(n.createdAt)}
+                  </Typography.Text>
+                )}
+              </div>
+            ))}
+          </Flex>
+        </div>
+      )}
+      <Typography.Text className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--text-very-muted)]">
+        Edit Request Updates
+      </Typography.Text>
+      {visibleResponses.length === 0 ? (
+        <Typography.Text type="secondary" className="text-sm">
+          No responses yet
+        </Typography.Text>
+      ) : (
+        <Flex vertical gap={8}>
+          {visibleResponses.slice(0, 20).map((r) => (
+            <div key={r.id} className="relative rounded-lg border border-[var(--border)] p-2 pr-7">
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); dismissNotification(r.id); }}
+                className="absolute right-1.5 top-1.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-[var(--text-muted)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
+                aria-label="Dismiss notification"
+              >
+                <CloseOutlined style={{ fontSize: 11 }} />
+              </button>
+              <Flex justify="space-between" align="center">
+                <Tag color={r.status === 'approved' ? 'green' : 'red'}>{r.status.toUpperCase()}</Tag>
+                <Typography.Text type="secondary" className="text-xs">
+                  {formatDate(r.respondedAt)}
+                </Typography.Text>
+              </Flex>
+              <Typography.Text className="mt-1 block text-xs">{r.reason}</Typography.Text>
+              {r.timesheet && (
+                <Typography.Text type="secondary" className="mt-1 block text-xs">
+                  Week: {formatDate(r.timesheet.weekStart)} - {formatDate(r.timesheet.weekEnd)}
+                </Typography.Text>
+              )}
+            </div>
+          ))}
+        </Flex>
+      )}
+    </>
+  );
+
   if (!mounted) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--page-bg)]">
@@ -462,12 +583,12 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
             width: isMobile ? '100%' : `calc(100% - ${sidebarWidth}px)`,
           }}
         >
-          <Header className="sticky top-0 z-90 flex h-16 items-center justify-between border-b border-[var(--border)] bg-[var(--header-bg)]! px-5 backdrop-blur-xl">
+          <Header className="sticky top-0 z-90 flex h-16 items-center justify-between border-b border-[var(--border)] bg-[var(--header-bg)]! px-1 sm:px-5 backdrop-blur-xl">
             <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => isMobile ? setMobileSidebarOpen(!mobileSidebarOpen) : setCollapsed(!collapsed)}
-                className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--subtle-bg)] text-[var(--text-secondary)] transition hover:bg-[var(--subtle-hover-bg)] hover:text-[var(--text-primary)] ${isMobile ? 'ml-1' : ''}`}
+                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--subtle-bg)] text-[var(--text-secondary)] transition hover:bg-[var(--subtle-hover-bg)] hover:text-[var(--text-primary)]"
                 aria-label={isMobile ? (mobileSidebarOpen ? 'Close sidebar' : 'Open sidebar') : (collapsed ? 'Expand sidebar' : 'Collapse sidebar')}
               >
                 {isMobile
@@ -488,173 +609,110 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
               </button>
 
               {user?.role === 'admin' && (
-                <Popover
-                  trigger="click"
-                  placement="bottomRight"
-                  open={adminNotifOpen}
-                  onOpenChange={(open) => {
-                    setAdminNotifOpen(open);
-                    if (open) markPendingSeen();
-                  }}
-                  title="Edit Requests"
-                  content={
-                    <div style={{ width: 340, maxHeight: 360, overflowY: 'auto' }}>
-                      {visiblePendingQueries.length === 0 ? (
-                        <Typography.Text type="secondary" className="text-sm">
-                          No pending edit requests
-                        </Typography.Text>
-                      ) : (
-                        <Flex vertical gap={8}>
-                          {visiblePendingQueries.slice(0, 20).map((q) => (
-                            <div
-                              key={q.id}
-                              className="relative cursor-pointer rounded-lg border border-[var(--border)] p-2 pr-7 transition hover:bg-[var(--subtle-hover-bg)]"
-                              onClick={() => {
-                                setAdminNotifOpen(false);
-                                router.push('/dashboard/employee-queries');
-                              }}
-                            >
-                              <button
-                                type="button"
-                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); dismissNotification(q.id); }}
-                                className="absolute right-1.5 top-1.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-[var(--text-muted)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
-                                aria-label="Dismiss notification"
-                              >
-                                <CloseOutlined style={{ fontSize: 11 }} />
-                              </button>
-                              <Typography.Text className="block text-sm">
-                                <strong>{q.siteEngineer?.name || 'Someone'}</strong>
-                                {q.siteEngineer?.role && ` (${titleCase(q.siteEngineer.role)})`} requested edit access for timesheet
-                              </Typography.Text>
-                              {q.timesheet && (
-                                <Typography.Text type="secondary" className="mt-1 block text-xs">
-                                  Week: {formatDate(q.timesheet.weekStart)} - {formatDate(q.timesheet.weekEnd)}
-                                </Typography.Text>
-                              )}
-                              <Typography.Text type="secondary" className="mt-1 block text-xs italic">
-                                &ldquo;{q.reason}&rdquo;
-                              </Typography.Text>
-                            </div>
-                          ))}
-                        </Flex>
-                      )}
-                    </div>
-                  }
-                >
-                  <button
-                    type="button"
-                    className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--subtle-bg)] text-[var(--text-secondary)] transition hover:bg-[var(--subtle-hover-bg)] hover:text-[var(--text-primary)]"
-                    aria-label="Edit request notifications"
+                isMobile ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => { setAdminNotifOpen(true); markPendingSeen(); }}
+                      className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--subtle-bg)] text-[var(--text-secondary)] transition hover:bg-[var(--subtle-hover-bg)] hover:text-[var(--text-primary)]"
+                      aria-label="Edit request notifications"
+                    >
+                      <Badge count={pendingEqCount} size="small" offset={[-2, 2]}>
+                        <BellOutlined />
+                      </Badge>
+                    </button>
+                    <Drawer
+                      title="Edit Requests"
+                      placement="bottom"
+                      height="70vh"
+                      open={adminNotifOpen}
+                      onClose={() => setAdminNotifOpen(false)}
+                    >
+                      {adminNotifBody}
+                    </Drawer>
+                  </>
+                ) : (
+                  <Popover
+                    trigger="click"
+                    placement="bottomRight"
+                    open={adminNotifOpen}
+                    onOpenChange={(open) => {
+                      setAdminNotifOpen(open);
+                      if (open) markPendingSeen();
+                    }}
+                    title="Edit Requests"
+                    content={
+                      <div style={{ width: 340, maxHeight: 360, overflowY: 'auto' }}>
+                        {adminNotifBody}
+                      </div>
+                    }
                   >
-                    <Badge count={pendingEqCount} size="small" offset={[-2, 2]}>
-                      <BellOutlined />
-                    </Badge>
-                  </button>
-                </Popover>
+                    <button
+                      type="button"
+                      className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--subtle-bg)] text-[var(--text-secondary)] transition hover:bg-[var(--subtle-hover-bg)] hover:text-[var(--text-primary)]"
+                      aria-label="Edit request notifications"
+                    >
+                      <Badge count={pendingEqCount} size="small" offset={[-2, 2]}>
+                        <BellOutlined />
+                      </Badge>
+                    </button>
+                  </Popover>
+                )
               )}
 
               {canSeeNotifications && (
-                <Popover
-                  trigger="click"
-                  placement="bottomRight"
-                  open={notifOpen}
-                  onOpenChange={(open) => {
-                    setNotifOpen(open);
-                    if (open) {
-                      markResponsesSeen();
-                      markNotificationsSeen();
+                isMobile ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => { setNotifOpen(true); markResponsesSeen(); markNotificationsSeen(); }}
+                      className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--subtle-bg)] text-[var(--text-secondary)] transition hover:bg-[var(--subtle-hover-bg)] hover:text-[var(--text-primary)]"
+                      aria-label="Notifications"
+                    >
+                      <Badge count={unseenResponseCount + unseenNotifCount} size="small" offset={[-2, 2]}>
+                        <BellOutlined />
+                      </Badge>
+                    </button>
+                    <Drawer
+                      title="Notifications"
+                      placement="bottom"
+                      height="70vh"
+                      open={notifOpen}
+                      onClose={() => setNotifOpen(false)}
+                    >
+                      {notifBody}
+                    </Drawer>
+                  </>
+                ) : (
+                  <Popover
+                    trigger="click"
+                    placement="bottomRight"
+                    open={notifOpen}
+                    onOpenChange={(open) => {
+                      setNotifOpen(open);
+                      if (open) {
+                        markResponsesSeen();
+                        markNotificationsSeen();
+                      }
+                    }}
+                    title="Notifications"
+                    content={
+                      <div style={{ width: 340, maxHeight: 380, overflowY: 'auto' }}>
+                        {notifBody}
+                      </div>
                     }
-                  }}
-                  title="Notifications"
-                  content={
-                    <div style={{ width: 340, maxHeight: 380, overflowY: 'auto' }}>
-                      {visibleAppNotifications.length > 0 && (
-                        <div className="mb-2">
-                          <Typography.Text className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--text-very-muted)]">
-                            Updates
-                          </Typography.Text>
-                          <Flex vertical gap={8}>
-                            {visibleAppNotifications.slice(0, 10).map((n) => (
-                              <div
-                                key={n.id}
-                                className={`relative cursor-pointer rounded-lg border p-2 pr-7 transition hover:bg-[var(--subtle-hover-bg)] ${
-                                  n.isRead ? 'border-[var(--border)] opacity-70' : 'border-sky-500/40 bg-sky-500/5'
-                                }`}
-                                onClick={() => {
-                                  setNotifOpen(false);
-                                  router.push(n.link || (user?.role === 'accounts_manager' ? '/dashboard/accounts/bills' : '/dashboard/material-requirement'));
-                                }}
-                              >
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); dismissNotification(n.id); }}
-                                  className="absolute right-1.5 top-1.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-[var(--text-muted)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
-                                  aria-label="Dismiss notification"
-                                >
-                                  <CloseOutlined style={{ fontSize: 11 }} />
-                                </button>
-                                <Typography.Text className="block text-sm">
-                                  {n.actorName && <strong>{n.actorName}: </strong>}
-                                  {n.title} — {n.message}
-                                </Typography.Text>
-                                {n.createdAt && (
-                                  <Typography.Text type="secondary" className="mt-0.5 block text-xs">
-                                    {formatDate(n.createdAt)}
-                                  </Typography.Text>
-                                )}
-                              </div>
-                            ))}
-                          </Flex>
-                        </div>
-                      )}
-                      <Typography.Text className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--text-very-muted)]">
-                        Edit Request Updates
-                      </Typography.Text>
-                      {visibleResponses.length === 0 ? (
-                        <Typography.Text type="secondary" className="text-sm">
-                          No responses yet
-                        </Typography.Text>
-                      ) : (
-                        <Flex vertical gap={8}>
-                          {visibleResponses.slice(0, 20).map((r) => (
-                            <div key={r.id} className="relative rounded-lg border border-[var(--border)] p-2 pr-7">
-                              <button
-                                type="button"
-                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); dismissNotification(r.id); }}
-                                className="absolute right-1.5 top-1.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-[var(--text-muted)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
-                                aria-label="Dismiss notification"
-                              >
-                                <CloseOutlined style={{ fontSize: 11 }} />
-                              </button>
-                              <Flex justify="space-between" align="center">
-                                <Tag color={r.status === 'approved' ? 'green' : 'red'}>{r.status.toUpperCase()}</Tag>
-                                <Typography.Text type="secondary" className="text-xs">
-                                  {formatDate(r.respondedAt)}
-                                </Typography.Text>
-                              </Flex>
-                              <Typography.Text className="mt-1 block text-xs">{r.reason}</Typography.Text>
-                              {r.timesheet && (
-                                <Typography.Text type="secondary" className="mt-1 block text-xs">
-                                  Week: {formatDate(r.timesheet.weekStart)} - {formatDate(r.timesheet.weekEnd)}
-                                </Typography.Text>
-                              )}
-                            </div>
-                          ))}
-                        </Flex>
-                      )}
-                    </div>
-                  }
-                >
-                  <button
-                    type="button"
-                    className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--subtle-bg)] text-[var(--text-secondary)] transition hover:bg-[var(--subtle-hover-bg)] hover:text-[var(--text-primary)]"
-                    aria-label="Notifications"
                   >
-                    <Badge count={unseenResponseCount + unseenNotifCount} size="small" offset={[-2, 2]}>
-                      <BellOutlined />
-                    </Badge>
-                  </button>
-                </Popover>
+                    <button
+                      type="button"
+                      className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--subtle-bg)] text-[var(--text-secondary)] transition hover:bg-[var(--subtle-hover-bg)] hover:text-[var(--text-primary)]"
+                      aria-label="Notifications"
+                    >
+                      <Badge count={unseenResponseCount + unseenNotifCount} size="small" offset={[-2, 2]}>
+                        <BellOutlined />
+                      </Badge>
+                    </button>
+                  </Popover>
+                )
               )}
 
             <Dropdown
