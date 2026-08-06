@@ -176,7 +176,7 @@ export function DailyLabourDetailClient() {
                       return acc;
                     }, {} as Record<string, number>)
                   ).map(([trade, count]) => (
-                    <Flex key={trade} justify="space-between" align="center" className="bg-[var(--subtle-bg)] px-3 py-2 rounded-md">
+                    <Flex key={trade} justify="space-between" align="center" className="bg-[var(--subtle-bg)] px-3! py-2! rounded-md">
                       <Typography.Text className="text-[var(--text-secondary)]">{trade}</Typography.Text>
                       <Tag color="blue" className="m-0!">{count} Workers</Tag>
                     </Flex>

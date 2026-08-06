@@ -29,7 +29,7 @@ export function BillDetailClient({ bill }: Props) {
 
   return (
     <div>
-      <Flex align="center" gap={12} className="mb-6">
+      <Flex align="center" gap={12} className="mb-6!">
         <Button icon={<ArrowLeftOutlined />} onClick={() => router.back()}>
           Back to Bills
         </Button>

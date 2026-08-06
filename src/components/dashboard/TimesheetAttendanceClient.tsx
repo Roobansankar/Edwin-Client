@@ -466,7 +466,7 @@ export function TimesheetAttendanceClient({ projects }: Props) {
       </Flex>
 
       <Card className={cardClassName}>
-        <Flex gap={16} wrap="wrap" className="mb-4" align="center" justify="space-between">
+        <Flex gap={16} wrap="wrap" className="mb-4!" align="center" justify="space-between">
           <Flex gap={12} align="center">
             {isAdmin && (
               <DatePicker

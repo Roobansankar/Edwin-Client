@@ -142,7 +142,7 @@ export function PurchaseDashboardClient() {
             <Typography.Text strong className="mb-3 block">Latest Bills</Typography.Text>
             <div className="space-y-4">
               {data.recentActivity.bills.map((bill: any) => (
-                <Flex key={bill.id} justify="space-between" align="center" className="pb-3 border-b border-white/5 last:border-0">
+                <Flex key={bill.id} justify="space-between" align="center" className="pb-3! border-b border-white/5 last:border-0">
                   <div>
                     <Typography.Text className="block">{bill.billNumber}</Typography.Text>
                     <Typography.Text type="secondary" className="text-xs">{bill.vendorName}</Typography.Text>
@@ -160,7 +160,7 @@ export function PurchaseDashboardClient() {
             <Typography.Text strong className="mb-3 block">Latest POs</Typography.Text>
             <div className="space-y-4">
               {data.recentActivity.pos.map((po: any) => (
-                <Flex key={po.id} justify="space-between" align="center" className="pb-3 border-b border-white/5 last:border-0">
+                <Flex key={po.id} justify="space-between" align="center" className="pb-3! border-b border-white/5 last:border-0">
                   <div>
                     <Typography.Text className="block">{po.poNumber}</Typography.Text>
                     <Typography.Text type="secondary" className="text-xs">{po.vendorName}</Typography.Text>

@@ -164,7 +164,7 @@ export function EmployeeQueriesClient({ queries }: Props) {
           </Col>
         </Row>
 
-        <Flex justify="flex-end" className="mb-4">
+        <Flex justify="flex-end" className="mb-4!">
           <Select
             allowClear
             placeholder="Filter by status"

@@ -323,7 +323,7 @@ export function DpwForm({ projects, trades, initialValues, onSuccess, onCancel }
           <Input.TextArea rows={3} placeholder="E.g., Site activities completed as planned." />
         </Form.Item>
 
-        <Flex justify="space-between" className="mt-6">
+        <Flex justify="space-between" className="mt-6!">
           <Space>
             {initialValues?.id && (
               <Button danger icon={<DeleteOutlined />} loading={isDeleting} onClick={handleDeleteReport}>

@@ -202,7 +202,7 @@ export function SubcontractorPaymentRequestsClient({ requests }: Props) {
           </Col>
         </Row>
 
-        <Flex justify="flex-end" className="mb-4">
+        <Flex justify="flex-end" className="mb-4!">
           <Select
             allowClear
             placeholder="Filter by status"

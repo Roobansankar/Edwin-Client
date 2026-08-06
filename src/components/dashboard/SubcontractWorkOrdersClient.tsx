@@ -705,7 +705,7 @@ export function SubcontractWorkOrdersClient({
               <p className="ant-upload-hint">Support for PDF, Excel, Word documents.</p>
             </Upload.Dragger>
             {uploadedFile && (
-              <Flex align="center" gap={8} className="mt-2">
+              <Flex align="center" gap={8} className="mt-2!">
                 {getFileIcon(uploadedFile.workorderKey)}
                 <Typography.Text>{uploadedFile.workorderKey}</Typography.Text>
                 <Button

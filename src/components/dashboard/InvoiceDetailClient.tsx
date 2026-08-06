@@ -30,7 +30,7 @@ export function InvoiceDetailClient({ invoice }: Props) {
 
   return (
     <div>
-      <Flex justify="space-between" align="center" className="mb-6">
+      <Flex justify="space-between" align="center" className="mb-6!">
         <Flex align="center" gap={12}>
           <Link href="/dashboard/accounts/invoices">
             <Button icon={<ArrowLeftOutlined />} type="text" size="large" />

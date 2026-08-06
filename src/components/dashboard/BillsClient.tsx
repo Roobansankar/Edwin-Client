@@ -615,7 +615,7 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
               <div className="mb-4 rounded-lg border border-[var(--border)] p-4">
                 {fields.map((field, index) => (
                   <div key={field.id} className="mb-4 last:mb-0 border-b border-white/5 pb-4 last:border-0 last:pb-0">
-                    <Flex justify="space-between" align="start" className="mb-2">
+                    <Flex justify="space-between" align="start" className="mb-2!">
                       <Controller
                         control={control}
                         name={`items.${index}.description`}
@@ -721,7 +721,7 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
           <div className="mb-6 p-4 rounded-lg bg-blue-50/5 border border-blue-500/20">
             <Typography.Text type="secondary" style={{ display: 'block' }}>Recording payment for:</Typography.Text>
             <Typography.Title level={5} style={{ margin: '4px 0' }}>{paymentBill.billNumber}</Typography.Title>
-            <Flex justify="space-between" className="mt-2">
+            <Flex justify="space-between" className="mt-2!">
               <Typography.Text>Total: {formatCurrency(paymentBill.amount)}</Typography.Text>
               <Typography.Text>Balance: {formatCurrency(Number(paymentBill.amount) - Number(paymentBill.paidAmount))}</Typography.Text>
             </Flex>

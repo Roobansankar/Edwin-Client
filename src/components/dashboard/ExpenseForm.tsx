@@ -206,7 +206,7 @@ export function ExpenseForm({ projects, trades, expenseTypes, initialValues, onS
                     <>
                       {menu}
                       <Divider className="my-2" />
-                      <Flex gap={8} className="p-2">
+                      <Flex gap={8} className="p-2!">
                         <Input
                           placeholder="New Type"
                           value={newTypeName}

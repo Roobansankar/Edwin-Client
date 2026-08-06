@@ -372,7 +372,7 @@ export function ReportsClient({ projects, bills, timesheets, expenses, dprReport
     ),
     children: (
       <div>
-        <Flex justify="space-between" align="center" gap={16} wrap="wrap" className="mb-4">
+        <Flex justify="space-between" align="center" gap={16} wrap="wrap" className="mb-4!">
           <Flex gap={12} wrap="wrap">
             <Select
               showSearch
@@ -451,7 +451,7 @@ export function ReportsClient({ projects, bills, timesheets, expenses, dprReport
               locale={{ emptyText: 'No purchase bills for this project yet' }}
             />
 
-            <Flex justify="space-between" align="center" gap={16} wrap="wrap" className="mt-8 mb-4">
+            <Flex justify="space-between" align="center" gap={16} wrap="wrap" className="mt-8! mb-4!">
               <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">
                 Expenses
               </Typography.Title>
@@ -502,7 +502,7 @@ export function ReportsClient({ projects, bills, timesheets, expenses, dprReport
     ),
     children: (
       <div>
-        <Flex justify="space-between" align="center" gap={16} wrap="wrap" className="mb-4">
+        <Flex justify="space-between" align="center" gap={16} wrap="wrap" className="mb-4!">
           <Flex gap={12} wrap="wrap">
             <Select
               showSearch
@@ -596,7 +596,7 @@ export function ReportsClient({ projects, bills, timesheets, expenses, dprReport
     ),
     children: (
       <div>
-        <Flex justify="space-between" align="center" gap={16} wrap="wrap" className="mb-4">
+        <Flex justify="space-between" align="center" gap={16} wrap="wrap" className="mb-4!">
           <Flex gap={12} wrap="wrap">
             <Select
               showSearch

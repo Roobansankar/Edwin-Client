@@ -33,7 +33,7 @@ export function LineItemsEditor<TFormValues extends FieldValues>({
 
   return (
     <div>
-      <Flex justify="space-between" align="center" className="mb-3">
+      <Flex justify="space-between" align="center" className="mb-3!">
         <Typography.Text strong>Line Items</Typography.Text>
         <Button
           icon={<PlusOutlined />}

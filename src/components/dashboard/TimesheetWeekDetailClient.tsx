@@ -149,7 +149,7 @@ export function TimesheetWeekDetailClient() {
         />
       </Card>
 
-      <Flex justify="flex-end" gap={8} className="mt-4">
+      <Flex justify="flex-end" gap={8} className="mt-4!">
         <Popconfirm title="Verify this timesheet?" onConfirm={handleVerify} disabled={timesheet.status !== 'pending' && timesheet.status !== 'submitted'}>
           <Button icon={<SafetyCertificateOutlined />} loading={isPending} disabled={timesheet.status !== 'pending' && timesheet.status !== 'submitted'}>
             Verify

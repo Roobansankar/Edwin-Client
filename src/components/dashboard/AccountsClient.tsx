@@ -153,7 +153,7 @@ export function AccountsClient({ payables, receivables, projects }: AccountsClie
         </Flex>
       </Flex>
 
-      <Flex gap={12} wrap="wrap" className="mb-6" style={{ marginBottom: 24 }}>
+      <Flex gap={12} wrap="wrap" className="mb-6!" style={{ marginBottom: 24 }}>
         <Select
           showSearch
           placeholder="Filter by project"

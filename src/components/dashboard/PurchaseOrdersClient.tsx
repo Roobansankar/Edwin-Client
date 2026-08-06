@@ -572,7 +572,7 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
           });
         }}>Add</Button>}
       >
-        <Flex gap={8} className="mb-4">
+        <Flex gap={8} className="mb-4!">
           <Input value={newDesc} onChange={(e) => setNewDesc(e.target.value)} placeholder="New description name"
             onPressEnter={async () => {
               if (!newDesc.trim()) return;
@@ -585,7 +585,7 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
         </Flex>
         <Flex vertical gap={4}>
           {itemDescriptions?.map((desc) => (
-            <Flex key={desc.id} justify="space-between" align="center" className="rounded-lg border border-[var(--border)] px-3 py-2">
+            <Flex key={desc.id} justify="space-between" align="center" className="rounded-lg border border-[var(--border)] px-3! py-2!">
               <Typography.Text>{desc.name}</Typography.Text>
               <Popconfirm title="Delete" description={`Remove "${desc.name}"?`} onConfirm={async () => {
                 startTransition(async () => {

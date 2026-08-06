@@ -153,7 +153,7 @@ export function AssignedProjectsClient({ siteEngineers, projects }: AssignedProj
         />
       </Flex>
 
-      <Flex gap={16} wrap="wrap" className="mb-6">
+      <Flex gap={16} wrap="wrap" className="mb-6!">
         {[
           { label: 'Total Engineers', value: engineers.length, color: '#3b82f6', icon: <UserOutlined /> },
           { label: 'With Projects', value: assignedCount, color: '#10b981', icon: <ProjectOutlined /> },
@@ -217,7 +217,7 @@ export function AssignedProjectsClient({ siteEngineers, projects }: AssignedProj
           showSearch
         />
         {assigningEngineer && (
-          <Flex justify="space-between" align="center" className="mt-4">
+          <Flex justify="space-between" align="center" className="mt-4!">
             <Typography.Text type="secondary" className="text-xs">
               {selectedProjectIds.length} project(s) selected
             </Typography.Text>

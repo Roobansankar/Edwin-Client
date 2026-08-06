@@ -129,7 +129,7 @@ export function SiteEngineerAttendanceClient({ timesheets }: Props) {
                               </Typography.Text>
                             </div>
                           </Flex>
-                          <Flex justify="space-between" align="center" className="mt-3 pt-3 border-t border-[var(--border)]">
+                          <Flex justify="space-between" align="center" className="mt-3! pt-3! border-t border-[var(--border)]">
                             <Typography.Text className="text-xs text-[var(--text-muted)]">
                               {person.count} timesheet{person.count > 1 ? 's' : ''}
                             </Typography.Text>

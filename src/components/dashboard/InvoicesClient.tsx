@@ -414,7 +414,7 @@ export function InvoicesClient({ invoices, projects }: InvoicesClientProps) {
           <div className="mb-6 p-4 rounded-lg bg-emerald-50/5 border border-emerald-500/20">
             <Typography.Text type="secondary" style={{ display: 'block' }}>Recording payment for:</Typography.Text>
             <Typography.Title level={5} style={{ margin: '4px 0' }}>{paymentInvoice.invoiceNumber}</Typography.Title>
-            <Flex justify="space-between" className="mt-2">
+            <Flex justify="space-between" className="mt-2!">
               <Typography.Text>Expected: {formatCurrency(Number(paymentInvoice.totalAmount) + Number(paymentInvoice.gstAmount))}</Typography.Text>
               <Typography.Text>Receivable: {formatCurrency((Number(paymentInvoice.totalAmount) + Number(paymentInvoice.gstAmount)) - Number(paymentInvoice.paidAmount || 0))}</Typography.Text>
             </Flex>

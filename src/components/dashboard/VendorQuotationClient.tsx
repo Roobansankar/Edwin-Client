@@ -604,7 +604,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
 
           <div>
             <Typography.Text strong className="text-sm">Items</Typography.Text>
-            <Flex vertical gap={8} className="mt-2">
+            <Flex vertical gap={8} className="mt-2!">
               {editItems.map((item, idx) => (
                 <Flex key={idx} gap={8} align="center">
                   <Input
@@ -648,7 +648,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
 
           <Form.Item label="Quotation Bill">
             {editRecord?.quotationUrl && !editFile && (
-              <Flex align="center" gap={8} className="mb-2">
+              <Flex align="center" gap={8} className="mb-2!">
                 <Button type="link" size="small" icon={<EyeOutlined />} onClick={() => setPreviewUrl(editRecord.quotationUrl!)}>
                   View current file
                 </Button>

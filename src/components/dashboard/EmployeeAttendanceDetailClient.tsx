@@ -153,7 +153,7 @@ export function EmployeeAttendanceDetailClient() {
       {error && <Typography.Text type="danger" className="mb-4 block">{error}</Typography.Text>}
 
       <Card className={cardClassName}>
-        <Flex gap={12} wrap="wrap" className="mb-4" align="center">
+        <Flex gap={12} wrap="wrap" className="mb-4!" align="center">
           <Select
             allowClear
             placeholder="Status"
