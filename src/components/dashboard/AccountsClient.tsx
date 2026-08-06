@@ -1,11 +1,12 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Card, Col, Row, Statistic, Table, Typography, Tag, Flex, Tabs, Button } from 'antd';
+import { Card, Col, Row, Statistic, Table, Typography, Tag, Flex, Tabs, Button, Select, DatePicker } from 'antd';
 import { ArrowDownOutlined, ArrowUpOutlined, BankOutlined, ShoppingCartOutlined, DollarOutlined, FileTextOutlined, RightOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import type { PurchaseBill, SalesInvoice } from '@/types/erp';
+import type { Dayjs } from 'dayjs';
+import type { Project, SalesInvoice } from '@/types/erp';
 import {
   cardClassName,
   formatCurrency,
@@ -17,30 +18,66 @@ import {
 
 const { Title, Text } = Typography;
 
-type AccountsClientProps = {
-  payables: PurchaseBill[];
-  receivables: SalesInvoice[];
+type PayableRow = {
+  id: string;
+  source: 'bill' | 'purchase_order';
+  billNumber: string;
+  vendor?: { id: string; name: string } | null;
+  project?: { id: string; name: string } | null;
+  billDate: string;
+  dueDate?: string | null;
+  amount: number | string;
+  paidAmount?: number | string;
+  status: string;
 };
 
-export function AccountsClient({ payables, receivables }: AccountsClientProps) {
-  const totalPayables = useMemo(() => payables.reduce((s, b) => s + (Number(b.amount) - Number(b.paidAmount || 0)), 0), [payables]);
-  const totalReceivables = useMemo(() => receivables.reduce((s, i) => s + (Number(i.totalAmount) + Number(i.gstAmount) - Number(i.paidAmount || 0)), 0), [receivables]);
+type AccountsClientProps = {
+  payables: PayableRow[];
+  receivables: SalesInvoice[];
+  projects: Project[];
+};
 
-  const payableColumns: ColumnsType<PurchaseBill> = [
-    { 
-      title: 'Bill #', 
-      dataIndex: 'billNumber', 
-      key: 'billNumber', 
-      width: 130, 
-      render: (v, r) => (
-        <Link href={`/dashboard/accounts/bills/${r.id}`}>
+function inRange(dateStr: string | null | undefined, range: [Dayjs | null, Dayjs | null]) {
+  if (!range[0] || !range[1] || !dateStr) return true;
+  const from = range[0].format('YYYY-MM-DD');
+  const to = range[1].format('YYYY-MM-DD');
+  const d = dateStr.split('T')[0];
+  return d >= from && d <= to;
+}
+
+export function AccountsClient({ payables, receivables, projects }: AccountsClientProps) {
+  const [projectId, setProjectId] = useState<string | undefined>();
+  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
+
+  const filteredPayables = useMemo(
+    () => payables.filter((p) => (!projectId || p.project?.id === projectId) && inRange(p.billDate, dateRange)),
+    [payables, projectId, dateRange],
+  );
+  const filteredReceivables = useMemo(
+    () => receivables.filter((i) => (!projectId || i.projectId === projectId) && inRange(i.createdAt, dateRange)),
+    [receivables, projectId, dateRange],
+  );
+
+  const totalPayables = useMemo(() => filteredPayables.reduce((s, b) => s + (Number(b.amount) - Number(b.paidAmount || 0)), 0), [filteredPayables]);
+  const totalReceivables = useMemo(() => filteredReceivables.reduce((s, i) => s + (Number(i.totalAmount) + Number(i.gstAmount) - Number(i.paidAmount || 0)), 0), [filteredReceivables]);
+  const totalPaid = useMemo(() => filteredPayables.reduce((s, b) => s + Number(b.paidAmount || 0), 0), [filteredPayables]);
+  const totalReceived = useMemo(() => filteredReceivables.reduce((s, i) => s + Number(i.paidAmount || 0), 0), [filteredReceivables]);
+
+  const payableColumns: ColumnsType<PayableRow> = [
+    {
+      title: 'PO Number',
+      dataIndex: 'billNumber',
+      key: 'billNumber',
+      width: 130,
+      render: (v) => (
+        <Link href="/dashboard/purchase-orders">
           <Text strong style={{ color: '#1677ff' }}>{v}</Text>
         </Link>
       )
     },
     { title: 'Vendor', key: 'vendor', width: 180, render: (_, r) => r.vendor?.name ?? '-' },
+    { title: 'Project', key: 'project', width: 180, render: (_, r) => r.project?.name ?? '-' },
     { title: 'Date', dataIndex: 'billDate', key: 'billDate', render: formatDate, width: 110 },
-    { title: 'Due Date', dataIndex: 'dueDate', key: 'dueDate', render: (v) => v ? formatDate(v) : '-', width: 110 },
     { title: 'Amount', dataIndex: 'amount', key: 'amount', align: 'right', render: formatCurrency, width: 130, sorter: (a, b) => Number(a.amount) - Number(b.amount) },
     { title: 'Paid', dataIndex: 'paidAmount', key: 'paidAmount', align: 'right', render: formatCurrency, width: 130 },
     { title: 'Balance', key: 'balance', align: 'right', width: 130, render: (_, r) => <Text type="danger" strong>{formatCurrency(Number(r.amount) - Number(r.paidAmount || 0))}</Text> },
@@ -55,8 +92,8 @@ export function AccountsClient({ payables, receivables }: AccountsClientProps) {
       title: '',
       key: 'action',
       width: 50,
-      render: (_, r) => (
-        <Link href={`/dashboard/accounts/bills/${r.id}`}>
+      render: () => (
+        <Link href="/dashboard/purchase-orders">
           <Button type="text" icon={<RightOutlined />} />
         </Link>
       ),
@@ -116,6 +153,27 @@ export function AccountsClient({ payables, receivables }: AccountsClientProps) {
         </Flex>
       </Flex>
 
+      <Flex gap={12} wrap="wrap" className="mb-6" style={{ marginBottom: 24 }}>
+        <Select
+          showSearch
+          placeholder="Filter by project"
+          allowClear
+          style={{ minWidth: 240 }}
+          value={projectId}
+          onChange={setProjectId}
+          options={projects.map((p) => ({ value: p.id, label: p.name }))}
+          filterOption={(input, option) =>
+            String(option?.label || '').toLowerCase().includes(input.toLowerCase())
+          }
+        />
+        <DatePicker.RangePicker
+          value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
+          onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+          allowClear
+          placeholder={['From', 'To']}
+        />
+      </Flex>
+
       <Row gutter={[16, 16]} className="mb-6">
         <Col xs={24} sm={12}>
           <Card className={cardClassName} variant="borderless">
@@ -141,6 +199,30 @@ export function AccountsClient({ payables, receivables }: AccountsClientProps) {
             />
           </Card>
         </Col>
+        <Col xs={24} sm={12}>
+          <Card className={cardClassName} variant="borderless">
+            <Statistic
+              title="Total Paid Amount"
+              value={totalPaid}
+              precision={2}
+              valueStyle={{ color: '#cf1322' }}
+              prefix={<ArrowDownOutlined />}
+              formatter={(val) => formatCurrency(val as number)}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12}>
+          <Card className={cardClassName} variant="borderless">
+            <Statistic
+              title="Total Received Amount"
+              value={totalReceived}
+              precision={2}
+              valueStyle={{ color: '#3f8600' }}
+              prefix={<ArrowUpOutlined />}
+              formatter={(val) => formatCurrency(val as number)}
+            />
+          </Card>
+        </Col>
       </Row>
 
       <Tabs
@@ -150,13 +232,13 @@ export function AccountsClient({ payables, receivables }: AccountsClientProps) {
             key: 'payables',
             label: (
               <span>
-                <ShoppingCartOutlined /> Payables ({payables.length})
+                <ShoppingCartOutlined /> Payables ({filteredPayables.length})
               </span>
             ),
             children: (
               <Card className={`${cardClassName} mb-6`} styles={{ body: { padding: 0 } }}>
                 <Table
-                  dataSource={payables}
+                  dataSource={filteredPayables}
                   columns={payableColumns}
                   rowKey="id"
                   pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `${t} payables` }}
@@ -169,13 +251,13 @@ export function AccountsClient({ payables, receivables }: AccountsClientProps) {
             key: 'receivables',
             label: (
               <span>
-                <DollarOutlined /> Receivables ({receivables.length})
+                <DollarOutlined /> Receivables ({filteredReceivables.length})
               </span>
             ),
             children: (
               <Card className={cardClassName} styles={{ body: { padding: 0 } }}>
                 <Table
-                  dataSource={receivables}
+                  dataSource={filteredReceivables}
                   columns={receivableColumns}
                   rowKey="id"
                   pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `${t} receivables` }}

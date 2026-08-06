@@ -156,7 +156,7 @@ export function AccountsManagerDashboardClient() {
               <div>
                 <Typography.Text className={secondaryTextClassName}>Total Payables</Typography.Text>
                 <div className="text-2xl font-bold text-[var(--text-primary)]">{formatCurrency(kpis?.totalPayable || 0)}</div>
-                <Typography.Text type="secondary" className="text-xs">{kpis?.pendingBillCount} pending bills</Typography.Text>
+                <Typography.Text type="secondary" className="text-xs">{kpis?.pendingBillCount} pending POs</Typography.Text>
               </div>
             </div>
           </Card>

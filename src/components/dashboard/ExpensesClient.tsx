@@ -41,6 +41,9 @@ export function ExpensesClient({ expenses: initialExpenses, projects }: Expenses
   const { message } = App.useApp();
   const { user } = useAuthStore();
   const canUpdateStatus = user?.role === 'admin' || user?.role === 'accounts_manager';
+  const statusOptions = user?.role === 'accounts_manager'
+    ? STATUS_OPTIONS.filter((opt) => opt.value !== 'admin_approved')
+    : STATUS_OPTIONS;
 
   useEffect(() => {
     Promise.all([
@@ -168,14 +171,14 @@ export function ExpensesClient({ expenses: initialExpenses, projects }: Expenses
       filters: STATUS_OPTIONS.map(opt => ({ text: opt.label, value: opt.value })),
       onFilter: (value, record) => record.status === value,
       render: (value: string, record: Expense) =>
-        canUpdateStatus ? (
+        canUpdateStatus && value !== 'admin_approved' ? (
           <Select
             defaultValue={value || 'pending'}
             size="small"
             variant="borderless"
             className="w-full"
             onChange={(newStatus) => handleStatusChange(record.id, newStatus)}
-            options={STATUS_OPTIONS}
+            options={statusOptions}
             popupMatchSelectWidth={false}
             styles={{ popup: { root: { minWidth: 120 } } }}
             disabled={isPending}

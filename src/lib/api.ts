@@ -107,7 +107,7 @@ export const fetchMaterialReceived = () => apiFetch<MaterialReceived[]>('/materi
 export const fetchVendorQuotations = () => apiFetch<VendorQuotation[]>('/vendor-quotations');
 export const fetchLedger = () => apiFetch<any[]>('/accounts/ledger');
 export const fetchBalance = () => apiFetch<{ totalRevenue: number; totalCost: number }>('/accounts/balance');
-export const fetchPayables = () => apiFetch<PurchaseBill[]>('/accounts/payables');
+export const fetchPayables = () => apiFetch<any[]>('/accounts/payables');
 export const fetchReceivables = () => apiFetch<SalesInvoice[]>('/accounts/receivables');
 export const fetchSalaries = () => apiFetch<Salary[]>('/salaries');
 export const fetchMySalary = () => apiFetch<Salary | null>('/salaries/me');
