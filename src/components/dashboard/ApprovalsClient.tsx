@@ -7,6 +7,7 @@ import {
   CalendarOutlined, CameraOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, EyeOutlined, FileDoneOutlined, FilePdfOutlined, FilterOutlined, SearchOutlined, WalletOutlined
 } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
+import { useAuthStore } from '@/store/auth';
 import { getApiBaseUrl } from '@/lib/api-url';
 import dayjs from 'dayjs';
 import { updateBillStatus } from '@/actions/invoices';
@@ -46,6 +47,8 @@ export function ApprovalsClient({ bills, expenses, dailyReports }: Props) {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [activeTab, setActiveTab] = useState('expenses');
   const { message } = App.useApp();
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin';
 
   const filteredExpenses = useMemo(() => {
     const from = dateRange[0]?.format('YYYY-MM-DD');
@@ -145,16 +148,16 @@ export function ApprovalsClient({ bills, expenses, dailyReports }: Props) {
         <Button size="small" icon={<EyeOutlined />} onClick={() => router.push(`/dashboard/daily-labour/${record.id}`)} title="View Details" />
       ),
     },
-    {
+    ...(isAdmin ? [{
       title: 'Status', key: 'status', width: 140,
-      render: (_, record) => (
+      render: (_: unknown, record: DailyLabourReport) => (
         <Select
           defaultValue={record.status || 'pending'} size="small" variant="borderless" className="w-full"
-          onChange={(newStatus) => handleDailyStatusChange(record.id, newStatus)}
+          onChange={(newStatus: string) => handleDailyStatusChange(record.id, newStatus)}
           options={APPROVAL_STATUS_OPTIONS} popupMatchSelectWidth={false} disabled={isPending}
         />
       ),
-    },
+    }] : []),
   ];
 
   const expenseColumns: ColumnsType<Expense> = [
