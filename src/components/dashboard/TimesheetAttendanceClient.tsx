@@ -468,26 +468,32 @@ export function TimesheetAttendanceClient({ projects }: Props) {
       <Card className={cardClassName}>
         <Flex gap={16} wrap="wrap" className="mb-4" align="center" justify="space-between">
           <Flex gap={12} align="center">
-            <DatePicker
-              picker="month"
-              value={month}
-              onChange={(d) => {
-                if (d) {
-                  setMonth(d);
-                  const m = getMonday(d.startOf('month').toDate());
-                  setWeekStart(m);
-                  setExistingTs(null);
-                  setRows(defaultRows());
-                }
-              }}
-              style={{ width: 160 }}
-              allowClear={false}
-            />
-            <Button icon={<LeftOutlined />} size="small" onClick={goPrevWeek} disabled={weekIndex <= 0} />
+            {isAdmin && (
+              <DatePicker
+                picker="month"
+                value={month}
+                onChange={(d) => {
+                  if (d) {
+                    setMonth(d);
+                    const m = getMonday(d.startOf('month').toDate());
+                    setWeekStart(m);
+                    setExistingTs(null);
+                    setRows(defaultRows());
+                  }
+                }}
+                style={{ width: 160 }}
+                allowClear={false}
+              />
+            )}
+            {isAdmin && (
+              <Button icon={<LeftOutlined />} size="small" onClick={goPrevWeek} disabled={weekIndex <= 0} />
+            )}
             <Typography.Text strong className="text-[var(--text-primary)] text-sm" style={{ minWidth: 180, textAlign: 'center' }}>
               {formatDate(weekStart)} - {formatDate(weekEnd)}
             </Typography.Text>
-            <Button icon={<RightOutlined />} size="small" onClick={goNextWeek} disabled={weekIndex >= weeksInMonth.length - 1} />
+            {isAdmin && (
+              <Button icon={<RightOutlined />} size="small" onClick={goNextWeek} disabled={weekIndex >= weeksInMonth.length - 1} />
+            )}
           </Flex>
 
           <Flex gap={12} align="center">
