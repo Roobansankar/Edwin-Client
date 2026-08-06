@@ -31,6 +31,7 @@ import type {
   SchemaTable,
   EmployeeQuery,
   AdvanceRequest,
+  SubcontractorPaymentRequest,
   OfficeStaff,
   OfficeReport,
   StaffAccessEntry,
@@ -119,6 +120,8 @@ export const fetchEmployeeQueries = (status?: string) =>
   apiFetch<EmployeeQuery[]>(`/employee-queries${status ? `?status=${status}` : ''}`);
 export const fetchAdvanceRequests = (status?: string) =>
   apiFetch<AdvanceRequest[]>(`/advance-requests${status ? `?status=${status}` : ''}`);
+export const fetchSubcontractorPaymentRequests = (status?: string) =>
+  apiFetch<SubcontractorPaymentRequest[]>(`/subcontractor-payment-requests${status ? `?status=${status}` : ''}`);
 export const fetchProjectAccessStaff = (projectId?: string) =>
   apiFetch<StaffAccessEntry[]>(`/project-access/staff${projectId ? `?projectId=${projectId}` : ''}`);
 export const fetchProjectAccessRecords = () => apiFetch<any[]>('/project-access');

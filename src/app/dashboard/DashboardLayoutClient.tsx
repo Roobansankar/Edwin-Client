@@ -87,6 +87,7 @@ const navigationSections: Array<{ title: string; items: NavItem[]; allowedRoles?
       { key: '/dashboard/employee-queries', icon: <SolutionOutlined />, label: 'Employee Queries', allowedRoles: ['admin'] },
       
       { key: '/dashboard/subcontract-work-orders', icon: <FileTextOutlined />, label: 'Subcontract WO', allowedRoles: ['purchase_team'] },
+      { key: '/dashboard/subcontractor-payments', icon: <DollarOutlined />, label: 'Subcontractor Payments', allowedRoles: ['purchase_team'] },
       { key: '/dashboard/material-requirement', icon: <FileSearchOutlined />, label: 'Material Requirement', allowedRoles: ['site_engineer'] },
       { key: '/dashboard/material-received', icon: <InboxOutlined />, label: 'Material Received', allowedRoles: ['site_engineer', 'purchase_team'] },
       { key: '/dashboard/report', icon: <FileTextOutlined />, label: 'My Report', allowedRoles: ['site_engineer'] },
@@ -112,6 +113,7 @@ const navigationSections: Array<{ title: string; items: NavItem[]; allowedRoles?
       { key: '/dashboard/site-engineer-attendance', icon: <TeamOutlined />, label: 'Timesheet Approvals', allowedRoles: ['admin'] },
       { key: '/dashboard/approvals', icon: <SafetyCertificateOutlined />, label: 'Approvals', allowedRoles: ['admin', 'accounts_manager'] },
       { key: '/dashboard/advance-requests', icon: <DollarOutlined />, label: 'Vendor Payment Requests', allowedRoles: ['admin', 'accounts_manager'] },
+      { key: '/dashboard/subcontractor-payment-requests', icon: <DollarOutlined />, label: 'Subcontractor Payment Requests', allowedRoles: ['admin', 'accounts_manager'] },
       { key: '/dashboard/expenses', icon: <WalletOutlined />, label: 'Expenses', allowedRoles: ['admin', 'accounts_manager'] },
       { key: '/dashboard/payments', icon: <CreditCardOutlined />, label: 'Payments', allowedRoles: ['admin', 'accounts_manager'] },
     ],

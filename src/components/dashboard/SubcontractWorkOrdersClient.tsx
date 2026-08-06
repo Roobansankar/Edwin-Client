@@ -44,7 +44,8 @@ import {
   updateSubcontractWorkOrderStatus,
   uploadWorkOrderFile,
 } from '@/actions/subcontract-work-orders';
-import type { SubcontractWorkOrder, Project, Subcontractor, WorkCategory } from '@/types/erp';
+import { createPayment } from '@/actions/payments';
+import type { SubcontractWorkOrder, Project, Subcontractor, WorkCategory, Payment } from '@/types/erp';
 import { SubcontractWorkOrderPdf } from './SubcontractWorkOrderPdf';
 import {
   cardClassName,
@@ -128,6 +129,46 @@ export function SubcontractWorkOrdersClient({
   } | null>(null);
   const [uploading, setUploading] = useState(false);
 
+  const [swoPayments, setSwoPayments] = useState<Payment[]>([]);
+  const [paymentAmount, setPaymentAmount] = useState<number | null>(null);
+  const [paymentDate, setPaymentDate] = useState(dayjs().format('YYYY-MM-DD'));
+  const [paymentMode, setPaymentMode] = useState('upi');
+  const [paymentReference, setPaymentReference] = useState('');
+  const [paymentPending, startPaymentTransition] = useTransition();
+
+  const loadSwoPayments = async (swoId: string) => {
+    try {
+      const res = await fetch(`/api/backend/payments?subcontractWorkOrderId=${swoId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSwoPayments(data?.data || []);
+      }
+    } catch { /* silent */ }
+  };
+
+  const handleAddPayment = (swo: SubcontractWorkOrder) => {
+    if (!paymentAmount || paymentAmount <= 0) { message.error('Enter a valid amount'); return; }
+    startPaymentTransition(async () => {
+      try {
+        await createPayment({
+          subcontractWorkOrderId: swo.id,
+          projectId: swo.projectId,
+          paymentType: 'labour',
+          amount: paymentAmount,
+          paymentDate,
+          paymentMode,
+          referenceNumber: paymentReference || undefined,
+        });
+        message.success('Payment recorded');
+        setPaymentAmount(null);
+        setPaymentReference('');
+        loadSwoPayments(swo.id);
+      } catch (err) {
+        message.error(err instanceof Error ? err.message : 'Failed to record payment');
+      }
+    });
+  };
+
   useEffect(() => {
     setIsClient(true);
   }, []);
@@ -195,12 +236,16 @@ export function SubcontractWorkOrdersClient({
         notes: '',
       });
       setUploadedFile(null);
+      setSwoPayments([]);
+      setPaymentAmount(null);
+      setPaymentReference('');
     }
   }, [editingSwo, setValue, reset]);
 
   const handleEdit = (swo: SubcontractWorkOrder) => {
     setEditingSwo(swo);
     setOpen(true);
+    loadSwoPayments(swo.id);
   };
 
   const handleDelete = (id: string) => {
@@ -561,6 +606,48 @@ export function SubcontractWorkOrdersClient({
               <InputNumber value={computedTotal} disabled style={{ width: '100%' }} />
             </Form.Item>
           </Flex>
+
+          {editingSwo && (
+            <Card size="small" title="Payments" className="border! border-gray-200! mb-4">
+              <Table
+                dataSource={swoPayments}
+                rowKey="id"
+                size="small"
+                pagination={false}
+                className="mb-3"
+                locale={{ emptyText: 'No payments recorded yet' }}
+                columns={[
+                  { title: 'Date', dataIndex: 'paymentDate', render: formatDate },
+                  { title: 'Amount', dataIndex: 'amount', align: 'right', render: (v: number | string) => formatCurrency(v) },
+                  { title: 'Mode', dataIndex: 'paymentMode', render: (v: string) => v?.toUpperCase() },
+                  { title: 'Reference', dataIndex: 'referenceNumber', render: (v?: string | null) => v || '-' },
+                ]}
+              />
+              <Flex gap={8} wrap="wrap" align="flex-end">
+                <InputNumber min={0} placeholder="Amount" value={paymentAmount} onChange={setPaymentAmount} style={{ width: 140 }} />
+                <DatePicker
+                  value={dayjs(paymentDate)}
+                  onChange={(_, dateStr) => setPaymentDate(typeof dateStr === 'string' ? dateStr : paymentDate)}
+                  style={{ width: 140 }}
+                />
+                <Select
+                  value={paymentMode}
+                  onChange={setPaymentMode}
+                  style={{ width: 120 }}
+                  options={[
+                    { label: 'UPI', value: 'upi' },
+                    { label: 'RTGS', value: 'rtgs' },
+                    { label: 'Cash', value: 'cash' },
+                    { label: 'Cheque', value: 'cheque' },
+                  ]}
+                />
+                <Input placeholder="Reference" value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} style={{ width: 140 }} />
+                <Button type="primary" loading={paymentPending} onClick={() => handleAddPayment(editingSwo)}>
+                  Add Payment
+                </Button>
+              </Flex>
+            </Card>
+          )}
 
           <Form.Item label="Work Order File">
             <Upload.Dragger

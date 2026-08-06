@@ -489,6 +489,8 @@ export type Payment = {
   purchaseBill?: PurchaseBill;
   purchaseOrderId?: string | null;
   purchaseOrder?: PurchaseOrder;
+  subcontractWorkOrderId?: string | null;
+  subcontractWorkOrder?: SubcontractWorkOrder;
   salesInvoiceId?: string | null;
   salesInvoice?: SalesInvoice;
   expenseId?: string | null;
@@ -596,6 +598,26 @@ export type AdvanceRequest = {
   amount: number | string;
   notes?: string | null;
   status: AdvanceRequestStatus;
+  requestedById: string;
+  respondedById?: string | null;
+  respondedAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type SubcontractorPaymentRequestStatus = 'pending' | 'accepted' | 'admin_approved' | 'rejected';
+
+export type SubcontractorPaymentRequest = {
+  id: string;
+  subcontractorId: string;
+  subcontractor?: Subcontractor;
+  projectId: string;
+  project?: Project;
+  subcontractWorkOrderId?: string | null;
+  subcontractWorkOrder?: SubcontractWorkOrder | null;
+  amount: number | string;
+  notes?: string | null;
+  status: SubcontractorPaymentRequestStatus;
   requestedById: string;
   respondedById?: string | null;
   respondedAt?: string | null;
