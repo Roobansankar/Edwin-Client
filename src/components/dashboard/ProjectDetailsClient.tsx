@@ -17,10 +17,13 @@ type Props = {
 export function ProjectDetailsClient({ data }: Props) {
   const { project, expenses, subcontractWorkOrders, purchaseBills, invoices, payments } = data;
 
+  const vendorPayments = useMemo(() => payments.filter((p) => p.vendorId), [payments]);
+
   const totalExpenses = useMemo(() => expenses.reduce((s, e) => s + Number(e.amount), 0), [expenses]);
   const totalSwo = useMemo(() => subcontractWorkOrders.reduce((s, w) => s + Number(w.totalAmount), 0), [subcontractWorkOrders]);
   const totalBills = useMemo(() => purchaseBills.reduce((s, b) => s + Number(b.amount), 0), [purchaseBills]);
   const totalInvoiced = useMemo(() => invoices.reduce((s, i) => s + Number(i.totalAmount) + Number(i.gstAmount), 0), [invoices]);
+  const totalVendorPayments = useMemo(() => vendorPayments.reduce((s, p) => s + Number(p.amount), 0), [vendorPayments]);
 
   const expenseColumns: ColumnsType<Expense> = [
     { title: 'Date', dataIndex: 'expenseDate', key: 'expenseDate', render: formatDate, width: 110 },
@@ -64,10 +67,22 @@ export function ProjectDetailsClient({ data }: Props) {
     { title: 'Status', dataIndex: 'status', key: 'status', render: (v) => <StatusTag value={v} />, width: 130 },
   ];
 
-  const paymentColumns: ColumnsType<Payment> = [
+  const vendorPaymentColumns: ColumnsType<Payment> = [
     { title: 'Date', dataIndex: 'paymentDate', key: 'paymentDate', render: formatDate, width: 110 },
-    { title: 'Type', dataIndex: 'paymentType', key: 'paymentType', width: 120 },
-    { title: 'Payee', dataIndex: 'payeeName', key: 'payeeName', width: 140 },
+    { title: 'Vendor', key: 'vendor', width: 160, render: (_, r) => r.vendor?.name ?? '-' },
+    {
+      title: 'Linked To',
+      key: 'linkedTo',
+      width: 160,
+      render: (_, r) =>
+        r.purchaseOrder?.poNumber
+          ? `PO: ${r.purchaseOrder.poNumber}`
+          : r.subcontractWorkOrder?.woNumber
+            ? `WO: ${r.subcontractWorkOrder.woNumber}`
+            : r.purchaseBill?.billNumber
+              ? `Bill: ${r.purchaseBill.billNumber}`
+              : '-',
+    },
     { title: 'Mode', dataIndex: 'paymentMode', key: 'paymentMode', width: 80 },
     { title: 'Reference', dataIndex: 'referenceNumber', key: 'ref', width: 120 },
     { title: 'Amount', dataIndex: 'amount', key: 'amount', align: 'right', render: formatCurrency, width: 130, sorter: (a, b) => Number(a.amount) - Number(b.amount) },
@@ -78,6 +93,7 @@ export function ProjectDetailsClient({ data }: Props) {
     { label: 'Subcontract WOs', value: totalSwo, color: 'text-blue-600' },
     { label: 'Purchase Bills', value: totalBills, color: 'text-purple-600' },
     { label: 'Invoiced Amount', value: totalInvoiced, color: 'text-green-600' },
+    { label: 'Vendor Payments', value: totalVendorPayments, color: 'text-rose-600' },
   ];
 
   return (
@@ -174,14 +190,14 @@ export function ProjectDetailsClient({ data }: Props) {
         />
       </Card>
 
-      <Card title={<Text strong>Payments ({payments.length})</Text>} size="small">
+      <Card title={<Text strong>Vendor Payments ({vendorPayments.length})</Text>} size="small">
         <Table
-          dataSource={payments}
-          columns={paymentColumns}
+          dataSource={vendorPayments}
+          columns={vendorPaymentColumns}
           rowKey="id"
           size="small"
           scroll={{ x: 800 }}
-          pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `${t} payments` }}
+          pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `${t} vendor payments` }}
         />
       </Card>
     </Flex>
