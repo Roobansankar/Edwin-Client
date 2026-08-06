@@ -359,12 +359,6 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
       ) : '-',
     },
     {
-      title: 'Paid',
-      dataIndex: 'paidAmount',
-      align: 'right',
-      render: (value) => <Typography.Text type="success">{formatCurrency(value)}</Typography.Text>,
-    },
-    {
       title: 'Balance',
       key: 'balance',
       align: 'right',
