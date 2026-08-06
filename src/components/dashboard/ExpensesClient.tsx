@@ -9,6 +9,7 @@ import type { Expense, Trade, Project, ExpenseType } from '@/types/erp';
 import { ExpenseForm } from './ExpenseForm';
 import { clientApiFetch } from '@/lib/client-api';
 import { getApiOrigin } from '@/lib/api-url';
+import { useAuthStore } from '@/store/auth';
 import {
   StatusTag,
   cardClassName,
@@ -38,6 +39,8 @@ export function ExpensesClient({ expenses: initialExpenses, projects }: Expenses
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [isPending, startTransition] = useTransition();
   const { message } = App.useApp();
+  const { user } = useAuthStore();
+  const canUpdateStatus = user?.role === 'admin' || user?.role === 'accounts_manager';
 
   useEffect(() => {
     Promise.all([
@@ -151,11 +154,6 @@ export function ExpensesClient({ expenses: initialExpenses, projects }: Expenses
       ),
     },
     {
-      title: 'Paid By',
-      dataIndex: 'paidBy',
-      render: (value?: string | null) => value || '-',
-    },
-    {
       title: 'Amount',
       dataIndex: 'amount',
       align: 'right',
@@ -169,19 +167,22 @@ export function ExpensesClient({ expenses: initialExpenses, projects }: Expenses
       width: 140,
       filters: STATUS_OPTIONS.map(opt => ({ text: opt.label, value: opt.value })),
       onFilter: (value, record) => record.status === value,
-      render: (value: string, record: Expense) => (
-        <Select
-          defaultValue={value || 'pending'}
-          size="small"
-          variant="borderless"
-          className="w-full"
-          onChange={(newStatus) => handleStatusChange(record.id, newStatus)}
-          options={STATUS_OPTIONS}
-          popupMatchSelectWidth={false}
-          styles={{ popup: { root: { minWidth: 120 } } }}
-          disabled={isPending}
-        />
-      ),
+      render: (value: string, record: Expense) =>
+        canUpdateStatus ? (
+          <Select
+            defaultValue={value || 'pending'}
+            size="small"
+            variant="borderless"
+            className="w-full"
+            onChange={(newStatus) => handleStatusChange(record.id, newStatus)}
+            options={STATUS_OPTIONS}
+            popupMatchSelectWidth={false}
+            styles={{ popup: { root: { minWidth: 120 } } }}
+            disabled={isPending}
+          />
+        ) : (
+          <StatusTag value={value || 'pending'} />
+        ),
     },
     {
       title: 'Receipts',

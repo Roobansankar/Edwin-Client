@@ -70,7 +70,7 @@ const navigationSections: Array<{ title: string; items: NavItem[]; allowedRoles?
   {
     title: 'Workspace',
     items: [
-      { key: '/dashboard', icon: <AppstoreOutlined />, label: 'Dashboard', allowedRoles: ['admin', 'accounts_manager', 'site_engineer', 'purchase_team', 'office_staff'] },
+      { key: '/dashboard', icon: <AppstoreOutlined />, label: 'Dashboard', allowedRoles: ['admin', 'accounts_manager', 'site_engineer', 'purchase_team'] },
       { key: '/dashboard/new', icon: <FormOutlined />, label: 'Daily Entry List', allowedRoles: ['site_engineer'] },
 
       { key: '/dashboard/expenses/new', icon: <WalletOutlined />, label: 'Expense', allowedRoles: ['site_engineer'] },
@@ -94,7 +94,7 @@ const navigationSections: Array<{ title: string; items: NavItem[]; allowedRoles?
       { key: '/dashboard/purchase-enquiry', icon: <AuditOutlined />, label: 'Purchase Enquiry', allowedRoles: ['purchase_team'] },
       { key: '/dashboard/purchase-orders', icon: <FileProtectOutlined />, label: 'Purchase Orders', allowedRoles: ['purchase_team'] },
       { key: '/dashboard/advance', icon: <DollarOutlined />, label: 'Vendor Payments', allowedRoles: ['purchase_team'] },
-      // { key: '/dashboard/dpr', icon: <CalendarOutlined />, label: 'Daily Reports (DPR)', allowedRoles: ['admin'] },
+      { key: '/dashboard/dpr', icon: <CalendarOutlined />, label: 'Daily Reports (DPR)', allowedRoles: ['office_staff'] },
       // { key: '/dashboard/drawings', icon: <FileImageOutlined />, label: 'Drawings', allowedRoles: ['admin'] },
       { key: '/dashboard/reports', icon: <FileTextOutlined />, label: 'Reports', allowedRoles: ['admin'] },
       { key: '/dashboard/project-access', icon: <SafetyCertificateOutlined />, label: 'Project Access', allowedRoles: ['admin'] },
@@ -122,11 +122,9 @@ const navigationSections: Array<{ title: string; items: NavItem[]; allowedRoles?
     allowedRoles: ['admin', 'office_staff'],
     items: [
       { key: '/dashboard/timesheet-attendance', icon: <CalendarOutlined />, label: 'Timesheet', allowedRoles: ['office_staff'] },
-      { key: '/dashboard/expenses', icon: <WalletOutlined />, label: 'Expense', allowedRoles: ['office_staff'] },
+      { key: '/dashboard/expenses/new', icon: <WalletOutlined />, label: 'Expense', allowedRoles: ['office_staff'] },
       { key: '/dashboard/drawings', icon: <FileImageOutlined />, label: 'Drawings', allowedRoles: ['office_staff'] },
-      { key: '/dashboard/reports', icon: <FileTextOutlined />, label: 'Reports', allowedRoles: ['office_staff'] },
       { key: '/dashboard/estimate', icon: <CalculatorOutlined />, label: 'Estimate', allowedRoles: ['office_staff'] },
-      { key: '/dashboard/accounts/bills', icon: <FileDoneOutlined />, label: 'Bill', allowedRoles: ['office_staff'] },
     ],
   },
   {
@@ -306,10 +304,11 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
     const role = user?.role || 'viewer';
 
     
-    return navigationSections
+    const mappedSections = navigationSections
       .filter((section) => !section.allowedRoles || section.allowedRoles.includes(role))
       .map((section) => ({
         ...section,
+        title: role === 'office_staff' && section.title === 'For Office Staff' ? '' : section.title,
         items: section.items
           .filter((item) => !item.allowedRoles || item.allowedRoles.includes(role))
           .map((item) => {
@@ -337,6 +336,19 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
           })
       }))
       .filter(section => section.items.length > 0);
+
+    // A section whose title was blanked out for this role (e.g. "For Office
+    // Staff" shown to an office_staff user) has nothing to label it, so fold
+    // its items into the previous section instead of rendering a second,
+    // visually-gapped <Menu> block right under it.
+    return mappedSections.reduce<typeof mappedSections>((acc, section) => {
+      if (!section.title && acc.length > 0) {
+        acc[acc.length - 1].items = [...acc[acc.length - 1].items, ...section.items];
+        return acc;
+      }
+      acc.push(section);
+      return acc;
+    }, []);
   }, [user, pendingEqCount]);
 
   const navItems = useMemo(() => {
@@ -418,9 +430,9 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
-              {filteredNavigationSections.map((section) => (
-                <div key={section.title} className="mb-5 last:mb-0">
-                  {!effectiveCollapsed && (
+              {filteredNavigationSections.map((section, index) => (
+                <div key={`${section.title}-${index}`} className={`${section.title ? 'mb-5' : 'mb-0'} last:mb-0`}>
+                  {!effectiveCollapsed && section.title && (
                     <Text className="mb-2 block px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--sidebar-text-very-muted)]!">
                       {section.title}
                     </Text>

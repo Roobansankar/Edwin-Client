@@ -248,7 +248,7 @@ export function DrawingsClient({ projects, initialDrawings }: DrawingsClientProp
               href={`${getApiOrigin()}${record.fileUrl}`}
               target="_blank"
             >
-              Download
+              View
             </Button>
           </Tooltip>
           <Tooltip title="Edit">

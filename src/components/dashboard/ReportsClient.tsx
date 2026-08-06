@@ -20,14 +20,14 @@ import type { Dayjs } from 'dayjs';
 import type { ColumnsType } from 'antd/es/table';
 import {
   BarChartOutlined,
+  CalendarOutlined,
   FileExcelOutlined,
   FileTextOutlined,
   ProjectOutlined,
-  TeamOutlined,
 } from '@ant-design/icons';
-import type { OfficeReport, Project, PurchaseBill, WeeklyTimesheet, Expense } from '@/types/erp';
-import { OfficeReportsClient } from './OfficeReportsClient';
+import type { DprReport, Project, PurchaseBill, WeeklyTimesheet, Expense } from '@/types/erp';
 import { exportToExcel } from '@/lib/excel';
+import { getApiOrigin } from '@/lib/api-url';
 import {
   cardClassName,
   formatCurrency,
@@ -50,12 +50,11 @@ function inRange(dateStr: string | null | undefined, range: [Dayjs | null, Dayjs
 }
 
 type ReportsClientProps = {
-  reports: OfficeReport[];
-  categories: string[];
   projects: Project[];
   bills: PurchaseBill[];
   timesheets: WeeklyTimesheet[];
   expenses: Expense[];
+  dprReports: DprReport[];
   role: string;
 };
 
@@ -74,13 +73,15 @@ type TimesheetReportRow = {
   totalCost: number;
 };
 
-export function ReportsClient({ reports, categories, projects, bills, timesheets, expenses, role }: ReportsClientProps) {
+export function ReportsClient({ projects, bills, timesheets, expenses, dprReports, role }: ReportsClientProps) {
   const [activeTab, setActiveTab] = useState('project');
   const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>();
   const [tsProjectId, setTsProjectId] = useState<string | undefined>();
   const [tsEngineerId, setTsEngineerId] = useState<string | undefined>();
+  const [dprProjectId, setDprProjectId] = useState<string | undefined>();
   const [projectDateRange, setProjectDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
   const [tsDateRange, setTsDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
+  const [dprDateRange, setDprDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
 
   const projectNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -171,6 +172,12 @@ export function ReportsClient({ reports, categories, projects, bills, timesheets
     }
     return { engineers: engineers.size, rows: timesheetRows.length, totalHours, totalCost };
   }, [timesheetRows]);
+
+  const filteredDprReports = useMemo(() => {
+    return dprReports
+      .filter((d) => (!dprProjectId || d.projectId === dprProjectId) && inRange(d.reportDate, dprDateRange))
+      .sort((a, b) => (b.reportDate || '').localeCompare(a.reportDate || ''));
+  }, [dprReports, dprProjectId, dprDateRange]);
 
   const exportProjectBills = () => {
     exportToExcel({
@@ -263,6 +270,20 @@ export function ReportsClient({ reports, categories, projects, bills, timesheets
     });
   };
 
+  const exportDprReports = () => {
+    exportToExcel({
+      filename: 'DPR-Reports',
+      sheetName: 'DPR Reports',
+      headers: ['Report Date', 'Project', 'File', 'Uploaded At'],
+      rows: filteredDprReports.map((d) => [
+        formatDate(d.reportDate),
+        d.project?.name || '-',
+        d.fileKey || '-',
+        formatDate(d.createdAt),
+      ]),
+    });
+  };
+
   const billColumns: ColumnsType<PurchaseBill> = [
     { title: 'Bill Number', dataIndex: 'billNumber', width: 160, render: (v: string) => <Typography.Text strong>{v}</Typography.Text> },
     { title: 'Vendor', dataIndex: ['vendor', 'name'], width: 180, render: (v: string) => v || '-' },
@@ -325,6 +346,21 @@ export function ReportsClient({ reports, categories, projects, bills, timesheets
     { title: 'Cost / Hr', key: 'costPerHr', width: 100, align: 'right' as const, render: (_, r) => (r.costPerHr ? formatCurrency(r.costPerHr) : '-') },
     { title: 'Total Cost', key: 'totalCost', width: 120, align: 'right' as const, render: (_, r) => (r.totalCost ? formatCurrency(r.totalCost) : '-') },
     { title: 'Status', dataIndex: 'status', width: 120, render: (v: string) => <Tag color="blue">{titleCase(v)}</Tag> },
+  ];
+
+  const dprColumns: ColumnsType<DprReport> = [
+    { title: 'Report Date', dataIndex: 'reportDate', width: 130, render: (v: string) => <Typography.Text strong>{formatDate(v)}</Typography.Text> },
+    { title: 'Project', dataIndex: ['project', 'name'], width: 200, render: (v: string) => v || '-' },
+    {
+      title: 'File',
+      key: 'file',
+      render: (_, r) => (
+        <Typography.Link href={`${getApiOrigin()}${r.fileUrl}`} target="_blank">
+          {r.fileKey || 'View File'}
+        </Typography.Link>
+      ),
+    },
+    { title: 'Uploaded At', dataIndex: 'createdAt', width: 140, render: (v: string) => <Typography.Text type="secondary">{formatDate(v)}</Typography.Text> },
   ];
 
   const projectTabItems = {
@@ -551,20 +587,69 @@ export function ReportsClient({ reports, categories, projects, bills, timesheets
     ),
   };
 
-  const officeTabItems = {
-    key: 'office',
+  const dprTabItems = {
+    key: 'dpr',
     label: (
       <span>
-        <TeamOutlined className="mr-1" /> Uploaded Reports
+        <CalendarOutlined className="mr-1" /> DPR Reports
       </span>
     ),
-    children: <OfficeReportsClient reports={reports} categories={categories} projects={projects} />,
+    children: (
+      <div>
+        <Flex justify="space-between" align="center" gap={16} wrap="wrap" className="mb-4">
+          <Flex gap={12} wrap="wrap">
+            <Select
+              showSearch
+              placeholder="Filter by project"
+              allowClear
+              style={{ minWidth: 220 }}
+              value={dprProjectId}
+              onChange={setDprProjectId}
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              filterOption={(input, option) =>
+                String(option?.label || '').toLowerCase().includes(input.toLowerCase())
+              }
+            />
+            <DatePicker
+              picker="month"
+              placeholder="Month"
+              allowClear
+              onChange={(month) => setDprDateRange(month ? [month.startOf('month'), month.endOf('month')] : [null, null])}
+            />
+            <DatePicker.RangePicker
+              value={dprDateRange[0] || dprDateRange[1] ? dprDateRange : [null, null]}
+              onChange={(dates) => setDprDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+              allowClear
+              placeholder={['From', 'To']}
+            />
+          </Flex>
+          <Button
+            type="primary"
+            icon={<FileExcelOutlined />}
+            disabled={filteredDprReports.length === 0}
+            onClick={exportDprReports}
+          >
+            Export to Excel
+          </Button>
+        </Flex>
+
+        <Table
+          dataSource={filteredDprReports}
+          columns={dprColumns}
+          rowKey="id"
+          size="middle"
+          scroll={{ x: 900 }}
+          pagination={{ pageSize: 15, showTotal: (total) => `${total} reports` }}
+          locale={{ emptyText: 'No DPR reports for the selected filters' }}
+        />
+      </div>
+    ),
   };
 
   const canSeeReportData = ['admin', 'accounts_manager', 'purchase_team'].includes(role);
   const tabItems = canSeeReportData
-    ? [projectTabItems, timesheetTabItems, officeTabItems]
-    : [officeTabItems];
+    ? [projectTabItems, timesheetTabItems, dprTabItems]
+    : [dprTabItems];
 
   return (
     <div>

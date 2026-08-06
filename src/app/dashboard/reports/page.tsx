@@ -1,7 +1,8 @@
-import { fetchOfficeReports, fetchOfficeReportCategories, fetchProjects, fetchBills, fetchTimesheets, fetchExpenses } from '@/lib/api';
+import { fetchProjects, fetchBills, fetchTimesheets, fetchExpenses, fetchDpr } from '@/lib/api';
 import { getUserFromToken } from '@/lib/auth';
 import { ReportsClient } from '@/components/dashboard/ReportsClient';
 import { Alert } from 'antd';
+import type { DprReport } from '@/types/erp';
 
 const REPORT_DATA_ROLES = ['admin', 'accounts_manager', 'purchase_team'];
 
@@ -10,22 +11,20 @@ async function loadData() {
     const user = await getUserFromToken();
     const canLoadReportData = user ? REPORT_DATA_ROLES.includes(user.role) : false;
 
-    const [reports, categories, projects, bills, timesheets, expenses] = await Promise.all([
-      fetchOfficeReports(),
-      fetchOfficeReportCategories(),
+    const [projects, bills, timesheets, expenses, dpr] = await Promise.all([
       fetchProjects(),
       canLoadReportData ? fetchBills() : Promise.resolve([]),
       canLoadReportData ? fetchTimesheets('limit=5000') : Promise.resolve({ data: [], total: 0, page: 1, limit: 5000 }),
       canLoadReportData ? fetchExpenses('limit=5000') : Promise.resolve({ data: [], total: 0, page: 1, limit: 5000 }),
+      fetchDpr('page=1&limit=500') as Promise<{ data: DprReport[]; total: number }>,
     ]);
 
     return {
-      reports,
-      categories,
       projects,
       bills: Array.isArray(bills) ? bills : [],
       timesheets: Array.isArray(timesheets) ? timesheets : timesheets?.data || [],
       expenses: Array.isArray(expenses) ? expenses : expenses?.data || [],
+      dprReports: dpr?.data || [],
       role: user?.role || 'viewer',
     };
   } catch (error) {
@@ -50,12 +49,11 @@ export default async function ReportsPage() {
 
   return (
     <ReportsClient
-      reports={data.reports}
-      categories={data.categories}
       projects={data.projects}
       bills={data.bills}
       timesheets={data.timesheets}
       expenses={data.expenses}
+      dprReports={data.dprReports}
       role={data.role}
     />
   );
