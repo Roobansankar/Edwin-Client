@@ -45,6 +45,7 @@ export type WorkCategory = {
 export type Trade = {
   id: string;
   name: string;
+  shiftWiseAmount?: number | null;
   isDeleted?: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -517,6 +518,7 @@ export type DailyWorker = {
   trade: string;
   count: number;
   shift: string;
+  shiftAmount?: number | null;
   inTime?: string | null;
   outTime?: string | null;
   remarks?: string | null;

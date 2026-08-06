@@ -110,6 +110,18 @@ export function DpwForm({ projects, trades, initialValues, onSuccess, onCancel }
     }
   };
 
+  const handleTradeChange = (index: number, tradeId: string) => {
+    const selectedTrade = localTrades.find((t) => t.id === tradeId);
+    if (selectedTrade?.shiftWiseAmount != null) {
+      const workers = form.getFieldValue('workers') || [];
+      form.setFieldsValue({
+        workers: workers.map((w: any, i: number) =>
+          i === index ? { ...w, shiftAmount: Number(selectedTrade.shiftWiseAmount) } : w
+        ),
+      });
+    }
+  };
+
   const handlePhotoChange = (index: number, type: 'morning' | 'evening', fileList: GeoTagFile[]) => {
     setWorkerPhotos(prev => ({
       ...prev,
@@ -151,6 +163,7 @@ export function DpwForm({ projects, trades, initialValues, onSuccess, onCancel }
             trade: selectedTrade?.name || w.tradeId,
             count: w.count || 1,
             shift: w.shift || '1',
+            shiftAmount: w.shiftAmount ?? undefined,
             inTime: w.inTime ? w.inTime.format('HH:mm:ss') : undefined,
             outTime: w.outTime ? w.outTime.format('HH:mm:ss') : undefined,
             remarks: w.remarks || '',
@@ -215,12 +228,13 @@ export function DpwForm({ projects, trades, initialValues, onSuccess, onCancel }
                   extra={<Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)} />}
                 >
                     <Row gutter={12}>
-                      <Col xs={24} sm={10}>
+                      <Col xs={24} sm={8}>
                         <Form.Item {...restField} name={[name, 'tradeId']} label="Trade" rules={[{ required: true }]}>
                           <Select
                             showSearch
                             placeholder="Select trade"
                             options={localTrades.map(t => ({ label: t.name, value: t.id }))}
+                            onChange={(value) => handleTradeChange(name, value)}
                             dropdownRender={(menu) => (
                               <>
                                 {menu}
@@ -241,14 +255,19 @@ export function DpwForm({ projects, trades, initialValues, onSuccess, onCancel }
                           />
                         </Form.Item>
                       </Col>
-                      <Col xs={12} sm={7}>
+                      <Col xs={12} sm={5}>
                         <Form.Item {...restField} name={[name, 'count']} label="Worker Count" rules={[{ required: true }]}>
                           <InputNumber min={1} style={{ width: '100%' }} placeholder="Count" />
                         </Form.Item>
                       </Col>
-                      <Col xs={12} sm={7}>
+                      <Col xs={12} sm={5}>
                         <Form.Item {...restField} name={[name, 'shift']} label="Shift" initialValue="1">
                           <Select options={[{label: '0.5', value: '0.5'}, {label: '1', value: '1'}, {label: '1.5', value: '1.5'}, {label: '2', value: '2'}]} />
+                        </Form.Item>
+                      </Col>
+                      <Col xs={12} sm={6}>
+                        <Form.Item {...restField} name={[name, 'shiftAmount']} label="1 Shift Amt">
+                          <InputNumber min={0} step={50} prefix="₹" style={{ width: '100%' }} placeholder="0" />
                         </Form.Item>
                       </Col>
                     <Col xs={12}>

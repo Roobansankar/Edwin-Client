@@ -1,6 +1,7 @@
-import { fetchSalaries } from '@/lib/api';
+import { fetchSalaries, fetchTrades } from '@/lib/api';
 import { SalaryClient } from '@/components/dashboard/SalaryClient';
-import { Alert } from 'antd';
+import { LabourTradesClient } from '@/components/dashboard/LabourTradesClient';
+import { Alert, Divider } from 'antd';
 
 async function loadSalaries() {
   try {
@@ -10,8 +11,16 @@ async function loadSalaries() {
   }
 }
 
+async function loadTrades() {
+  try {
+    return await fetchTrades();
+  } catch (error) {
+    return null;
+  }
+}
+
 export default async function SalaryPage() {
-  const salaries = await loadSalaries();
+  const [salaries, trades] = await Promise.all([loadSalaries(), loadTrades()]);
 
   if (salaries === null) {
     return (
@@ -23,5 +32,15 @@ export default async function SalaryPage() {
     );
   }
 
-  return <SalaryClient salaries={salaries} />;
+  return (
+    <div>
+      <SalaryClient salaries={salaries} />
+      <Divider />
+      {trades === null ? (
+        <Alert message="Failed to load labour trades" type="error" showIcon />
+      ) : (
+        <LabourTradesClient trades={trades} />
+      )}
+    </div>
+  );
 }
