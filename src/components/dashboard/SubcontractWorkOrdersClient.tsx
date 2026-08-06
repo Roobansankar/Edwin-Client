@@ -41,6 +41,7 @@ import {
   createSubcontractWorkOrder,
   deleteSubcontractWorkOrder,
   updateSubcontractWorkOrder,
+  updateSubcontractWorkOrderStatus,
   uploadWorkOrderFile,
 } from '@/actions/subcontract-work-orders';
 import type { SubcontractWorkOrder, Project, Subcontractor, WorkCategory } from '@/types/erp';
@@ -54,6 +55,7 @@ import {
   titleIconClassName,
 } from './ui';
 import { getApiOrigin } from '@/lib/api-url';
+import { useAuthStore } from '@/store/auth';
 
 const swoSchema = z.object({
   woNumber: z.string().min(2, 'WO number is required'),
@@ -103,6 +105,22 @@ export function SubcontractWorkOrdersClient({
   const [previewSwo, setPreviewSwo] = useState<SubcontractWorkOrder | null>(null);
   const [isPending, startTransition] = useTransition();
   const { message } = App.useApp();
+  const user = useAuthStore((s) => s.user);
+  const isPurchaseTeam = user?.role === 'purchase_team';
+  const statusOptions = isPurchaseTeam
+    ? STATUS_OPTIONS.filter((opt) => opt.value !== 'admin_approved')
+    : STATUS_OPTIONS;
+
+  const handleStatusChange = (id: string, status: string) => {
+    startTransition(async () => {
+      try {
+        await updateSubcontractWorkOrderStatus(id, status);
+        message.success('Status updated');
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : 'Failed to update status');
+      }
+    });
+  };
   const [isClient, setIsClient] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<{
     workorderUrl: string;
@@ -214,6 +232,12 @@ export function SubcontractWorkOrdersClient({
 
   const columns: ColumnsType<SubcontractWorkOrder> = [
     {
+      title: 'S.No',
+      key: 'sno',
+      width: 60,
+      render: (_, __, index) => index + 1,
+    },
+    {
       title: 'WO Number',
       dataIndex: 'woNumber',
       key: 'woNumber',
@@ -294,8 +318,17 @@ export function SubcontractWorkOrdersClient({
       width: 140,
       filters: STATUS_OPTIONS.map(opt => ({ text: opt.label, value: opt.value })),
       onFilter: (value, record) => record.status === value,
-      render: (value: string) => (
-        <Typography.Text>{value ? value.charAt(0).toUpperCase() + value.slice(1) : '-'}</Typography.Text>
+      render: (value: string, record) => (
+        <Select
+          value={value}
+          size="small"
+          variant="borderless"
+          className="w-full"
+          onChange={(newStatus) => handleStatusChange(record.id, newStatus)}
+          options={statusOptions}
+          popupMatchSelectWidth={false}
+          disabled={isPending}
+        />
       ),
     },
     {

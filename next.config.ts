@@ -5,7 +5,7 @@ const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ||
   "http://localhost:8000/api";
 
-const API_ORIGIN = API_BASE.replace(/\/api$/, "");
+const API_ORIGIN = API_BASE.replace(/\/api\/v1$/, "").replace(/\/api$/, "");
 
 const nextConfig: NextConfig = {
   experimental: {
