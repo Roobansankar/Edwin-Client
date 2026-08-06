@@ -4,9 +4,8 @@ import { useMemo } from 'react';
 import { Card, Descriptions, Flex, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { ProjectOutlined } from '@ant-design/icons';
-import type { Expense, Payment, ProjectDetails, PurchaseBill, SalesInvoice, SubcontractWorkOrder } from '@/types/erp';
-import { StatusTag, cardClassName, formatCurrency, formatDate, pageTitleClassName, titleIconClassName } from './ui';
-import { getApiOrigin } from '@/lib/api-url';
+import type { Expense, Payment, ProjectDetails, PurchaseBill, SalesInvoice } from '@/types/erp';
+import { StatusTag, formatCurrency, formatDate, pageTitleClassName, titleIconClassName } from './ui';
 
 const { Title, Text } = Typography;
 
@@ -15,15 +14,16 @@ type Props = {
 };
 
 export function ProjectDetailsClient({ data }: Props) {
-  const { project, expenses, subcontractWorkOrders, purchaseBills, invoices, payments } = data;
+  const { project, expenses, purchaseBills, invoices, payments } = data;
 
   const vendorPayments = useMemo(() => payments.filter((p) => p.vendorId), [payments]);
+  const subcontractorPayments = useMemo(() => payments.filter((p) => p.subcontractWorkOrderId), [payments]);
 
   const totalExpenses = useMemo(() => expenses.reduce((s, e) => s + Number(e.amount), 0), [expenses]);
-  const totalSwo = useMemo(() => subcontractWorkOrders.reduce((s, w) => s + Number(w.totalAmount), 0), [subcontractWorkOrders]);
   const totalBills = useMemo(() => purchaseBills.reduce((s, b) => s + Number(b.amount), 0), [purchaseBills]);
   const totalInvoiced = useMemo(() => invoices.reduce((s, i) => s + Number(i.totalAmount) + Number(i.gstAmount), 0), [invoices]);
   const totalVendorPayments = useMemo(() => vendorPayments.reduce((s, p) => s + Number(p.amount), 0), [vendorPayments]);
+  const totalSubcontractorPayments = useMemo(() => subcontractorPayments.reduce((s, p) => s + Number(p.amount), 0), [subcontractorPayments]);
 
   const expenseColumns: ColumnsType<Expense> = [
     { title: 'Date', dataIndex: 'expenseDate', key: 'expenseDate', render: formatDate, width: 110 },
@@ -36,17 +36,6 @@ export function ProjectDetailsClient({ data }: Props) {
     { title: 'Status', dataIndex: 'status', key: 'status', render: (v) => <StatusTag value={v} />, width: 130 },
     { title: 'Receipts', key: 'receipts', width: 90, render: (_, r) => r.receiptUrls?.length ? <Text>{r.receiptUrls.length} file(s)</Text> : '-' },
     { title: 'Photos', key: 'photos', width: 90, render: (_, r) => r.sitePhotoUrls?.length ? <Text>{r.sitePhotoUrls.length} photo(s)</Text> : '-' },
-  ];
-
-  const swoColumns: ColumnsType<SubcontractWorkOrder> = [
-    { title: 'WO #', dataIndex: 'woNumber', key: 'woNumber', width: 130 },
-    { title: 'Subcontractor', key: 'sub', width: 160, render: (_, r) => r.subcontractor?.name ?? '-' },
-    { title: 'Work Category', key: 'cat', width: 120, render: (_, r) => r.workCategory?.name ?? '-' },
-    { title: 'Description', dataIndex: 'description', key: 'description', ellipsis: true },
-    { title: 'Work Order', key: 'workorder', width: 100, render: (_, r) => r.workorderUrl ? <Typography.Link href={`${getApiOrigin()}${r.workorderUrl}`} target="_blank">View File</Typography.Link> : '-' },
-    { title: 'Total', dataIndex: 'totalAmount', key: 'totalAmount', align: 'right', render: formatCurrency, width: 130, sorter: (a, b) => Number(a.totalAmount) - Number(b.totalAmount) },
-    { title: 'Status', dataIndex: 'status', key: 'status', render: (v) => <StatusTag value={v} />, width: 130 },
-    { title: 'Timeline', key: 'timeline', width: 140, render: (_, r) => `${formatDate(r.startDate)} - ${formatDate(r.endDate)}` },
   ];
 
   const billColumns: ColumnsType<PurchaseBill> = [
@@ -88,12 +77,21 @@ export function ProjectDetailsClient({ data }: Props) {
     { title: 'Amount', dataIndex: 'amount', key: 'amount', align: 'right', render: formatCurrency, width: 130, sorter: (a, b) => Number(a.amount) - Number(b.amount) },
   ];
 
+  const subcontractorPaymentColumns: ColumnsType<Payment> = [
+    { title: 'Date', dataIndex: 'paymentDate', key: 'paymentDate', render: formatDate, width: 110 },
+    { title: 'Subcontractor', key: 'subcontractor', width: 160, render: (_, r) => r.subcontractWorkOrder?.subcontractor?.name ?? '-' },
+    { title: 'WO #', key: 'wo', width: 130, render: (_, r) => r.subcontractWorkOrder?.woNumber ?? '-' },
+    { title: 'Mode', dataIndex: 'paymentMode', key: 'paymentMode', width: 80 },
+    { title: 'Reference', dataIndex: 'referenceNumber', key: 'ref', width: 120 },
+    { title: 'Amount', dataIndex: 'amount', key: 'amount', align: 'right', render: formatCurrency, width: 130, sorter: (a, b) => Number(a.amount) - Number(b.amount) },
+  ];
+
   const summaryCards = [
     { label: 'Total Expenses', value: totalExpenses, color: 'text-orange-600' },
-    { label: 'Subcontract WOs', value: totalSwo, color: 'text-blue-600' },
     { label: 'Purchase Bills', value: totalBills, color: 'text-purple-600' },
     { label: 'Invoiced Amount', value: totalInvoiced, color: 'text-green-600' },
     { label: 'Vendor Payments', value: totalVendorPayments, color: 'text-rose-600' },
+    { label: 'Subcontractor Payments', value: totalSubcontractorPayments, color: 'text-cyan-600' },
   ];
 
   return (
@@ -157,17 +155,6 @@ export function ProjectDetailsClient({ data }: Props) {
         />
       </Card>
 
-      <Card title={<Text strong>Subcontract Work Orders ({subcontractWorkOrders.length})</Text>} size="small">
-        <Table
-          dataSource={subcontractWorkOrders}
-          columns={swoColumns}
-          rowKey="id"
-          size="small"
-          scroll={{ x: 1000 }}
-          pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `${t} work orders` }}
-        />
-      </Card>
-
       <Card title={<Text strong>Purchase Bills ({purchaseBills.length})</Text>} size="small">
         <Table
           dataSource={purchaseBills}
@@ -198,6 +185,17 @@ export function ProjectDetailsClient({ data }: Props) {
           size="small"
           scroll={{ x: 800 }}
           pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `${t} vendor payments` }}
+        />
+      </Card>
+
+      <Card title={<Text strong>Subcontractor Payments ({subcontractorPayments.length})</Text>} size="small">
+        <Table
+          dataSource={subcontractorPayments}
+          columns={subcontractorPaymentColumns}
+          rowKey="id"
+          size="small"
+          scroll={{ x: 800 }}
+          pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `${t} subcontractor payments` }}
         />
       </Card>
     </Flex>
