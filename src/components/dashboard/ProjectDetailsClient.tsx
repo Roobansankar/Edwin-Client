@@ -4,17 +4,25 @@ import { useMemo } from 'react';
 import { Card, Descriptions, Flex, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { ProjectOutlined } from '@ant-design/icons';
-import type { Expense, Payment, ProjectDetails, PurchaseBill, SalesInvoice } from '@/types/erp';
+import type { Expense, Payment, ProjectDetails, ProjectTimesheetSummary, PurchaseBill, SalesInvoice } from '@/types/erp';
 import { StatusTag, formatCurrency, formatDate, pageTitleClassName, titleIconClassName } from './ui';
 
 const { Title, Text } = Typography;
+
+const ROLE_LABELS: Record<string, string> = {
+  site_engineer: 'Site Engineer',
+  purchase_team: 'Purchase Team',
+  office_staff: 'Office Team',
+  accounts_manager: 'Accounts',
+  admin: 'Admin',
+};
 
 type Props = {
   data: ProjectDetails;
 };
 
 export function ProjectDetailsClient({ data }: Props) {
-  const { project, expenses, purchaseBills, invoices, payments } = data;
+  const { project, expenses, purchaseBills, invoices, payments, timesheetSummary } = data;
 
   const vendorPayments = useMemo(() => payments.filter((p) => p.vendorId), [payments]);
   const subcontractorPayments = useMemo(() => payments.filter((p) => p.subcontractWorkOrderId), [payments]);
@@ -24,6 +32,7 @@ export function ProjectDetailsClient({ data }: Props) {
   const totalInvoiced = useMemo(() => invoices.reduce((s, i) => s + Number(i.totalAmount) + Number(i.gstAmount), 0), [invoices]);
   const totalVendorPayments = useMemo(() => vendorPayments.reduce((s, p) => s + Number(p.amount), 0), [vendorPayments]);
   const totalSubcontractorPayments = useMemo(() => subcontractorPayments.reduce((s, p) => s + Number(p.amount), 0), [subcontractorPayments]);
+  const totalTimesheetAmount = useMemo(() => timesheetSummary.reduce((s, t) => s + Number(t.totalAmount), 0), [timesheetSummary]);
 
   const expenseColumns: ColumnsType<Expense> = [
     { title: 'Date', dataIndex: 'expenseDate', key: 'expenseDate', render: formatDate, width: 110 },
@@ -86,12 +95,43 @@ export function ProjectDetailsClient({ data }: Props) {
     { title: 'Amount', dataIndex: 'amount', key: 'amount', align: 'right', render: formatCurrency, width: 130, sorter: (a, b) => Number(a.amount) - Number(b.amount) },
   ];
 
+  const timesheetColumns: ColumnsType<ProjectTimesheetSummary> = [
+    { title: 'Name', dataIndex: 'name', key: 'name', sorter: (a, b) => a.name.localeCompare(b.name) },
+    {
+      title: 'Role',
+      dataIndex: 'role',
+      key: 'role',
+      width: 150,
+      sorter: (a, b) => a.role.localeCompare(b.role),
+      render: (v: string) => <Tag>{ROLE_LABELS[v] || v}</Tag>,
+    },
+    {
+      title: 'Total Hours',
+      dataIndex: 'totalHours',
+      key: 'totalHours',
+      align: 'right',
+      width: 130,
+      sorter: (a, b) => Number(a.totalHours) - Number(b.totalHours),
+      render: (v) => `${Number(v || 0).toFixed(1)} hrs`,
+    },
+    {
+      title: 'Amount',
+      dataIndex: 'totalAmount',
+      key: 'totalAmount',
+      align: 'right',
+      width: 130,
+      sorter: (a, b) => Number(a.totalAmount) - Number(b.totalAmount),
+      render: formatCurrency,
+    },
+  ];
+
   const summaryCards = [
     { label: 'Total Expenses', value: totalExpenses, color: 'text-orange-600' },
     { label: 'Purchase Bills', value: totalBills, color: 'text-purple-600' },
     { label: 'Invoiced Amount', value: totalInvoiced, color: 'text-green-600' },
     { label: 'Vendor Payments', value: totalVendorPayments, color: 'text-rose-600' },
     { label: 'Subcontractor Payments', value: totalSubcontractorPayments, color: 'text-cyan-600' },
+    { label: 'Timesheet Cost', value: totalTimesheetAmount, color: 'text-amber-600' },
   ];
 
   return (
@@ -196,6 +236,18 @@ export function ProjectDetailsClient({ data }: Props) {
           size="small"
           scroll={{ x: 800 }}
           pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `${t} subcontractor payments` }}
+        />
+      </Card>
+
+      <Card title={<Text strong>Timesheet ({timesheetSummary.length})</Text>} size="small">
+        <Table
+          dataSource={timesheetSummary}
+          columns={timesheetColumns}
+          rowKey="userId"
+          size="small"
+          scroll={{ x: 600 }}
+          pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `${t} users` }}
+          locale={{ emptyText: 'No admin-approved timesheet hours for this project yet' }}
         />
       </Card>
     </Flex>

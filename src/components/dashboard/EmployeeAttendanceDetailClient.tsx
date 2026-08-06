@@ -13,12 +13,11 @@ import { cardClassName, formatCurrency, formatDate, pageHeaderClassName, pageTit
 
 const STATUS_OPTIONS = [
   { label: 'Pending', value: 'pending' },
-  { label: 'Admin Approved', value: 'admin_approved' },
-  { label: 'Approved', value: 'approved' },
+  { label: 'Admin Approved', value: 'approved' },
   { label: 'Rejected', value: 'rejected' },
 ];
 
-const STATUS_COLORS: Record<string, string> = { pending: 'orange', verified: 'purple', admin_approved: 'blue', approved: 'green', rejected: 'red' };
+const STATUS_COLORS: Record<string, string> = { pending: 'orange', verified: 'purple', approved: 'green', rejected: 'red' };
 
 export function EmployeeAttendanceDetailClient() {
   const { employeeId } = useParams<{ employeeId: string }>();
@@ -114,8 +113,7 @@ export function EmployeeAttendanceDetailClient() {
           style={{ color: STATUS_COLORS[record.status] || undefined, fontWeight: 600 }}
           onChange={(newStatus) => {
             if (newStatus === record.status) return;
-            if (newStatus === 'verified') handleVerify(record.id);
-            else if (newStatus === 'admin_approved' || newStatus === 'approved') handleApprove(record.id);
+            if (newStatus === 'approved') handleApprove(record.id);
             else if (newStatus === 'rejected') handleReject(record.id);
           }}
           options={STATUS_OPTIONS}

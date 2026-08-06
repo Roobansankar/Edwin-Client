@@ -680,6 +680,14 @@ export type VendorQuotation = {
   createdAt?: string;
 };
 
+export type ProjectTimesheetSummary = {
+  userId: string;
+  name: string;
+  role: string;
+  totalHours: number;
+  totalAmount: number;
+};
+
 export type ProjectDetails = {
   project: Project;
   expenses: Expense[];
@@ -687,6 +695,7 @@ export type ProjectDetails = {
   purchaseBills: PurchaseBill[];
   invoices: SalesInvoice[];
   payments: Payment[];
+  timesheetSummary: ProjectTimesheetSummary[];
 };
 
 export type SchemaColumn = {
