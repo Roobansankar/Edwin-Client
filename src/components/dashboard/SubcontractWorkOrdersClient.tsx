@@ -47,6 +47,7 @@ import type { SubcontractWorkOrder, Project, Subcontractor, WorkCategory } from 
 import { SubcontractWorkOrderPdf } from './SubcontractWorkOrderPdf';
 import {
   cardClassName,
+  formatCurrency,
   formatDate,
   pageHeaderClassName,
   pageTitleClassName,
@@ -60,6 +61,7 @@ const swoSchema = z.object({
   subcontractorId: z.string().min(1, 'Subcontractor is required'),
   workCategoryId: z.string().min(1, 'Work category is required'),
   description: z.string().optional(),
+  amount: z.number().min(0.01, 'Amount is required'),
   gstPercentage: z.number().min(0, 'GST % cannot be negative'),
   startDate: z.any().optional(),
   endDate: z.any().optional(),
@@ -125,12 +127,16 @@ export function SubcontractWorkOrdersClient({
       subcontractorId: '',
       workCategoryId: '',
       description: '',
+      amount: 0,
       gstPercentage: 18,
       notes: '',
     },
   });
 
   const selectedSubcontractorId = useWatch({ control, name: 'subcontractorId' });
+  const watchedAmount = useWatch({ control, name: 'amount' });
+  const watchedGstPercentage = useWatch({ control, name: 'gstPercentage' });
+  const computedTotal = (Number(watchedAmount) || 0) + ((Number(watchedAmount) || 0) * (Number(watchedGstPercentage) || 0)) / 100;
 
   useEffect(() => {
     if (selectedSubcontractorId && !editingSwo) {
@@ -148,6 +154,7 @@ export function SubcontractWorkOrdersClient({
       setValue('subcontractorId', editingSwo.subcontractorId);
       setValue('workCategoryId', editingSwo.workCategoryId);
       setValue('description', editingSwo.description || '');
+      setValue('amount', Number(editingSwo.amount));
       setValue('gstPercentage', Number(editingSwo.gstPercentage));
       setValue('notes', editingSwo.notes || '');
       setValue('startDate', editingSwo.startDate ? dayjs(editingSwo.startDate) : undefined);
@@ -165,6 +172,7 @@ export function SubcontractWorkOrdersClient({
         subcontractorId: '',
         workCategoryId: '',
         description: '',
+        amount: 0,
         gstPercentage: 18,
         notes: '',
       });
@@ -225,6 +233,20 @@ export function SubcontractWorkOrdersClient({
       title: 'Category',
       dataIndex: ['workCategory', 'name'],
       key: 'category',
+    },
+    {
+      title: 'Amount',
+      dataIndex: 'amount',
+      key: 'amount',
+      align: 'right',
+      render: (value: number | string) => formatCurrency(value),
+    },
+    {
+      title: 'Total Amount',
+      dataIndex: 'totalAmount',
+      key: 'totalAmount',
+      align: 'right',
+      render: (value: number | string) => <Typography.Text strong>{formatCurrency(value)}</Typography.Text>,
     },
     {
       title: 'Description',
@@ -480,6 +502,21 @@ export function SubcontractWorkOrdersClient({
           <Flex gap={16}>
             <Controller
               control={control}
+              name="amount"
+              render={({ field, fieldState }) => (
+                <Form.Item
+                  label="Amount"
+                  required
+                  className="flex-1"
+                  validateStatus={fieldState.error ? 'error' : undefined}
+                  help={fieldState.error?.message}
+                >
+                  <InputNumber {...field} min={0} style={{ width: '100%' }} />
+                </Form.Item>
+              )}
+            />
+            <Controller
+              control={control}
               name="gstPercentage"
               render={({ field }) => (
                 <Form.Item label="GST %" className="w-32">
@@ -487,6 +524,9 @@ export function SubcontractWorkOrdersClient({
                 </Form.Item>
               )}
             />
+            <Form.Item label="Total Amount" className="flex-1">
+              <InputNumber value={computedTotal} disabled style={{ width: '100%' }} />
+            </Form.Item>
           </Flex>
 
           <Form.Item label="Work Order File">
