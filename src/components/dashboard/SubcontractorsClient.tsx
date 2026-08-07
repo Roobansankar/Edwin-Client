@@ -118,6 +118,8 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
     setOpen(true);
   };
 
+  
+
   const handleDelete = (id: string) => {
     startTransition(async () => {
       try {

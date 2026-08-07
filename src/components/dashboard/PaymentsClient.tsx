@@ -9,7 +9,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import dayjs from 'dayjs';
 import { createPayment, syncExpensesToLedger } from '@/actions/payments';
-import type { Payment, Project, Vendor } from '@/types/erp';
+import type { Payment, Project, PurchaseOrder, Vendor } from '@/types/erp';
 import {
   StatusTag,
   cardClassName,
@@ -27,6 +27,7 @@ const paymentSchema = z.object({
   paymentType: z.string().min(1, 'Select category'),
   payeeName: z.string().optional(),
   vendorId: z.string().optional(),
+  purchaseOrderId: z.string().optional(),
   amount: z.number().positive('Amount must be positive'),
   paymentDate: z.string().min(1, 'Select date'),
   paymentMode: z.string().min(1, 'Select mode'),
@@ -42,9 +43,10 @@ type PaymentsClientProps = {
   summary: Array<{ paymentType: string; total: string | number }>;
   projects: Project[];
   vendors: Vendor[];
+  purchaseOrders: PurchaseOrder[];
 };
 
-export function PaymentsClient({ payments, summary, projects, vendors }: PaymentsClientProps) {
+export function PaymentsClient({ payments, summary, projects, vendors, purchaseOrders }: PaymentsClientProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -380,15 +382,41 @@ export function PaymentsClient({ payments, summary, projects, vendors }: Payment
           />
 
           {selectedType === 'material' ? (
-            <Controller
-              name="vendorId"
-              control={control}
-              render={({ field }) => (
-                <Form.Item label="Select Vendor">
-                  <Select {...field} showSearch optionFilterProp="label" options={vendors.map(v => ({ label: v.name, value: v.id }))} />
-                </Form.Item>
-              )}
-            />
+            <>
+              <Controller
+                name="purchaseOrderId"
+                control={control}
+                render={({ field }) => (
+                  <Form.Item label="Purchase Order (optional)">
+                    <Select
+                      {...field}
+                      allowClear
+                      showSearch
+                      placeholder="Choose the PO this payment is against"
+                      optionFilterProp="label"
+                      options={purchaseOrders.map((po) => ({ label: `${po.poNumber} — ${po.vendor?.name || ''}`, value: po.id }))}
+                      onChange={(val) => {
+                        field.onChange(val);
+                        const po = purchaseOrders.find((p) => p.id === val);
+                        if (po) {
+                          setValue('vendorId', po.vendorId);
+                          setValue('projectId', po.projectId);
+                        }
+                      }}
+                    />
+                  </Form.Item>
+                )}
+              />
+              <Controller
+                name="vendorId"
+                control={control}
+                render={({ field }) => (
+                  <Form.Item label="Select Vendor">
+                    <Select {...field} showSearch optionFilterProp="label" options={vendors.map(v => ({ label: v.name, value: v.id }))} />
+                  </Form.Item>
+                )}
+              />
+            </>
           ) : (
             <Controller
               name="payeeName"

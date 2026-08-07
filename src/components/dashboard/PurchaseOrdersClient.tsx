@@ -7,7 +7,6 @@ import { DeleteOutlined, EditOutlined, FilePdfOutlined, HistoryOutlined, PlusOut
 import dayjs from 'dayjs';
 import { createPurchaseOrder, updatePurchaseOrderStatus, updatePurchaseOrder, deletePurchaseOrder, uploadBillFile } from '@/actions/purchase-orders';
 import { createItemDescription, deleteItemDescription } from '@/actions/item-descriptions';
-import { createPayment } from '@/actions/payments';
 import type { Project, Vendor, PurchaseOrder, ItemDescription, VendorQuotation, Payment } from '@/types/erp';
 import { useAuthStore } from '@/store/auth';
 import {
@@ -57,11 +56,6 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
   const [vendorSections, setVendorSections] = useState<VendorPoSection[]>([]);
 
   const [poPayments, setPoPayments] = useState<Payment[]>([]);
-  const [paymentAmount, setPaymentAmount] = useState<number | null>(null);
-  const [paymentDate, setPaymentDate] = useState(dayjs().format('YYYY-MM-DD'));
-  const [paymentMode, setPaymentMode] = useState('upi');
-  const [paymentReference, setPaymentReference] = useState('');
-  const [paymentPending, startPaymentTransition] = useTransition();
 
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyPo, setHistoryPo] = useState<PurchaseOrder | null>(null);
@@ -164,7 +158,7 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
             description: i.description, quantity: i.quantity, unit: i.unit, rate: i.rate,
           }));
           if (!items.length) continue;
-          const createdPo = await createPurchaseOrder({
+          await createPurchaseOrder({
             vendorId: section.vendorId,
             projectId,
             materialRequirementNo: selectedMRNo || undefined,
@@ -174,23 +168,6 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
             billFileKey,
           });
           successCount++;
-
-          if (vendorSections.length === 1 && paymentAmount && paymentAmount > 0) {
-            try {
-              await createPayment({
-                purchaseOrderId: createdPo.id,
-                projectId,
-                vendorId: section.vendorId,
-                paymentType: 'material',
-                amount: paymentAmount,
-                paymentDate,
-                paymentMode,
-                referenceNumber: paymentReference || undefined,
-              });
-            } catch {
-              message.warning('PO created, but recording the payment failed — add it from the PO edit view.');
-            }
-          }
         }
         message.success(`${successCount} PO(s) created`);
         handleClose();
@@ -209,8 +186,6 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
     setVendorSections([]);
     setBillFile(null);
     setPoPayments([]);
-    setPaymentAmount(null);
-    setPaymentReference('');
   };
 
   const loadPoPayments = async (poId: string) => {
@@ -235,30 +210,6 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
       }
     } catch { /* silent */ }
     finally { setHistoryLoading(false); }
-  };
-
-  const handleAddPayment = (po: PurchaseOrder) => {
-    if (!paymentAmount || paymentAmount <= 0) { message.error('Enter a valid amount'); return; }
-    startPaymentTransition(async () => {
-      try {
-        await createPayment({
-          purchaseOrderId: po.id,
-          projectId: po.projectId,
-          vendorId: po.vendorId,
-          paymentType: 'material',
-          amount: paymentAmount,
-          paymentDate,
-          paymentMode,
-          referenceNumber: paymentReference || undefined,
-        });
-        message.success('Payment recorded');
-        setPaymentAmount(null);
-        setPaymentReference('');
-        loadPoPayments(po.id);
-      } catch (err) {
-        message.error(err instanceof Error ? err.message : 'Failed to record payment');
-      }
-    });
   };
 
   const handleEdit = (po: PurchaseOrder) => {
@@ -457,7 +408,6 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
                 rowKey="id"
                 size="small"
                 pagination={false}
-                className="mb-3"
                 locale={{ emptyText: 'No payments recorded yet' }}
                 columns={[
                   { title: 'Date', dataIndex: 'paymentDate', render: formatDate },
@@ -466,57 +416,9 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
                   { title: 'Reference', dataIndex: 'referenceNumber', render: (v?: string | null) => v || '-' },
                 ]}
               />
-              <Flex gap={8} wrap="wrap" align="flex-end">
-                <InputNumber min={0} placeholder="Amount" value={paymentAmount} onChange={setPaymentAmount} style={{ width: 140 }} />
-                <DatePicker
-                  value={dayjs(paymentDate)}
-                  onChange={(_, dateStr) => setPaymentDate(typeof dateStr === 'string' ? dateStr : paymentDate)}
-                  style={{ width: 140 }}
-                />
-                <Select
-                  value={paymentMode}
-                  onChange={setPaymentMode}
-                  style={{ width: 120 }}
-                  options={[
-                    { label: 'UPI', value: 'upi' },
-                    { label: 'RTGS', value: 'rtgs' },
-                    { label: 'Cash', value: 'cash' },
-                    { label: 'Cheque', value: 'cheque' },
-                  ]}
-                />
-                <Input placeholder="Reference" value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} style={{ width: 140 }} />
-                <Button type="primary" loading={paymentPending} onClick={() => handleAddPayment(editingPo)}>
-                  Add Payment
-                </Button>
-              </Flex>
-            </Card>
-          )}
-
-          {!editingPo && vendorSections.length === 1 && (
-            <Card size="small" title="Payment (optional)" className="border! border-gray-200! mb-4">
-              <Typography.Text type="secondary" className="mb-2 block text-xs">
-                Record a payment made at the time this PO is created — it'll be saved once you click Create.
+              <Typography.Text type="secondary" className="mt-2 block text-xs">
+                Payments against this PO are recorded from the Payments page.
               </Typography.Text>
-              <Flex gap={8} wrap="wrap" align="flex-end">
-                <InputNumber min={0} placeholder="Amount" value={paymentAmount} onChange={setPaymentAmount} style={{ width: 140 }} />
-                <DatePicker
-                  value={dayjs(paymentDate)}
-                  onChange={(_, dateStr) => setPaymentDate(typeof dateStr === 'string' ? dateStr : paymentDate)}
-                  style={{ width: 140 }}
-                />
-                <Select
-                  value={paymentMode}
-                  onChange={setPaymentMode}
-                  style={{ width: 120 }}
-                  options={[
-                    { label: 'UPI', value: 'upi' },
-                    { label: 'RTGS', value: 'rtgs' },
-                    { label: 'Cash', value: 'cash' },
-                    { label: 'Cheque', value: 'cheque' },
-                  ]}
-                />
-                <Input placeholder="Reference" value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} style={{ width: 140 }} />
-              </Flex>
             </Card>
           )}
 
