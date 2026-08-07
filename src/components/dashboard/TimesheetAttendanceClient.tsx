@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import {
-  Button, Card, DatePicker, Flex, Input, Modal, Select, Spin, Tag, Typography, App,
+  Button, Card, Checkbox, DatePicker, Flex, Input, Modal, Select, Spin, Tag, Typography, App,
 } from 'antd';
 import {
   LeftOutlined, RightOutlined, SaveOutlined, ClockCircleOutlined, PlusOutlined, DeleteOutlined, EditOutlined, CheckCircleOutlined,
@@ -353,6 +353,18 @@ export function TimesheetAttendanceClient({ projects }: Props) {
   );
   const totalHours = useMemo(() => dayTotals.reduce((s, v) => s + v, 0), [dayTotals]);
 
+  // A day marked with any non-project category (Public Holiday, Idle Time or
+  // Leave) blocks project hours being logged that same day — and the other
+  // two categories, since a day can only be one of these at a time.
+  const nonProjectDays = useMemo(() => {
+    const set = new Set<number>();
+    const fixedRows = rows.filter((r) => r.kind !== 'project');
+    for (let d = 0; d < DAYS.length; d++) {
+      if (fixedRows.some((r) => (r.hours[d] || 0) > 0)) set.add(d);
+    }
+    return set;
+  }, [rows]);
+
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekEnd.getDate() + 6);
 
@@ -375,10 +387,17 @@ export function TimesheetAttendanceClient({ projects }: Props) {
   const setHour = (key: string, dayIdx: number, value: number) => {
     const dateObj = new Date(weekStart);
     dateObj.setDate(dateObj.getDate() + dayIdx);
-    const isTodayCell = formatDate(dateObj) === todayStr;
-    if (!isAdmin && !isTodayCell && !approvedDayIndices.has(dayIdx)) return;
+    const isFutureCellDay = formatDate(dateObj) > todayStr;
+    if (!isAdmin && isFutureCellDay && !approvedDayIndices.has(dayIdx)) return;
 
     const target = rows.find((r) => r.key === key);
+    if (!isAdmin && target?.kind === 'project' && nonProjectDays.has(dayIdx)) return;
+    if (!isAdmin && target && target.kind !== 'project') {
+      const siblingSet = rows.some(
+        (r) => r.kind !== 'project' && r.kind !== target.kind && (r.hours[dayIdx] || 0) > 0,
+      );
+      if (siblingSet) return;
+    }
 
     // "All Projects" row: expand into one real row per active project,
     // evenly splitting the entered hours across them.
@@ -406,7 +425,7 @@ export function TimesheetAttendanceClient({ projects }: Props) {
         );
         return [...expanded, ...untouchedRows];
       });
-      message.success(`Split ${value} hrs across ${projects.length} projects for today`);
+      message.success(`Split ${value} hrs across ${projects.length} projects`);
       return;
     }
 
@@ -588,13 +607,16 @@ export function TimesheetAttendanceClient({ projects }: Props) {
                     const dateObj = new Date(weekStart);
                     dateObj.setDate(dateObj.getDate() + dayIdx);
                     const isToday = formatDate(dateObj) === todayStr;
+                    const isFutureDay = formatDate(dateObj) > todayStr;
                     const cellLocked = !isAdmin && (row.submittedMask & (1 << dayIdx)) !== 0;
+                    const blockedByLeave = !isAdmin && nonProjectDays.has(dayIdx);
+                    const disabled = isFullyLocked || cellLocked || blockedByLeave || (!isAdmin && isFutureDay && !approvedDayIndices.has(dayIdx));
                     return (
-                      <td key={dayIdx} className="border border-[var(--border)] p-1 text-center">
+                      <td key={dayIdx} className={`border border-[var(--border)] p-1 text-center ${disabled && (!isToday || blockedByLeave) ? 'opacity-60 blur-[3px] select-none' : ''}`}>
                         <HoursCell
                           value={row.hours[dayIdx] || 0}
                           onChange={(v) => setHour(row.key, dayIdx, v)}
-                          disabled={isFullyLocked || cellLocked || (!isAdmin && !isToday && !approvedDayIndices.has(dayIdx))}
+                          disabled={disabled}
                         />
                       </td>
                     );
@@ -645,14 +667,32 @@ export function TimesheetAttendanceClient({ projects }: Props) {
                     const dateObj = new Date(weekStart);
                     dateObj.setDate(dateObj.getDate() + dayIdx);
                     const isToday = formatDate(dateObj) === todayStr;
+                    const isFutureDay = formatDate(dateObj) > todayStr;
                     const cellLocked = !isAdmin && (row.submittedMask & (1 << dayIdx)) !== 0;
+                    const blockedBySibling = !isAdmin && rows.some(
+                      (r) => r.kind !== 'project' && r.kind !== row.kind && (r.hours[dayIdx] || 0) > 0,
+                    );
+                    const disabled = isFullyLocked || cellLocked || blockedBySibling || (!isAdmin && isFutureDay && !approvedDayIndices.has(dayIdx));
+                    const isTickRow = row.kind === 'holiday' || row.kind === 'leave';
+                    const value = row.hours[dayIdx] || 0;
                     return (
-                      <td key={dayIdx} className="border border-[var(--border)] p-1 text-center">
-                        <HoursCell
-                          value={row.hours[dayIdx] || 0}
-                          onChange={(v) => setHour(row.key, dayIdx, v)}
-                          disabled={isFullyLocked || cellLocked || (!isAdmin && !isToday && !approvedDayIndices.has(dayIdx))}
-                        />
+                      <td key={dayIdx} className={`border border-[var(--border)] p-1 text-center ${disabled && (!isToday || blockedBySibling) ? 'opacity-60 blur-[3px] select-none' : ''}`}>
+                        {isTickRow ? (
+                          disabled ? (
+                            value > 0 ? <CheckCircleOutlined className="text-emerald-400" /> : <span className="text-[var(--text-very-muted)]">-</span>
+                          ) : (
+                            <Checkbox
+                              checked={value > 0}
+                              onChange={(e) => setHour(row.key, dayIdx, e.target.checked ? STANDARD_DAILY_HOURS : 0)}
+                            />
+                          )
+                        ) : (
+                          <HoursCell
+                            value={value}
+                            onChange={(v) => setHour(row.key, dayIdx, v)}
+                            disabled={disabled}
+                          />
+                        )}
                       </td>
                     );
                   })}
