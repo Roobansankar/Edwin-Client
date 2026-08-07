@@ -86,6 +86,7 @@ const navigationSections: Array<{ title: string; items: NavItem[]; allowedRoles?
       
       { key: '/dashboard/subcontract-work-orders', icon: <FileTextOutlined />, label: 'Subcontract WO', allowedRoles: ['purchase_team'] },
       { key: '/dashboard/subcontractor-payments', icon: <DollarOutlined />, label: 'Subcontractor Payments', allowedRoles: ['purchase_team'] },
+      { key: '/dashboard/subcontractor-work', icon: <TeamOutlined />, label: 'Subcontractor Work', allowedRoles: ['site_engineer', 'purchase_team', 'admin'] },
       { key: '/dashboard/material-requirement', icon: <FileSearchOutlined />, label: 'Material Requirement', allowedRoles: ['site_engineer'] },
       { key: '/dashboard/material-received', icon: <InboxOutlined />, label: 'Material Received', allowedRoles: ['site_engineer', 'purchase_team'] },
       { key: '/dashboard/report', icon: <FileTextOutlined />, label: 'My Report', allowedRoles: ['site_engineer'] },

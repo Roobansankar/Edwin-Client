@@ -32,6 +32,7 @@ import type {
   EmployeeQuery,
   AdvanceRequest,
   SubcontractorPaymentRequest,
+  SubcontractorWork,
   OfficeStaff,
   OfficeReport,
   StaffAccessEntry,
@@ -77,6 +78,7 @@ export const fetchSubcontractWorkOrders = (subcontractorId?: string) =>
   apiFetch<SubcontractWorkOrder[]>(`/subcontract-work-orders${subcontractorId ? `?subcontractorId=${subcontractorId}` : ''}`);
 export const fetchVendors = () => apiFetch<Vendor[]>('/vendors');
 export const fetchSubcontractors = () => apiFetch<Subcontractor[]>('/subcontractors');
+export const fetchSubcontractorWorks = () => apiFetch<SubcontractorWork[]>('/subcontractor-work');
 export const fetchSiteEngineers = () => apiFetch<SiteEngineer[]>('/site-engineers');
 export const fetchOfficeStaff = () => apiFetch<OfficeStaff[]>('/office-staff');
 export const fetchOfficeReports = () => apiFetch<OfficeReport[]>('/office-reports');

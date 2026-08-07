@@ -628,6 +628,25 @@ export type SubcontractorPaymentRequest = {
   updatedAt?: string;
 };
 
+export type SubcontractorWorkStatus = 'pending' | 'approved' | 'rejected';
+
+export type SubcontractorWork = {
+  id: string;
+  projectId: string;
+  project?: Project;
+  subcontractorId: string;
+  subcontractor?: Subcontractor;
+  notes?: string | null;
+  photoUrls?: string[] | null;
+  status: SubcontractorWorkStatus;
+  createdById: string;
+  createdBy?: { id: string; name: string; email: string; role?: string };
+  respondedById?: string | null;
+  respondedAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export type EmployeeQueryStatus = 'pending' | 'approved' | 'rejected';
 
 export type EmployeeQuery = {
