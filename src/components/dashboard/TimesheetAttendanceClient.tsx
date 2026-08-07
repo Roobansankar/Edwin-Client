@@ -204,9 +204,10 @@ export function TimesheetAttendanceClient({ projects }: Props) {
   const { message } = App.useApp();
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.role === 'admin';
+  const canSeeFullWeek = isAdmin || ['accounts_manager', 'purchase_team', 'site_engineer'].includes(user?.role || '');
 
   const isDayVisible = (dayIdx: number, weekStartDate: Date) => {
-    if (isAdmin) return true;
+    if (canSeeFullWeek) return true;
     const dateObj = new Date(weekStartDate);
     dateObj.setDate(dateObj.getDate() + dayIdx);
     const dStr = formatDate(dateObj);
