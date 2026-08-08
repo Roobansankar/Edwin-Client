@@ -1,15 +1,16 @@
 import { Alert } from 'antd';
 import { PaymentsClient } from '@/components/dashboard/PaymentsClient';
-import { fetchPayments, fetchPaymentsSummary, fetchProjects, fetchVendors, fetchPurchaseOrders } from '@/lib/api';
+import { fetchPayments, fetchPaymentsSummary, fetchProjects, fetchVendors, fetchPurchaseOrders, fetchAdvanceRequests } from '@/lib/api';
 
 async function loadPageData() {
   try {
-    const [paymentsRes, summary, projects, vendors, purchaseOrders] = await Promise.all([
+    const [paymentsRes, summary, projects, vendors, purchaseOrders, advanceRequests] = await Promise.all([
       fetchPayments(),
       fetchPaymentsSummary(),
       fetchProjects(),
       fetchVendors(),
       fetchPurchaseOrders(),
+      fetchAdvanceRequests('admin_approved'),
     ]);
 
     // Server-side normalization
@@ -23,6 +24,7 @@ async function loadPageData() {
       projects,
       vendors,
       purchaseOrders,
+      advanceRequests,
     };
   } catch (error) {
     console.error('Payments Page Error:', error);
@@ -32,13 +34,14 @@ async function loadPageData() {
       projects: [],
       vendors: [],
       purchaseOrders: [],
+      advanceRequests: [],
       error: error instanceof Error ? error.message : 'Unable to load payments data',
     };
   }
 }
 
 export default async function PaymentsPage() {
-  const { payments, summary, projects, vendors, purchaseOrders, error } = await loadPageData();
+  const { payments, summary, projects, vendors, purchaseOrders, advanceRequests, error } = await loadPageData();
 
   return (
     <>
@@ -49,6 +52,7 @@ export default async function PaymentsPage() {
         projects={projects}
         vendors={vendors}
         purchaseOrders={purchaseOrders}
+        advanceRequests={advanceRequests}
       />
     </>
   );

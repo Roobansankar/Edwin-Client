@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Button, Card, Checkbox, Drawer, Flex, Form, Input, Modal, Popconfirm, Select, Space, Table, Tag, Typography, App, InputNumber } from 'antd';
+import { Button, Card, Checkbox, Divider, Drawer, Flex, Form, Input, Modal, Popconfirm, Select, Space, Table, Tag, Typography, App, InputNumber } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DeleteOutlined, EditOutlined, FilePdfOutlined, PlusOutlined, ShoppingCartOutlined, SplitCellsOutlined } from '@ant-design/icons';
 import { Controller, useForm, useFieldArray } from 'react-hook-form';
@@ -48,6 +48,9 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, vendors }: Props) {
+  const [localDescriptions, setLocalDescriptions] = useState<ItemDescription[]>(itemDescriptions || []);
+  const [inlineNewDesc, setInlineNewDesc] = useState('');
+  const [isAddingInlineDesc, setIsAddingInlineDesc] = useState(false);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<PurchaseEnquiry | null>(null);
   const [previewEnquiry, setPreviewEnquiry] = useState<PurchaseEnquiry | null>(null);
@@ -60,6 +63,9 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
   const { message } = App.useApp();
   const user = useAuthStore((s) => s.user);
   const isSiteEngineer = user?.role === 'site_engineer';
+  const availableProjects = isSiteEngineer && user?.projects
+    ? projects.filter((p) => user.projects?.some((up) => up.id === p.id))
+    : projects;
 
   const [splitOpen, setSplitOpen] = useState(false);
   const [splitEnquiry, setSplitEnquiry] = useState<PurchaseEnquiry | null>(null);
@@ -93,6 +99,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
   };
 
   useEffect(() => { setIsClient(true); }, []);
+  useEffect(() => { setLocalDescriptions(itemDescriptions || []); }, [itemDescriptions]);
 
   const {
     control,
@@ -320,7 +327,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
                     showSearch
                     placeholder="Select project"
                     optionFilterProp="label"
-                    options={projects.map((p) => ({ value: p.id, label: p.name }))}
+                    options={availableProjects.map((p) => ({ value: p.id, label: p.name }))}
                   />
                 </Form.Item>
               )}
@@ -349,7 +356,44 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
                         showSearch
                         allowClear
                         placeholder="Select or type an item"
-                        options={itemDescriptions?.map((d) => ({ label: d.name, value: d.name }))}
+                        options={localDescriptions.map((d) => ({ label: d.name, value: d.name }))}
+                        dropdownRender={(menu) => (
+                          <>
+                            {menu}
+                            <Divider style={{ margin: '8px 0' }} />
+                            <Space style={{ padding: '0 8px 4px' }}>
+                              <Input
+                                placeholder="New item description"
+                                value={inlineNewDesc}
+                                onChange={(e) => setInlineNewDesc(e.target.value)}
+                                onKeyDown={(e) => e.stopPropagation()}
+                              />
+                              <Button
+                                type="text"
+                                icon={<PlusOutlined />}
+                                loading={isAddingInlineDesc}
+                                onClick={async () => {
+                                  const name = inlineNewDesc.trim();
+                                  if (!name) return;
+                                  setIsAddingInlineDesc(true);
+                                  try {
+                                    const created = await createItemDescription(name);
+                                    setLocalDescriptions((prev) => prev.some((d) => d.name === created.name) ? prev : [...prev, created]);
+                                    f.onChange(created.name);
+                                    setInlineNewDesc('');
+                                    message.success('Description added');
+                                  } catch (error) {
+                                    message.error(error instanceof Error ? error.message : 'Failed to add');
+                                  } finally {
+                                    setIsAddingInlineDesc(false);
+                                  }
+                                }}
+                              >
+                                Add
+                              </Button>
+                            </Space>
+                          </>
+                        )}
                       />
                     </Form.Item>
                   )}
@@ -409,7 +453,8 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
             if (!newDesc.trim()) return;
             startTransition(async () => {
               try {
-                await createItemDescription(newDesc.trim());
+                const created = await createItemDescription(newDesc.trim());
+                setLocalDescriptions((prev) => prev.some((d) => d.name === created.name) ? prev : [...prev, created]);
                 setNewDesc('');
                 message.success('Description added');
               } catch (error) {
@@ -430,7 +475,8 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
               if (!newDesc.trim()) return;
               startTransition(async () => {
                 try {
-                  await createItemDescription(newDesc.trim());
+                  const created = await createItemDescription(newDesc.trim());
+                  setLocalDescriptions((prev) => prev.some((d) => d.name === created.name) ? prev : [...prev, created]);
                   setNewDesc('');
                   message.success('Description added');
                 } catch (error) {
@@ -441,7 +487,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
           />
         </Flex>
         <Flex vertical gap={4}>
-          {itemDescriptions?.map((desc) => (
+          {localDescriptions?.map((desc) => (
             <Flex key={desc.id} justify="space-between" align="center" className="rounded-lg border border-[var(--border)] px-3! py-2!">
               <Typography.Text>{desc.name}</Typography.Text>
               <Popconfirm

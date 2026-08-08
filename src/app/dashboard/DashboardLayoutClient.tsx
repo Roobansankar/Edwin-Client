@@ -194,6 +194,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
   const [appNotifications, setAppNotifications] = useState<AppNotification[]>([]);
   const [unseenNotifCount, setUnseenNotifCount] = useState(0);
   const canSeeNotifications = user?.role === 'site_engineer' || user?.role === 'purchase_team' || user?.role === 'accounts_manager';
+  const fetchesAppNotifications = canSeeNotifications || user?.role === 'admin';
 
   useEffect(() => {
     if (!canSeeNotifications || !user) {
@@ -227,7 +228,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
   };
 
   useEffect(() => {
-    if (!canSeeNotifications || !user) {
+    if (!fetchesAppNotifications || !user) {
       setAppNotifications([]);
       setUnseenNotifCount(0);
       return;
@@ -245,7 +246,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
       } catch { /* silent */ }
     })();
     return () => { cancelled = true; };
-  }, [canSeeNotifications, user, pathname]);
+  }, [fetchesAppNotifications, user, pathname]);
 
   const markNotificationsSeen = () => {
     if (!user) return;
@@ -381,11 +382,54 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
   ];
 
   const adminNotifBody = (
-    visiblePendingQueries.length === 0 ? (
-      <Typography.Text type="secondary" className="text-sm">
-        No pending edit requests
+    <>
+      {visibleAppNotifications.length > 0 && (
+        <div className="mb-2">
+          <Typography.Text className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--text-very-muted)]">
+            Updates
+          </Typography.Text>
+          <Flex vertical gap={8}>
+            {visibleAppNotifications.slice(0, 10).map((n) => (
+              <div
+                key={n.id}
+                className={`relative cursor-pointer rounded-lg border p-2 pr-7 transition hover:bg-[var(--subtle-hover-bg)] ${
+                  n.isRead ? 'border-[var(--border)] opacity-70' : 'border-sky-500/40 bg-sky-500/5'
+                }`}
+                onClick={() => {
+                  setAdminNotifOpen(false);
+                  router.push(n.link || '/dashboard/advance-requests');
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); dismissNotification(n.id); }}
+                  className="absolute right-1.5 top-1.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-[var(--text-muted)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
+                  aria-label="Dismiss notification"
+                >
+                  <CloseOutlined style={{ fontSize: 11 }} />
+                </button>
+                <Typography.Text className="block text-sm">
+                  {n.actorName && <strong>{n.actorName}: </strong>}
+                  {n.title} — {n.message}
+                </Typography.Text>
+                {n.createdAt && (
+                  <Typography.Text type="secondary" className="mt-0.5 block text-xs">
+                    {formatDate(n.createdAt)}
+                  </Typography.Text>
+                )}
+              </div>
+            ))}
+          </Flex>
+        </div>
+      )}
+      <Typography.Text className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--text-very-muted)]">
+        Edit Requests
       </Typography.Text>
-    ) : (
+      {visiblePendingQueries.length === 0 ? (
+        <Typography.Text type="secondary" className="text-sm">
+          No pending edit requests
+        </Typography.Text>
+      ) : (
       <Flex vertical gap={8}>
         {visiblePendingQueries.slice(0, 20).map((q) => (
           <div
@@ -419,7 +463,8 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
           </div>
         ))}
       </Flex>
-    )
+      )}
+    </>
   );
 
   const notifBody = (
@@ -614,16 +659,16 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                   <>
                     <button
                       type="button"
-                      onClick={() => { setAdminNotifOpen(true); markPendingSeen(); }}
+                      onClick={() => { setAdminNotifOpen(true); markPendingSeen(); markNotificationsSeen(); }}
                       className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--subtle-bg)] text-[var(--text-secondary)] transition hover:bg-[var(--subtle-hover-bg)] hover:text-[var(--text-primary)]"
-                      aria-label="Edit request notifications"
+                      aria-label="Notifications"
                     >
-                      <Badge count={pendingEqCount} size="small" offset={[-2, 2]}>
+                      <Badge count={pendingEqCount + unseenNotifCount} size="small" offset={[-2, 2]}>
                         <BellOutlined />
                       </Badge>
                     </button>
                     <Drawer
-                      title="Edit Requests"
+                      title="Notifications"
                       placement="bottom"
                       height="70vh"
                       open={adminNotifOpen}
@@ -639,9 +684,9 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                     open={adminNotifOpen}
                     onOpenChange={(open) => {
                       setAdminNotifOpen(open);
-                      if (open) markPendingSeen();
+                      if (open) { markPendingSeen(); markNotificationsSeen(); }
                     }}
-                    title="Edit Requests"
+                    title="Notifications"
                     content={
                       <div style={{ width: 340, maxHeight: 360, overflowY: 'auto' }}>
                         {adminNotifBody}
@@ -651,9 +696,9 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                     <button
                       type="button"
                       className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--subtle-bg)] text-[var(--text-secondary)] transition hover:bg-[var(--subtle-hover-bg)] hover:text-[var(--text-primary)]"
-                      aria-label="Edit request notifications"
+                      aria-label="Notifications"
                     >
-                      <Badge count={pendingEqCount} size="small" offset={[-2, 2]}>
+                      <Badge count={pendingEqCount + unseenNotifCount} size="small" offset={[-2, 2]}>
                         <BellOutlined />
                       </Badge>
                     </button>

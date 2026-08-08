@@ -77,7 +77,7 @@ export function AdvanceRequestsClient({ requests }: Props) {
     { title: 'Project', key: 'project', render: (_, record) => record.project?.name || '-' },
     { title: 'MR Ref', dataIndex: 'materialRequirementNo', render: (value?: string | null) => value || <Typography.Text type="secondary">-</Typography.Text> },
     { title: 'Amount', dataIndex: 'amount', align: 'right', render: (value: number | string) => formatCurrency(value) },
-    { title: 'Quoted Total', key: 'quotedTotal', align: 'right', render: (_, record) =>
+    { title: 'Total Amount', key: 'quotedTotal', align: 'right', render: (_, record) =>
       record.vendorQuotation?.totalAmount ? formatCurrency(record.vendorQuotation.totalAmount) : <Typography.Text type="secondary">-</Typography.Text>,
     },
     { title: 'Quotation', key: 'quotation', render: (_, record) =>

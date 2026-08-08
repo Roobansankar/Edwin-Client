@@ -493,6 +493,8 @@ export type Payment = {
   purchaseOrder?: PurchaseOrder;
   subcontractWorkOrderId?: string | null;
   subcontractWorkOrder?: SubcontractWorkOrder;
+  advanceRequestId?: string | null;
+  advanceRequest?: AdvanceRequest;
   salesInvoiceId?: string | null;
   salesInvoice?: SalesInvoice;
   expenseId?: string | null;

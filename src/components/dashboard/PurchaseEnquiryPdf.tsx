@@ -196,13 +196,6 @@ export function PurchaseEnquiryPdf({ enquiry, items: itemsOverride, vendorName }
           ))}
         </View>
 
-        {enquiry.notes && (
-          <View style={styles.notesSection}>
-            <Text style={styles.sectionLabel}>Notes</Text>
-            <Text style={[styles.vendorText, { lineHeight: 1.6 }]}>{enquiry.notes}</Text>
-          </View>
-        )}
-
         <View style={styles.footer}>
           <View style={styles.sigBlock}>
             <Text style={styles.sigLine}>Vendor Acknowledgement</Text>

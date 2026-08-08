@@ -26,6 +26,8 @@ export function AssignedProjectsClient({ siteEngineers, projects }: AssignedProj
   const [isPending, startTransition] = useTransition();
   const [engineers, setEngineers] = useState<SiteEngineer[]>(siteEngineers);
   const [search, setSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const [assigningEngineer, setAssigningEngineer] = useState<SiteEngineer | null>(null);
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
@@ -86,6 +88,12 @@ export function AssignedProjectsClient({ siteEngineers, projects }: AssignedProj
   };
 
   const columns: ColumnsType<SiteEngineer> = [
+    {
+      title: 'S.No',
+      key: 'sno',
+      width: 70,
+      render: (_, __, index) => (currentPage - 1) * pageSize + index + 1,
+    },
     {
       title: 'Site Engineer',
       key: 'engineer',
@@ -187,7 +195,16 @@ export function AssignedProjectsClient({ siteEngineers, projects }: AssignedProj
           rowKey="id"
           size="middle"
           scroll={{ x: 800 }}
-          pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} engineers` }}
+          pagination={{
+            current: currentPage,
+            pageSize,
+            showSizeChanger: true,
+            showTotal: (total) => `${total} engineers`,
+            onChange: (page, size) => {
+              setCurrentPage(page);
+              setPageSize(size);
+            },
+          }}
         />
       </Card>
 

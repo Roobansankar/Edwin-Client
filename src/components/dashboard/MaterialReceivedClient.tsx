@@ -52,6 +52,9 @@ function readFileAsBase64(file: File): Promise<string> {
 export function MaterialReceivedClient({ records, projects, itemDescriptions, purchaseOrders }: Props) {
   const user = useAuthStore((s) => s.user);
   const canUpdateStatus = user?.role === 'admin' || user?.role === 'accounts_manager' || user?.role === 'purchase_team';
+  const availableProjects = user?.role === 'site_engineer' && user.projects
+    ? projects.filter((p) => user.projects?.some((up) => up.id === p.id))
+    : projects;
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<MaterialReceived | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -372,7 +375,7 @@ export function MaterialReceivedClient({ records, projects, itemDescriptions, pu
                   showSearch
                   placeholder="Select project"
                   optionFilterProp="label"
-                  options={projects.map((p) => ({ value: p.id, label: `${p.name} (${p.projectCode || 'No Code'})` }))}
+                  options={availableProjects.map((p) => ({ value: p.id, label: `${p.name} (${p.projectCode || 'No Code'})` }))}
                 />
               </Form.Item>
             )}

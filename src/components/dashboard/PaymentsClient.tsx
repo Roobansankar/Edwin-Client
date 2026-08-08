@@ -9,7 +9,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import dayjs from 'dayjs';
 import { createPayment, syncExpensesToLedger } from '@/actions/payments';
-import type { Payment, Project, PurchaseOrder, Vendor } from '@/types/erp';
+import type { AdvanceRequest, Payment, Project, PurchaseOrder, Vendor } from '@/types/erp';
 import {
   StatusTag,
   cardClassName,
@@ -28,6 +28,7 @@ const paymentSchema = z.object({
   payeeName: z.string().optional(),
   vendorId: z.string().optional(),
   purchaseOrderId: z.string().optional(),
+  advanceRequestId: z.string().optional(),
   amount: z.number().positive('Amount must be positive'),
   paymentDate: z.string().min(1, 'Select date'),
   paymentMode: z.string().min(1, 'Select mode'),
@@ -44,9 +45,10 @@ type PaymentsClientProps = {
   projects: Project[];
   vendors: Vendor[];
   purchaseOrders: PurchaseOrder[];
+  advanceRequests: AdvanceRequest[];
 };
 
-export function PaymentsClient({ payments, summary, projects, vendors, purchaseOrders }: PaymentsClientProps) {
+export function PaymentsClient({ payments, summary, projects, vendors, purchaseOrders, advanceRequests }: PaymentsClientProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -401,6 +403,34 @@ export function PaymentsClient({ payments, summary, projects, vendors, purchaseO
                         if (po) {
                           setValue('vendorId', po.vendorId);
                           setValue('projectId', po.projectId);
+                        }
+                      }}
+                    />
+                  </Form.Item>
+                )}
+              />
+              <Controller
+                name="advanceRequestId"
+                control={control}
+                render={({ field }) => (
+                  <Form.Item label="Vendor Payment Request (Admin Approved, optional)">
+                    <Select
+                      {...field}
+                      allowClear
+                      showSearch
+                      placeholder="Choose an admin-approved vendor payment request"
+                      optionFilterProp="label"
+                      options={advanceRequests.map((ar) => ({
+                        label: `${ar.vendor?.name || ''} — ${formatCurrency(ar.amount)}${ar.materialRequirementNo ? ` (${ar.materialRequirementNo})` : ''}`,
+                        value: ar.id,
+                      }))}
+                      onChange={(val) => {
+                        field.onChange(val);
+                        const ar = advanceRequests.find((a) => a.id === val);
+                        if (ar) {
+                          setValue('vendorId', ar.vendorId);
+                          setValue('projectId', ar.projectId);
+                          setValue('amount', Number(ar.amount));
                         }
                       }}
                     />

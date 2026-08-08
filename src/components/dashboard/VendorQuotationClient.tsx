@@ -110,7 +110,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
     [data],
   );
   const availableMrs = useMemo(
-    () => materialRequirements.filter((m) => !quotedMrIds.has(m.id) || m.id === selectedMR),
+    () => materialRequirements.filter((m) => m.status === 'approved' && (!quotedMrIds.has(m.id) || m.id === selectedMR)),
     [materialRequirements, quotedMrIds, selectedMR],
   );
 

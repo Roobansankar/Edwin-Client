@@ -55,8 +55,6 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
   const [projectId, setProjectId] = useState('');
   const [vendorSections, setVendorSections] = useState<VendorPoSection[]>([]);
 
-  const [poPayments, setPoPayments] = useState<Payment[]>([]);
-
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyPo, setHistoryPo] = useState<PurchaseOrder | null>(null);
   const [historyPayments, setHistoryPayments] = useState<Payment[]>([]);
@@ -185,17 +183,6 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
     setProjectId('');
     setVendorSections([]);
     setBillFile(null);
-    setPoPayments([]);
-  };
-
-  const loadPoPayments = async (poId: string) => {
-    try {
-      const res = await fetch(`/api/backend/payments?purchaseOrderId=${poId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setPoPayments(data?.data || []);
-      }
-    } catch { /* silent */ }
   };
 
   const openHistory = async (po: PurchaseOrder) => {
@@ -215,7 +202,6 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
   const handleEdit = (po: PurchaseOrder) => {
     setEditingPo(po);
     setProjectId(po.projectId);
-    loadPoPayments(po.id);
     setVendorSections([
       {
         vendorId: po.vendorId,
@@ -399,27 +385,6 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
                 options={projects.map((p) => ({ value: p.id, label: p.name }))}
               />
             </Form.Item>
-          )}
-
-          {editingPo && (
-            <Card size="small" title="Payments" className="border! border-gray-200! mb-4">
-              <Table
-                dataSource={poPayments}
-                rowKey="id"
-                size="small"
-                pagination={false}
-                locale={{ emptyText: 'No payments recorded yet' }}
-                columns={[
-                  { title: 'Date', dataIndex: 'paymentDate', render: formatDate },
-                  { title: 'Amount', dataIndex: 'amount', align: 'right', render: (v: number | string) => formatCurrency(v) },
-                  { title: 'Mode', dataIndex: 'paymentMode', render: (v: string) => v?.toUpperCase() },
-                  { title: 'Reference', dataIndex: 'referenceNumber', render: (v?: string | null) => v || '-' },
-                ]}
-              />
-              <Typography.Text type="secondary" className="mt-2 block text-xs">
-                Payments against this PO are recorded from the Payments page.
-              </Typography.Text>
-            </Card>
           )}
 
           {vendorSections.map((section, vIdx) => {
