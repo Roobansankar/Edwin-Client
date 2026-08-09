@@ -20,7 +20,10 @@ export async function createMaterialReceived(data: Record<string, unknown>) {
     headers,
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error('Failed to create material received record');
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ message: 'Failed to create material received record' }));
+    throw new Error(Array.isArray(error.message) ? error.message.join(', ') : error.message || 'Failed to create material received record');
+  }
   revalidatePath('/dashboard/material-received');
   return res.json();
 }
@@ -32,7 +35,10 @@ export async function updateMaterialReceived(id: string, data: Record<string, un
     headers,
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error('Failed to update material received record');
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ message: 'Failed to update material received record' }));
+    throw new Error(Array.isArray(error.message) ? error.message.join(', ') : error.message || 'Failed to update material received record');
+  }
   revalidatePath('/dashboard/material-received');
   return res.json();
 }

@@ -51,6 +51,7 @@ type NavItem = {
   label: string;
   children?: NavItem[];
   allowedRoles?: string[];
+  allowedStaffTypes?: string[];
 };
 
 type AppNotification = {
@@ -124,6 +125,7 @@ const navigationSections: Array<{ title: string; items: NavItem[]; allowedRoles?
       { key: '/dashboard/dpr', icon: <CalendarOutlined />, label: 'Daily Reports (DPR)', allowedRoles: ['office_staff'] },
       { key: '/dashboard/expenses/new', icon: <WalletOutlined />, label: 'Expense', allowedRoles: ['office_staff'] },
       { key: '/dashboard/drawings', icon: <FileImageOutlined />, label: 'Drawings', allowedRoles: ['office_staff'] },
+      { key: '/dashboard/accounts/invoices', icon: <FileProtectOutlined />, label: 'Invoice', allowedRoles: ['office_staff'], allowedStaffTypes: ['Project Coordinator'] },
     ],
   },
   {
@@ -301,18 +303,20 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
 
   const filteredNavigationSections = useMemo(() => {
     const role = user?.role || 'viewer';
+    const staffType = user?.staffType || '';
+    const matchesStaffType = (item: NavItem) => !item.allowedStaffTypes || item.allowedStaffTypes.includes(staffType);
 
-    
+
     const mappedSections = navigationSections
       .filter((section) => !section.allowedRoles || section.allowedRoles.includes(role))
       .map((section) => ({
         ...section,
         title: role === 'office_staff' && section.title === 'For Office Staff' ? '' : section.title,
         items: section.items
-          .filter((item) => !item.allowedRoles || item.allowedRoles.includes(role))
+          .filter((item) => (!item.allowedRoles || item.allowedRoles.includes(role)) && matchesStaffType(item))
           .map((item) => {
              // eslint-disable-next-line @typescript-eslint/no-unused-vars
-             const { allowedRoles, children, ...restItem } = item;
+             const { allowedRoles, allowedStaffTypes, children, ...restItem } = item;
              const label = item.key === '/dashboard/employee-queries' && pendingEqCount > 0
                ? (
                    <Flex align="center" gap={8}>
@@ -326,9 +330,9 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                  ...restItem,
                  label,
                  children: children
-                   .filter((child) => !child.allowedRoles || child.allowedRoles.includes(role))
+                   .filter((child) => (!child.allowedRoles || child.allowedRoles.includes(role)) && matchesStaffType(child))
                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                   .map(({ allowedRoles: _childRoles, ...restChild }) => restChild)
+                   .map(({ allowedRoles: _childRoles, allowedStaffTypes: _childStaffTypes, ...restChild }) => restChild)
                }
              }
              return { ...restItem, label };
@@ -776,9 +780,16 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                   icon={<UserOutlined />}
                 />
                 {user && (
-                  <Text className="hidden text-sm font-medium sm:inline text-[var(--text-primary)]!">
-                    {user.name}
-                  </Text>
+                  <Flex vertical gap={0} className="hidden sm:flex">
+                    <Text className="text-sm font-medium leading-tight text-[var(--text-primary)]!">
+                      {user.name}
+                    </Text>
+                    {user.role === 'office_staff' && user.staffType && (
+                      <Text className="text-xs leading-tight text-[var(--text-muted)]!">
+                        {user.staffType}
+                      </Text>
+                    )}
+                  </Flex>
                 )}
               </Space>
             </Dropdown>

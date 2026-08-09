@@ -42,9 +42,19 @@ export type WorkCategory = {
   updatedAt?: string;
 };
 
+export type Team = {
+  id: string;
+  name: string;
+  isDeleted?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export type Trade = {
   id: string;
   name: string;
+  teamId?: string | null;
+  team?: Team | null;
   shiftWiseAmount?: number | null;
   isDeleted?: boolean;
   createdAt?: string;
@@ -495,6 +505,8 @@ export type Payment = {
   subcontractWorkOrder?: SubcontractWorkOrder;
   advanceRequestId?: string | null;
   advanceRequest?: AdvanceRequest;
+  subcontractorPaymentRequestId?: string | null;
+  subcontractorPaymentRequest?: SubcontractorPaymentRequest;
   salesInvoiceId?: string | null;
   salesInvoice?: SalesInvoice;
   expenseId?: string | null;
@@ -600,6 +612,8 @@ export type AdvanceRequest = {
   materialRequirementNo?: string | null;
   vendorQuotationId?: string | null;
   vendorQuotation?: VendorQuotation | null;
+  purchaseOrderId?: string | null;
+  purchaseOrder?: PurchaseOrder | null;
   amount: number | string;
   notes?: string | null;
   status: AdvanceRequestStatus;
@@ -638,6 +652,8 @@ export type SubcontractorWork = {
   project?: Project;
   subcontractorId: string;
   subcontractor?: Subcontractor;
+  subcontractWorkOrderId?: string | null;
+  subcontractWorkOrder?: SubcontractWorkOrder | null;
   notes?: string | null;
   photoUrls?: string[] | null;
   status: SubcontractorWorkStatus;

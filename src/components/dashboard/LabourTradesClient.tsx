@@ -8,7 +8,8 @@ import { DeleteOutlined, EditOutlined, PlusOutlined, TeamOutlined } from '@ant-d
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { createTrade, deleteTrade, updateTrade } from '@/actions/trades';
-import type { Trade } from '@/types/erp';
+import { createTeam } from '@/actions/teams';
+import type { Trade, Team } from '@/types/erp';
 import {
   cardClassName,
   formatDate,
@@ -34,6 +35,7 @@ const PRESET_TRADE_NAMES = [
 ];
 
 const tradeSchema = z.object({
+  teamId: z.string().optional(),
   name: z.string().min(1, 'Trade name is required'),
   shiftWiseAmount: z.number().min(0, 'Must be 0 or more'),
 });
@@ -42,15 +44,23 @@ type TradeFormValues = z.infer<typeof tradeSchema>;
 
 type LabourTradesClientProps = {
   trades: Trade[];
+  teams?: Team[];
 };
 
-export function LabourTradesClient({ trades }: LabourTradesClientProps) {
+export function LabourTradesClient({ trades, teams = [] }: LabourTradesClientProps) {
   const [open, setOpen] = useState(false);
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
   const [isPending, startTransition] = useTransition();
   const [newNameOption, setNewNameOption] = useState('');
   const [customNameOptions, setCustomNameOptions] = useState<string[]>([]);
+  const [localTeams, setLocalTeams] = useState<Team[]>(teams);
+  const [newTeamName, setNewTeamName] = useState('');
+  const [isAddingTeam, setIsAddingTeam] = useState(false);
   const { message } = App.useApp();
+
+  useEffect(() => {
+    setLocalTeams(teams);
+  }, [teams]);
 
   const nameOptions = Array.from(
     new Set([...PRESET_TRADE_NAMES, ...trades.map((t) => t.name), ...customNameOptions]),
@@ -64,6 +74,7 @@ export function LabourTradesClient({ trades }: LabourTradesClientProps) {
   } = useForm<TradeFormValues>({
     resolver: zodResolver(tradeSchema),
     defaultValues: {
+      teamId: undefined,
       name: '',
       shiftWiseAmount: 0,
     },
@@ -71,10 +82,11 @@ export function LabourTradesClient({ trades }: LabourTradesClientProps) {
 
   useEffect(() => {
     if (editingTrade) {
+      setValue('teamId', editingTrade.teamId || undefined);
       setValue('name', editingTrade.name);
       setValue('shiftWiseAmount', Number(editingTrade.shiftWiseAmount) || 0);
     } else {
-      reset({ name: '', shiftWiseAmount: 0 });
+      reset({ teamId: undefined, name: '', shiftWiseAmount: 0 });
     }
   }, [editingTrade, setValue, reset]);
 
@@ -100,6 +112,13 @@ export function LabourTradesClient({ trades }: LabourTradesClientProps) {
       key: 'sno',
       width: 60,
       render: (_text, _record, index) => index + 1,
+    },
+    {
+      title: 'Team',
+      key: 'team',
+      width: 140,
+      sorter: (a, b) => (a.team?.name || '').localeCompare(b.team?.name || ''),
+      render: (_, record) => record.team?.name || <Typography.Text type="secondary">-</Typography.Text>,
     },
     {
       title: 'Trade / Labour',
@@ -211,6 +230,60 @@ export function LabourTradesClient({ trades }: LabourTradesClientProps) {
         }
       >
         <Form layout="vertical" onFinish={handleSubmit(submit)}>
+          <Controller
+            control={control}
+            name="teamId"
+            render={({ field }) => (
+              <Form.Item label="Team">
+                <Select
+                  {...field}
+                  allowClear
+                  showSearch
+                  placeholder="Select team"
+                  options={localTeams.map((t) => ({ label: t.name, value: t.id }))}
+                  dropdownRender={(menu) => (
+                    <>
+                      {menu}
+                      <Divider style={{ margin: '8px 0' }} />
+                      <Space style={{ padding: '0 8px 4px' }}>
+                        <Input
+                          placeholder="New team"
+                          value={newTeamName}
+                          onChange={(e) => setNewTeamName(e.target.value)}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        />
+                        <Button
+                          type="text"
+                          icon={<PlusOutlined />}
+                          loading={isAddingTeam}
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            const name = newTeamName.trim();
+                            if (!name) return;
+                            setIsAddingTeam(true);
+                            try {
+                              const created = await createTeam({ name });
+                              setLocalTeams((prev) => prev.some((t) => t.name === created.name) ? prev : [...prev, created]);
+                              field.onChange(created.id);
+                              setNewTeamName('');
+                              message.success('Team added successfully');
+                            } catch (error) {
+                              message.error(error instanceof Error ? error.message : 'Failed to add team');
+                            } finally {
+                              setIsAddingTeam(false);
+                            }
+                          }}
+                        >
+                          Add
+                        </Button>
+                      </Space>
+                    </>
+                  )}
+                />
+              </Form.Item>
+            )}
+          />
+
           <Controller
             control={control}
             name="name"

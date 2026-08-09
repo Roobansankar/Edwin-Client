@@ -1,17 +1,17 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button, Card, Checkbox, Divider, Drawer, Flex, Form, Input, Modal, Popconfirm, Select, Space, Table, Tag, Typography, App, InputNumber } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { DeleteOutlined, EditOutlined, FilePdfOutlined, PlusOutlined, ShoppingCartOutlined, SplitCellsOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, FilePdfOutlined, HistoryOutlined, PlusOutlined, ShoppingCartOutlined, SplitCellsOutlined } from '@ant-design/icons';
 import { Controller, useForm, useFieldArray } from 'react-hook-form';
 import { z } from 'zod';
 import { PDFDownloadLink, PDFViewer } from '@react-pdf/renderer';
 import { createPurchaseEnquiry, updatePurchaseEnquiry, deletePurchaseEnquiry, updatePurchaseEnquiryStatus } from '@/actions/purchase-enquiries';
 import { createItemDescription, deleteItemDescription } from '@/actions/item-descriptions';
-import type { Project, Vendor, PurchaseEnquiry, ItemDescription, EnquiryItem } from '@/types/erp';
-import { cardClassName, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
+import type { Project, Vendor, PurchaseEnquiry, ItemDescription, EnquiryItem, PurchaseOrder, Payment } from '@/types/erp';
+import { cardClassName, formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
 import { PurchaseEnquiryPdf } from './PurchaseEnquiryPdf';
 import { useAuthStore } from '@/store/auth';
 
@@ -20,6 +20,8 @@ type Props = {
   projects: Project[];
   itemDescriptions: ItemDescription[];
   vendors: Vendor[];
+  purchaseOrders?: PurchaseOrder[];
+  payments?: Payment[];
 };
 
 const itemSchema = z.object({
@@ -47,7 +49,7 @@ const STATUS_COLORS: Record<string, string> = {
   rejected: 'red',
 };
 
-export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, vendors }: Props) {
+export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, vendors, purchaseOrders = [], payments = [] }: Props) {
   const [localDescriptions, setLocalDescriptions] = useState<ItemDescription[]>(itemDescriptions || []);
   const [inlineNewDesc, setInlineNewDesc] = useState('');
   const [isAddingInlineDesc, setIsAddingInlineDesc] = useState(false);
@@ -66,6 +68,46 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
   const availableProjects = isSiteEngineer && user?.projects
     ? projects.filter((p) => user.projects?.some((up) => up.id === p.id))
     : projects;
+
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyEnquiry, setHistoryEnquiry] = useState<PurchaseEnquiry | null>(null);
+
+  const posByEnquiryNo = useMemo(() => {
+    const map = new Map<string, PurchaseOrder[]>();
+    for (const po of purchaseOrders) {
+      if (!po.materialRequirementNo) continue;
+      const list = map.get(po.materialRequirementNo) || [];
+      list.push(po);
+      map.set(po.materialRequirementNo, list);
+    }
+    return map;
+  }, [purchaseOrders]);
+
+  const paidByPoId = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of payments) {
+      if (!p.purchaseOrderId) continue;
+      map.set(p.purchaseOrderId, (map.get(p.purchaseOrderId) || 0) + Number(p.amount));
+    }
+    return map;
+  }, [payments]);
+
+  const enquiryTotals = (enquiryNo: string) => {
+    const pos = posByEnquiryNo.get(enquiryNo) || [];
+    const total = pos.reduce((sum, po) => sum + Number(po.totalWithGst || po.totalAmount), 0);
+    const paid = pos.reduce((sum, po) => sum + (paidByPoId.get(po.id) || 0), 0);
+    return { total, paid, balance: total - paid, hasPo: pos.length > 0 };
+  };
+
+  const openHistory = (enquiry: PurchaseEnquiry) => {
+    setHistoryEnquiry(enquiry);
+    setHistoryOpen(true);
+  };
+  const historyPayments = useMemo(() => {
+    if (!historyEnquiry) return [];
+    const poIds = new Set((posByEnquiryNo.get(historyEnquiry.enquiryNo) || []).map((po) => po.id));
+    return payments.filter((p) => p.purchaseOrderId && poIds.has(p.purchaseOrderId));
+  }, [historyEnquiry, posByEnquiryNo, payments]);
 
   const [splitOpen, setSplitOpen] = useState(false);
   const [splitEnquiry, setSplitEnquiry] = useState<PurchaseEnquiry | null>(null);
@@ -204,6 +246,22 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
         ),
     },
     {
+      title: 'Amount / Balance',
+      key: 'amountBalance',
+      width: 200,
+      render: (_, r) => {
+        const { total, balance, hasPo } = enquiryTotals(r.enquiryNo);
+        if (!hasPo) return <Typography.Text type="secondary">-</Typography.Text>;
+        return (
+          <Flex vertical gap={0}>
+            <Typography.Text className="text-xs">Total: <Typography.Text strong>{formatCurrency(total)}</Typography.Text></Typography.Text>
+            <Typography.Text className="text-xs">Balance: <Typography.Text strong>{formatCurrency(balance)}</Typography.Text></Typography.Text>
+            <Button type="link" size="small" className="px-0! h-auto!" icon={<HistoryOutlined />} onClick={() => openHistory(r)}>History</Button>
+          </Flex>
+        );
+      },
+    },
+    {
       title: 'Created',
       dataIndex: 'createdAt',
       key: 'createdAt',
@@ -292,7 +350,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
           rowKey="id"
           loading={isPending}
           pagination={{ pageSize: 20, showSizeChanger: true }}
-          scroll={{ x: 1100 }}
+          scroll={{ x: 1300 }}
           locale={{ emptyText: isSiteEngineer ? 'No material requirements yet. Create one!' : 'No material requirement requests yet.' }}
         />
       </Card>
@@ -581,6 +639,27 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
             <PurchaseEnquiryPdf enquiry={previewEnquiry} items={previewItems ?? undefined} vendorName={previewVendorName ?? undefined} />
           </PDFViewer>
         )}
+      </Modal>
+
+      <Modal
+        title={historyEnquiry ? `Payment History — ${historyEnquiry.enquiryNo}` : 'Payment History'}
+        open={historyOpen}
+        onCancel={() => { setHistoryOpen(false); setHistoryEnquiry(null); }}
+        footer={null}
+      >
+        <Table
+          dataSource={historyPayments}
+          rowKey="id"
+          size="small"
+          pagination={false}
+          locale={{ emptyText: 'No payments recorded yet' }}
+          columns={[
+            { title: 'Date', dataIndex: 'paymentDate', render: (v: string) => formatDate(v) },
+            { title: 'Amount', dataIndex: 'amount', align: 'right', render: (v: number | string) => formatCurrency(v) },
+            { title: 'Mode', dataIndex: 'paymentMode', render: (v: string) => v?.toUpperCase() },
+            { title: 'Reference', dataIndex: 'referenceNumber', render: (v?: string | null) => v || '-' },
+          ]}
+        />
       </Modal>
     </div>
   );

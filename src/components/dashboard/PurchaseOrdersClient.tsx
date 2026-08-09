@@ -69,6 +69,10 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
     () => approvedQuotations(vendorQuotations).filter((q) => !usedQuotationKeys.has(`${q.vendorId}|${q.materialRequirement?.enquiryNo || ''}`)),
     [vendorQuotations, usedQuotationKeys],
   );
+  const selectedQuotation = useMemo(
+    () => peOptions.find((q) => q.id === selectedQuotationId) || null,
+    [peOptions, selectedQuotationId],
+  );
 
   const statusOptions = user?.role === 'purchase_team'
     ? STATUS_OPTIONS.filter((opt) => opt.value !== 'admin_approved')
@@ -146,6 +150,9 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
         billFileUrl = result.fileUrl;
         billFileKey = result.fileKey;
       } catch { message.error('File upload failed'); return; }
+    } else if (selectedQuotation?.quotationUrl) {
+      billFileUrl = selectedQuotation.quotationUrl;
+      billFileKey = selectedQuotation.quotationKey || undefined;
     }
 
     startTransition(async () => {
@@ -285,7 +292,7 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
     },
     { title: 'GST', key: 'gst', align: 'right', width: 100, responsive: ['xl'], render: (_, r) => (r.gstPercent ? `${Number(r.gstPercent)}%` : '-') },
     { title: 'Total w/ GST', key: 'totalWithGst', align: 'right', width: 130, responsive: ['lg'], sorter: (a, b) => Number(a.totalWithGst || 0) - Number(b.totalWithGst || 0), render: (_, r) => formatCurrency(r.totalWithGst || r.totalAmount) },
-    { title: 'Advance', key: 'advanceAmount', align: 'right', width: 120, responsive: ['lg'], sorter: (a, b) => Number(a.advanceAmount || 0) - Number(b.advanceAmount || 0), render: (_, r) => r.advanceAmount ? formatCurrency(r.advanceAmount) : <Typography.Text type="secondary">-</Typography.Text> },
+    { title: 'Paid Amount', key: 'advanceAmount', align: 'right', width: 120, responsive: ['lg'], sorter: (a, b) => Number(a.advanceAmount || 0) - Number(b.advanceAmount || 0), render: (_, r) => r.advanceAmount ? formatCurrency(r.advanceAmount) : <Typography.Text type="secondary">-</Typography.Text> },
     { title: 'Balance Total', key: 'balanceTotal', align: 'right', width: 130, responsive: ['lg'], sorter: (a, b) => (Number(a.totalWithGst || a.totalAmount) - Number(a.paidAmount || 0)) - (Number(b.totalWithGst || b.totalAmount) - Number(b.paidAmount || 0)), render: (_, r) => {
       const balance = Number(r.totalWithGst || r.totalAmount) - Number(r.paidAmount || 0);
       return <Typography.Text strong={balance > 0}>{formatCurrency(balance)}</Typography.Text>;
@@ -368,6 +375,24 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
             </Form.Item>
           )}
 
+          {selectedQuotation && (
+            <Form.Item label="Quotation Reference" className="mb-6">
+              <Flex align="center" gap={16} wrap="wrap">
+                <Typography.Text>
+                  Quoted Total:{' '}
+                  <Typography.Text strong>
+                    {selectedQuotation.totalAmount ? formatCurrency(selectedQuotation.totalAmount) : 'Not entered'}
+                  </Typography.Text>
+                </Typography.Text>
+                {selectedQuotation.quotationUrl && (
+                  <Button size="small" icon={<FilePdfOutlined />} href={selectedQuotation.quotationUrl} target="_blank">
+                    View Quotation Bill
+                  </Button>
+                )}
+              </Flex>
+            </Form.Item>
+          )}
+
           {projectId && (
             <Form.Item label="Project">
               <Typography.Text>{projects.find((p) => p.id === projectId)?.name || projectId}</Typography.Text>
@@ -422,8 +447,15 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
           })}
 
           <Typography.Text strong className="mt-4 block">PO Document</Typography.Text>
+          {!editingPo && selectedQuotation?.quotationUrl && !billFile && (
+            <Typography.Text type="secondary" className="mb-2 block text-xs">
+              Using the quotation bill uploaded in Purchase Enquiry — upload a different file below to replace it.
+            </Typography.Text>
+          )}
           <Upload accept=".pdf,.jpg,.jpeg,.png" showUploadList={false} beforeUpload={(file) => { setBillFile(file); return false; }} onRemove={() => setBillFile(null)}>
-            <Button icon={<FilePdfOutlined />}>{billFile ? billFile.name : (editingPo?.billFileUrl ? 'Replace PO' : 'Upload PO')}</Button>
+            <Button icon={<FilePdfOutlined />}>
+              {billFile ? billFile.name : (editingPo?.billFileUrl || selectedQuotation?.quotationUrl ? 'Replace PO' : 'Upload PO')}
+            </Button>
           </Upload>
           {billFile && <Typography.Text type="secondary" className="text-xs">{billFile.name}</Typography.Text>}
           {editingPo?.billFileUrl && !billFile && <Button type="link" size="small" href={editingPo.billFileUrl} target="_blank">View uploaded PO</Button>}

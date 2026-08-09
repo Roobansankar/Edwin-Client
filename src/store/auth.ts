@@ -8,6 +8,7 @@ interface User {
   name: string;
   email: string;
   role: string;
+  staffType?: string | null;
   projects?: { id: string }[];
 }
 

@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from 'react';
 import { App, Button, Card, Col, Flex, Popconfirm, Row, Select, Statistic, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { CheckOutlined, CloseOutlined, DollarOutlined, FileTextOutlined } from '@ant-design/icons';
+import { CheckOutlined, CloseOutlined, DollarOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { respondAdvanceRequest } from '@/actions/advance-requests';
 import type { AdvanceRequest } from '@/types/erp';
 import { useAuthStore } from '@/store/auth';
@@ -73,18 +73,24 @@ export function AdvanceRequestsClient({ requests }: Props) {
 
   const columns: ColumnsType<AdvanceRequest> = [
     { title: '#', key: 'sno', width: 50, render: (_, __, i) => i + 1 },
+    { title: 'PO Number', key: 'po', render: (_, record) => record.purchaseOrder?.poNumber || <Typography.Text type="secondary">-</Typography.Text> },
     { title: 'Vendor', key: 'vendor', render: (_, record) => record.vendor?.name || record.vendorId },
     { title: 'Project', key: 'project', render: (_, record) => record.project?.name || '-' },
-    { title: 'MR Ref', dataIndex: 'materialRequirementNo', render: (value?: string | null) => value || <Typography.Text type="secondary">-</Typography.Text> },
+    { title: 'MR Ref', key: 'mrRef', render: (_, record) => {
+      const mrRef = record.materialRequirementNo || record.purchaseOrder?.materialRequirementNo;
+      return mrRef || <Typography.Text type="secondary">-</Typography.Text>;
+    } },
     { title: 'Amount', dataIndex: 'amount', align: 'right', render: (value: number | string) => formatCurrency(value) },
-    { title: 'Total Amount', key: 'quotedTotal', align: 'right', render: (_, record) =>
-      record.vendorQuotation?.totalAmount ? formatCurrency(record.vendorQuotation.totalAmount) : <Typography.Text type="secondary">-</Typography.Text>,
-    },
-    { title: 'Quotation', key: 'quotation', render: (_, record) =>
-      record.vendorQuotation?.quotationUrl ? (
-        <Button type="link" size="small" icon={<FileTextOutlined />} href={record.vendorQuotation.quotationUrl} target="_blank">View</Button>
-      ) : <Typography.Text type="secondary">-</Typography.Text>,
-    },
+    { title: 'Total Amount', key: 'poTotal', align: 'right', render: (_, record) => {
+      const poTotal = record.purchaseOrder ? (record.purchaseOrder.totalWithGst || record.purchaseOrder.totalAmount) : record.vendorQuotation?.totalAmount;
+      return poTotal ? formatCurrency(poTotal) : <Typography.Text type="secondary">-</Typography.Text>;
+    } },
+    { title: 'PO Document', key: 'poDocument', render: (_, record) => {
+      const url = record.purchaseOrder?.billFileUrl || record.vendorQuotation?.quotationUrl;
+      return url ? (
+        <Button type="link" size="small" icon={<FilePdfOutlined />} href={url} target="_blank">View</Button>
+      ) : <Typography.Text type="secondary">-</Typography.Text>;
+    } },
     { title: 'Notes', dataIndex: 'notes', ellipsis: true, render: (value?: string | null) => value || '-' },
     { title: 'Requested At', dataIndex: 'createdAt', width: 130, render: formatDate },
     {
@@ -214,7 +220,7 @@ export function AdvanceRequestsClient({ requests }: Props) {
           columns={columns}
           rowKey="id"
           pagination={{ pageSize: 10 }}
-          scroll={{ x: 900 }}
+          scroll={{ x: 1200 }}
           locale={{ emptyText: 'No vendor payment requests from purchase team' }}
         />
       </Card>

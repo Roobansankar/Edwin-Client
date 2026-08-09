@@ -3,9 +3,9 @@
 import { useCallback, useMemo, useState, useTransition } from 'react';
 import { Button, Card, Flex, Form, Input, InputNumber, Select, Table, Tag, Typography, App } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { DollarOutlined, FileTextOutlined } from '@ant-design/icons';
+import { DollarOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { createAdvanceRequest } from '@/actions/advance-requests';
-import type { Project, VendorQuotation, AdvanceRequest, PurchaseOrder } from '@/types/erp';
+import type { Project, AdvanceRequest, PurchaseOrder } from '@/types/erp';
 import {
   cardClassName,
   formatCurrency,
@@ -17,7 +17,6 @@ import {
 
 type Props = {
   projects: Project[];
-  vendorQuotations: VendorQuotation[];
   advanceRequests: AdvanceRequest[];
   purchaseOrders: PurchaseOrder[];
 };
@@ -36,10 +35,10 @@ const STATUS_LABELS: Record<string, string> = {
   rejected: 'REJECTED',
 };
 
-const approvedQuotations = (vqs: VendorQuotation[]) => vqs.filter((vq) => vq.status === 'approved');
+const poBalance = (po: PurchaseOrder) => Number(po.totalWithGst || po.totalAmount) - Number(po.paidAmount || 0);
 
-export function AdvanceRequestClient({ projects, vendorQuotations, advanceRequests, purchaseOrders }: Props) {
-  const [selectedQuotationId, setSelectedQuotationId] = useState<string | null>(null);
+export function AdvanceRequestClient({ projects, advanceRequests, purchaseOrders }: Props) {
+  const [selectedPoId, setSelectedPoId] = useState<string | null>(null);
   const [vendorId, setVendorId] = useState('');
   const [projectId, setProjectId] = useState('');
   const [materialRequirementNo, setMaterialRequirementNo] = useState<string | null>(null);
@@ -48,38 +47,28 @@ export function AdvanceRequestClient({ projects, vendorQuotations, advanceReques
   const [isPending, startTransition] = useTransition();
   const { message } = App.useApp();
 
-  const fullyPaidKeys = useMemo(() => {
-    const set = new Set<string>();
-    for (const po of purchaseOrders) {
-      if (!po.materialRequirementNo) continue;
-      const balance = Number(po.totalWithGst || po.totalAmount) - Number(po.paidAmount || 0);
-      if (balance <= 0) set.add(`${po.vendorId}|${po.materialRequirementNo}`);
-    }
-    return set;
-  }, [purchaseOrders]);
-
-  const peOptions = useMemo(
-    () => approvedQuotations(vendorQuotations).filter(
-      (q) => !fullyPaidKeys.has(`${q.vendorId}|${q.materialRequirement?.enquiryNo || ''}`),
-    ),
-    [vendorQuotations, fullyPaidKeys],
+  const poOptions = useMemo(
+    () => purchaseOrders.filter((po) => po.status === 'approved' && poBalance(po) > 0),
+    [purchaseOrders],
   );
-  const selectedQuotation = useMemo(
-    () => peOptions.find((vq) => vq.id === selectedQuotationId) || null,
-    [peOptions, selectedQuotationId],
+  const selectedPo = useMemo(
+    () => poOptions.find((po) => po.id === selectedPoId) || null,
+    [poOptions, selectedPoId],
   );
 
-  const handleQuotationSelect = useCallback((value: string) => {
-    const q = peOptions.find((vq) => vq.id === value);
-    if (!q) return;
-    setSelectedQuotationId(value);
-    setVendorId(q.vendorId);
-    setProjectId(q.projectId);
-    setMaterialRequirementNo(q.materialRequirement?.enquiryNo || null);
-  }, [peOptions]);
+  const handlePoSelect = useCallback((value: string) => {
+    const po = poOptions.find((p) => p.id === value);
+    if (!po) return;
+    setSelectedPoId(value);
+    setVendorId(po.vendorId);
+    setProjectId(po.projectId);
+    setMaterialRequirementNo(po.materialRequirementNo || null);
+    const balance = poBalance(po);
+    setAmount(balance > 0 ? balance : null);
+  }, [poOptions]);
 
   const resetForm = () => {
-    setSelectedQuotationId(null);
+    setSelectedPoId(null);
     setVendorId('');
     setProjectId('');
     setMaterialRequirementNo(null);
@@ -89,7 +78,7 @@ export function AdvanceRequestClient({ projects, vendorQuotations, advanceReques
 
   const handleSubmit = () => {
     if (!vendorId || !projectId) {
-      message.error('Select an approved vendor/MR first');
+      message.error('Select a PO first');
       return;
     }
     if (!amount || amount <= 0) {
@@ -102,7 +91,7 @@ export function AdvanceRequestClient({ projects, vendorQuotations, advanceReques
           vendorId,
           projectId,
           materialRequirementNo: materialRequirementNo || undefined,
-          vendorQuotationId: selectedQuotationId || undefined,
+          purchaseOrderId: selectedPoId || undefined,
           amount,
           notes: notes.trim() || undefined,
         });
@@ -116,13 +105,14 @@ export function AdvanceRequestClient({ projects, vendorQuotations, advanceReques
 
   const columns: ColumnsType<AdvanceRequest> = [
     { title: '#', key: 'sno', width: 50, render: (_, __, i) => i + 1 },
+    { title: 'PO Number', key: 'po', render: (_, record) => record.purchaseOrder?.poNumber || <Typography.Text type="secondary">-</Typography.Text> },
     { title: 'Vendor', key: 'vendor', render: (_, record) => record.vendor?.name || record.vendorId },
     { title: 'Project', key: 'project', render: (_, record) => record.project?.name || '-' },
     { title: 'MR Ref', dataIndex: 'materialRequirementNo', render: (value?: string | null) => value || <Typography.Text type="secondary">-</Typography.Text> },
     { title: 'Amount', dataIndex: 'amount', align: 'right', render: (value: number | string) => formatCurrency(value) },
-    { title: 'Quotation', key: 'quotation', render: (_, record) =>
-      record.vendorQuotation?.quotationUrl ? (
-        <Button type="link" size="small" icon={<FileTextOutlined />} href={record.vendorQuotation.quotationUrl} target="_blank">View</Button>
+    { title: 'PO Document', key: 'poDocument', render: (_, record) =>
+      record.purchaseOrder?.billFileUrl ? (
+        <Button type="link" size="small" icon={<FilePdfOutlined />} href={record.purchaseOrder.billFileUrl} target="_blank">View</Button>
       ) : <Typography.Text type="secondary">-</Typography.Text>,
     },
     { title: 'Requested At', dataIndex: 'createdAt', render: formatDate },
@@ -139,29 +129,29 @@ export function AdvanceRequestClient({ projects, vendorQuotations, advanceReques
 
       <Card className={`${cardClassName} mb-6`}>
         <Form layout="vertical">
-          {peOptions.length > 0 && (
-            <Form.Item label="MR Ref / Vendor" required>
+          {poOptions.length > 0 && (
+            <Form.Item label="PO Number / MR Ref" required>
               <Select
                 showSearch
-                placeholder="Search MR Ref or vendor..."
+                placeholder="Search PO number or MR Ref..."
                 optionFilterProp="label"
-                value={selectedQuotationId || undefined}
-                onChange={handleQuotationSelect}
-                options={peOptions.map((q) => {
-                  const mrRef = q.materialRequirement?.enquiryNo;
-                  const vendorName = q.vendor?.name || q.vendorId;
-                  const projectName = q.project?.name || 'Unknown project';
+                value={selectedPoId || undefined}
+                onChange={handlePoSelect}
+                options={poOptions.map((po) => {
+                  const mrRef = po.materialRequirementNo;
+                  const vendorName = po.vendor?.name || po.vendorId;
+                  const projectName = po.project?.name || 'Unknown project';
                   return {
-                    value: q.id,
-                    label: mrRef ? `${mrRef} — ${vendorName} (${projectName})` : `${projectName} — ${vendorName}`,
+                    value: po.id,
+                    label: mrRef ? `${po.poNumber} — ${mrRef} — ${vendorName} (${projectName})` : `${po.poNumber} — ${vendorName} (${projectName})`,
                   };
                 })}
               />
             </Form.Item>
           )}
 
-          {peOptions.length === 0 && (
-            <Typography.Text type="secondary">No approved vendors available yet — approve a vendor quotation first.</Typography.Text>
+          {poOptions.length === 0 && (
+            <Typography.Text type="secondary">No approved purchase orders with an outstanding balance yet.</Typography.Text>
           )}
 
           {projectId && (
@@ -170,18 +160,21 @@ export function AdvanceRequestClient({ projects, vendorQuotations, advanceReques
             </Form.Item>
           )}
 
-          {selectedQuotation && (
-            <Form.Item label="Quotation Reference">
+          {selectedPo && (
+            <Form.Item label="PO Reference">
               <Flex align="center" gap={16} wrap="wrap">
                 <Typography.Text>
-                  Quoted Total:{' '}
-                  <Typography.Text strong>
-                    {selectedQuotation.totalAmount ? formatCurrency(selectedQuotation.totalAmount) : 'Not entered'}
-                  </Typography.Text>
+                  PO Total: <Typography.Text strong>{formatCurrency(selectedPo.totalWithGst || selectedPo.totalAmount)}</Typography.Text>
                 </Typography.Text>
-                {selectedQuotation.quotationUrl && (
-                  <Button size="small" icon={<FileTextOutlined />} href={selectedQuotation.quotationUrl} target="_blank">
-                    View Quotation Bill
+                <Typography.Text>
+                  Paid So Far: <Typography.Text strong>{formatCurrency(selectedPo.paidAmount || 0)}</Typography.Text>
+                </Typography.Text>
+                <Typography.Text>
+                  Balance: <Typography.Text strong>{formatCurrency(poBalance(selectedPo))}</Typography.Text>
+                </Typography.Text>
+                {selectedPo.billFileUrl && (
+                  <Button size="small" icon={<FilePdfOutlined />} href={selectedPo.billFileUrl} target="_blank">
+                    View PO Document
                   </Button>
                 )}
               </Flex>

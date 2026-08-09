@@ -6,7 +6,8 @@ import { PlusOutlined, DeleteOutlined, SaveOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { createDailyLabourReport, updateDailyLabourReport, deleteDailyLabourReport } from '@/actions/daily-labour';
 import { createTrade } from '@/actions/trades';
-import type { Project, Trade, DailyLabourReport } from '@/types/erp';
+import { createTeam } from '@/actions/teams';
+import type { Project, Trade, Team, DailyLabourReport } from '@/types/erp';
 import { cardClassName } from './ui';
 import { useAuthStore } from '@/store/auth';
 import { GeoTagPhotoCapture, type GeoTagFile } from './GeoTagPhotoCapture';
@@ -20,18 +21,23 @@ const PHOTO_SLOTS = [1, 2, 3, 4, 5] as const;
 type Props = {
   projects: Project[];
   trades: Trade[];
+  teams?: Team[];
   initialValues?: DailyLabourReport;
   onSuccess?: () => void;
   onCancel?: () => void;
 };
 
-export function DpwForm({ projects, trades, initialValues, onSuccess, onCancel }: Props) {
+export function DpwForm({ projects, trades, teams = [], initialValues, onSuccess, onCancel }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isDeleting, setIsDeleting] = useState(false);
   const [isAddingTrade, setIsAddingTrade] = useState(false);
   const [newTradeName, setNewTradeName] = useState('');
   const [localTrades, setLocalTrades] = useState<Trade[]>(trades);
+  const [localTeams, setLocalTeams] = useState<Team[]>(teams);
+  const [rowTeamId, setRowTeamId] = useState<Record<number, string | undefined>>({});
+  const [newTeamName, setNewTeamName] = useState('');
+  const [isAddingTeam, setIsAddingTeam] = useState(false);
   const { message, modal } = App.useApp();
   const { user } = useAuthStore();
   const [form] = Form.useForm();
@@ -65,6 +71,15 @@ export function DpwForm({ projects, trades, initialValues, onSuccess, onCancel }
 
         photos[index] = { morning: buildList('morning'), evening: buildList('evening') };
       });
+
+      // Pre-select each row's Team based on its trade, so the Trade dropdown
+      // starts filtered consistently with what's already saved.
+      const teamByIndex: Record<number, string | undefined> = {};
+      initialValues.workers.forEach((w, index) => {
+        const trade = localTrades.find((t) => t.id === w.tradeId);
+        if (trade?.teamId) teamByIndex[index] = trade.teamId;
+      });
+      setRowTeamId(teamByIndex);
       setWorkerPhotos(photos);
     }
   }, [initialValues, form]);
@@ -110,6 +125,23 @@ export function DpwForm({ projects, trades, initialValues, onSuccess, onCancel }
     }
   };
 
+  const handleAddTeam = async (e: React.MouseEvent<HTMLElement>) => {
+    e.preventDefault();
+    if (!newTeamName.trim()) return;
+
+    setIsAddingTeam(true);
+    try {
+      const team = await createTeam({ name: newTeamName });
+      setLocalTeams([...localTeams, team]);
+      setNewTeamName('');
+      message.success('Team added successfully');
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : 'Failed to add team');
+    } finally {
+      setIsAddingTeam(false);
+    }
+  };
+
   const handleTradeChange = (index: number, tradeId: string) => {
     const selectedTrade = localTrades.find((t) => t.id === tradeId);
     if (selectedTrade?.shiftWiseAmount != null) {
@@ -120,6 +152,17 @@ export function DpwForm({ projects, trades, initialValues, onSuccess, onCancel }
         ),
       });
     }
+  };
+
+  const handleTeamChange = (index: number, teamId: string | undefined) => {
+    setRowTeamId((prev) => ({ ...prev, [index]: teamId }));
+    // Clear the trade/amount for this row since the trade choices just narrowed.
+    const workers = form.getFieldValue('workers') || [];
+    form.setFieldsValue({
+      workers: workers.map((w: any, i: number) =>
+        i === index ? { ...w, tradeId: undefined, shiftAmount: undefined } : w
+      ),
+    });
   };
 
   const handlePhotoChange = (index: number, type: 'morning' | 'evening', fileList: GeoTagFile[]) => {
@@ -194,7 +237,8 @@ export function DpwForm({ projects, trades, initialValues, onSuccess, onCancel }
     });
   };
 
-  const availableProjects = user?.role === 'site_engineer' && user.projects 
+  const isSiteEngineer = user?.role === 'site_engineer';
+  const availableProjects = isSiteEngineer && user.projects
     ? projects.filter(p => user.projects?.some(up => up.id === p.id))
     : projects;
 
@@ -228,12 +272,41 @@ export function DpwForm({ projects, trades, initialValues, onSuccess, onCancel }
                   extra={<Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)} />}
                 >
                     <Row gutter={12}>
-                      <Col xs={24} sm={8}>
+                      <Col xs={24}>
+                        <Form.Item label="Team">
+                          <Select
+                            allowClear
+                            showSearch
+                            placeholder="Select team (narrows trade list)"
+                            value={rowTeamId[name]}
+                            options={localTeams.map(t => ({ label: t.name, value: t.id }))}
+                            onChange={(value) => handleTeamChange(name, value)}
+                            dropdownRender={(menu) => (
+                              <>
+                                {menu}
+                                <Divider style={{ margin: '8px 0' }} />
+                                <Space style={{ padding: '0 8px 4px' }}>
+                                  <Input
+                                    placeholder="New team"
+                                    value={newTeamName}
+                                    onChange={(e) => setNewTeamName(e.target.value)}
+                                    onKeyDown={(e) => e.stopPropagation()}
+                                  />
+                                  <Button type="text" icon={<PlusOutlined />} onClick={handleAddTeam} loading={isAddingTeam}>
+                                    Add
+                                  </Button>
+                                </Space>
+                              </>
+                            )}
+                          />
+                        </Form.Item>
+                      </Col>
+                      <Col xs={24} sm={isSiteEngineer ? 10 : 8}>
                         <Form.Item {...restField} name={[name, 'tradeId']} label="Trade" rules={[{ required: true }]}>
                           <Select
                             showSearch
                             placeholder="Select trade"
-                            options={localTrades.map(t => ({ label: t.name, value: t.id }))}
+                            options={(rowTeamId[name] ? localTrades.filter(t => t.teamId === rowTeamId[name]) : localTrades).map(t => ({ label: t.name, value: t.id }))}
                             onChange={(value) => handleTradeChange(name, value)}
                             dropdownRender={(menu) => (
                               <>
@@ -255,21 +328,28 @@ export function DpwForm({ projects, trades, initialValues, onSuccess, onCancel }
                           />
                         </Form.Item>
                       </Col>
-                      <Col xs={12} sm={5}>
+                      <Col xs={12} sm={isSiteEngineer ? 7 : 5}>
                         <Form.Item {...restField} name={[name, 'count']} label="Worker Count" rules={[{ required: true }]}>
                           <InputNumber min={1} style={{ width: '100%' }} placeholder="Count" />
                         </Form.Item>
                       </Col>
-                      <Col xs={12} sm={5}>
+                      <Col xs={12} sm={isSiteEngineer ? 7 : 5}>
                         <Form.Item {...restField} name={[name, 'shift']} label="Shift" initialValue="1">
                           <Select options={[{label: '0.5', value: '0.5'}, {label: '1', value: '1'}, {label: '1.5', value: '1.5'}, {label: '2', value: '2'}]} />
                         </Form.Item>
                       </Col>
-                      <Col xs={12} sm={6}>
-                        <Form.Item {...restField} name={[name, 'shiftAmount']} label="1 Shift Amt">
-                          <InputNumber min={0} step={50} prefix="₹" style={{ width: '100%' }} placeholder="0" />
+                      {!isSiteEngineer && (
+                        <Col xs={12} sm={6}>
+                          <Form.Item {...restField} name={[name, 'shiftAmount']} label="1 Shift Amt">
+                            <InputNumber min={0} step={50} prefix="₹" style={{ width: '100%' }} placeholder="0" />
+                          </Form.Item>
+                        </Col>
+                      )}
+                      {isSiteEngineer && (
+                        <Form.Item {...restField} name={[name, 'shiftAmount']} hidden>
+                          <InputNumber />
                         </Form.Item>
-                      </Col>
+                      )}
                     <Col xs={12}>
                       <Form.Item {...restField} name={[name, 'inTime']} label="In Time">
                         <DatePicker picker="time" format="hh:mm A" style={{ width: '100%' }} />

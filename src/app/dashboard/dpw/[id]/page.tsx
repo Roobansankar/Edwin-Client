@@ -7,23 +7,24 @@ import { Typography, Breadcrumb, Flex, Alert, Spin } from 'antd';
 import { CalendarOutlined } from '@ant-design/icons';
 import { pageHeaderClassName, pageTitleClassName, titleIconClassName } from '@/components/dashboard/ui';
 import Link from 'next/link';
-import type { Project, Trade, DailyLabourReport } from '@/types/erp';
+import type { Project, Trade, Team, DailyLabourReport } from '@/types/erp';
 
 export default function EditDpwPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const [data, setData] = useState<{ projects: Project[], trades: Trade[], report: DailyLabourReport } | null>(null);
+  const [data, setData] = useState<{ projects: Project[], trades: Trade[], teams: Team[], report: DailyLabourReport } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [projects, trades, report] = await Promise.all([
+        const [projects, trades, teams, report] = await Promise.all([
           clientApiFetch<Project[]>('/projects'),
           clientApiFetch<Trade[]>('/trades'),
+          clientApiFetch<Team[]>('/teams'),
           clientApiFetch<DailyLabourReport>(`/daily-labour/${id}`),
         ]);
-        setData({ projects, trades, report });
+        setData({ projects, trades, teams, report });
       } catch (err) {
         console.error('Failed to fetch DPW data:', err);
         setError(err instanceof Error ? err.message : 'Failed to load data');
@@ -46,9 +47,10 @@ export default function EditDpwPage({ params }: { params: Promise<{ id: string }
         </Typography.Title>
       </Flex>
 
-      <DpwForm 
-        projects={data.projects} 
-        trades={data.trades} 
+      <DpwForm
+        projects={data.projects}
+        trades={data.trades}
+        teams={data.teams}
         initialValues={data.report}
       />
     </div>

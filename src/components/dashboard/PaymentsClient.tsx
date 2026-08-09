@@ -1,15 +1,15 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
-import { Card, Table, Typography, Tag, Space, Flex, Button, Drawer, Form, Input, InputNumber, Select, DatePicker, Row, Col, Statistic, Tabs } from 'antd';
-import { CreditCardOutlined, PlusOutlined, ArrowDownOutlined, ArrowUpOutlined, SearchOutlined } from '@ant-design/icons';
+import { Card, Table, Typography, Tag, Space, Flex, Button, Drawer, Form, Input, InputNumber, Select, DatePicker, Row, Col, Statistic, Tabs, Modal } from 'antd';
+import { CreditCardOutlined, PlusOutlined, ArrowDownOutlined, ArrowUpOutlined, SearchOutlined, HistoryOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import dayjs from 'dayjs';
 import { createPayment, syncExpensesToLedger } from '@/actions/payments';
-import type { AdvanceRequest, Payment, Project, PurchaseOrder, Vendor } from '@/types/erp';
+import type { AdvanceRequest, Payment, Project, PurchaseOrder, SubcontractWorkOrder, SubcontractorPaymentRequest, Vendor } from '@/types/erp';
 import {
   StatusTag,
   cardClassName,
@@ -29,6 +29,8 @@ const paymentSchema = z.object({
   vendorId: z.string().optional(),
   purchaseOrderId: z.string().optional(),
   advanceRequestId: z.string().optional(),
+  subcontractWorkOrderId: z.string().optional(),
+  subcontractorPaymentRequestId: z.string().optional(),
   amount: z.number().positive('Amount must be positive'),
   paymentDate: z.string().min(1, 'Select date'),
   paymentMode: z.string().min(1, 'Select mode'),
@@ -46,9 +48,11 @@ type PaymentsClientProps = {
   vendors: Vendor[];
   purchaseOrders: PurchaseOrder[];
   advanceRequests: AdvanceRequest[];
+  subcontractWorkOrders: SubcontractWorkOrder[];
+  subcontractorPaymentRequests: SubcontractorPaymentRequest[];
 };
 
-export function PaymentsClient({ payments, summary, projects, vendors, purchaseOrders, advanceRequests }: PaymentsClientProps) {
+export function PaymentsClient({ payments, summary, projects, vendors, purchaseOrders, advanceRequests, subcontractWorkOrders, subcontractorPaymentRequests }: PaymentsClientProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -86,6 +90,44 @@ export function PaymentsClient({ payments, summary, projects, vendors, purchaseO
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
 
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyTarget, setHistoryTarget] = useState<{ type: 'po' | 'swo'; id: string; label: string } | null>(null);
+
+  const openHistory = (target: { type: 'po' | 'swo'; id: string; label: string }) => {
+    setHistoryTarget(target);
+    setHistoryOpen(true);
+  };
+  const historyPayments = useMemo(() => {
+    if (!historyTarget) return [];
+    return payments.filter((p) =>
+      historyTarget.type === 'po' ? p.purchaseOrderId === historyTarget.id : p.subcontractWorkOrderId === historyTarget.id,
+    );
+  }, [payments, historyTarget]);
+
+  // The PurchaseOrder relation loaded on a Payment record has no live
+  // paidAmount (that's only computed on the purchase-orders endpoint) —
+  // sum this page's own payments per PO so the Balance column matches
+  // what /dashboard/purchase-orders shows.
+  const poPaidTotals = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of payments) {
+      if (!p.purchaseOrderId) continue;
+      map.set(p.purchaseOrderId, (map.get(p.purchaseOrderId) || 0) + Number(p.amount));
+    }
+    return map;
+  }, [payments]);
+
+  // Same story for SubcontractWorkOrder — its paidAmount is only computed
+  // on the subcontract-work-orders endpoint.
+  const swoPaidTotals = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of payments) {
+      if (!p.subcontractWorkOrderId) continue;
+      map.set(p.subcontractWorkOrderId, (map.get(p.subcontractWorkOrderId) || 0) + Number(p.amount));
+    }
+    return map;
+  }, [payments]);
+
   const inflowPayments = useMemo(() => {
     const from = dateRange[0]?.format('YYYY-MM-DD');
     const to = dateRange[1]?.format('YYYY-MM-DD');
@@ -113,8 +155,8 @@ export function PaymentsClient({ payments, summary, projects, vendors, purchaseO
       if (p.salesInvoice) return false;
       if (p.timesheetId) return true;
       const srcStatus = p.expense?.status || p.purchaseBill?.status;
-      if (srcStatus !== 'admin_approved') return false;
-      if (statusFilter && srcStatus !== statusFilter) return false;
+      if ((p.expense || p.purchaseBill) && srcStatus !== 'admin_approved') return false;
+      if (statusFilter && srcStatus && srcStatus !== statusFilter) return false;
       if (from && to) {
         const pd = typeof p.paymentDate === 'string' ? p.paymentDate.split('T')[0] : '';
         if (pd < from || pd > to) return false;
@@ -162,18 +204,48 @@ export function PaymentsClient({ payments, summary, projects, vendors, purchaseO
       },
     },
     {
-      title: 'Amount',
+      title: 'Total Amount',
+      key: 'totalAmount',
+      align: 'right',
+      render: (_, record) => {
+        if (record.purchaseOrder) return formatCurrency(record.purchaseOrder.totalWithGst || record.purchaseOrder.totalAmount);
+        if (record.subcontractWorkOrder) return formatCurrency(record.subcontractWorkOrder.totalAmount);
+        if (record.purchaseBill) return formatCurrency(Number(record.purchaseBill.amount) + Number(record.purchaseBill.gstAmount || 0));
+        if (record.salesInvoice) return formatCurrency(Number(record.salesInvoice.totalAmount) + Number(record.salesInvoice.gstAmount || 0));
+        return '-';
+      },
+    },
+    {
+      title: activeTab === 'outflow' ? 'Paid Amount' : 'Amount',
       dataIndex: 'amount',
       align: 'right',
       render: (amount) => <Text strong type="danger">{formatCurrency(amount)}</Text>,
     },
     {
-      title: 'Total Amount',
-      key: 'totalAmount',
+      title: 'Balance',
+      key: 'balance',
       align: 'right',
       render: (_, record) => {
-        if (record.purchaseBill?.amount) return formatCurrency(record.purchaseBill.amount);
-        if (record.salesInvoice?.totalAmount) return formatCurrency(Number(record.salesInvoice.totalAmount) + Number(record.salesInvoice.gstAmount || 0));
+        if (record.purchaseOrder) {
+          const total = Number(record.purchaseOrder.totalWithGst || record.purchaseOrder.totalAmount);
+          const paid = poPaidTotals.get(record.purchaseOrder.id) || 0;
+          return formatCurrency(total - paid);
+        }
+        if (record.subcontractWorkOrder) {
+          const total = Number(record.subcontractWorkOrder.totalAmount);
+          const paid = swoPaidTotals.get(record.subcontractWorkOrder.id) || 0;
+          return formatCurrency(total - paid);
+        }
+        if (record.purchaseBill) {
+          const total = Number(record.purchaseBill.amount) + Number(record.purchaseBill.gstAmount || 0);
+          const balance = total - Number(record.purchaseBill.paidAmount || 0);
+          return formatCurrency(balance);
+        }
+        if (record.salesInvoice) {
+          const total = Number(record.salesInvoice.totalAmount) + Number(record.salesInvoice.gstAmount || 0);
+          const balance = total - Number(record.salesInvoice.paidAmount || 0);
+          return formatCurrency(balance);
+        }
         return '-';
       },
     },
@@ -194,6 +266,17 @@ export function PaymentsClient({ payments, summary, projects, vendors, purchaseO
       title: 'Ref No',
       dataIndex: 'referenceNumber',
       render: (val) => val || '-',
+    },
+    {
+      title: 'History',
+      key: 'history',
+      width: 90,
+      render: (_, record) =>
+        record.purchaseOrder ? (
+          <Button size="small" icon={<HistoryOutlined />} onClick={() => openHistory({ type: 'po', id: record.purchaseOrder!.id, label: record.purchaseOrder!.poNumber })}>History</Button>
+        ) : record.subcontractWorkOrder ? (
+          <Button size="small" icon={<HistoryOutlined />} onClick={() => openHistory({ type: 'swo', id: record.subcontractWorkOrder!.id, label: record.subcontractWorkOrder!.woNumber })}>History</Button>
+        ) : null,
     },
   ];
 
@@ -272,7 +355,7 @@ export function PaymentsClient({ payments, summary, projects, vendors, purchaseO
             columns={columns}
             rowKey="id"
             pagination={{ pageSize: 15 }}
-            scroll={{ x: 900 }}
+            scroll={{ x: 1300 }}
           />
         </div>
       ),
@@ -304,7 +387,7 @@ export function PaymentsClient({ payments, summary, projects, vendors, purchaseO
             columns={columns}
             rowKey="id"
             pagination={{ pageSize: 15 }}
-            scroll={{ x: 900 }}
+            scroll={{ x: 1300 }}
           />
         </div>
       ),
@@ -447,6 +530,70 @@ export function PaymentsClient({ payments, summary, projects, vendors, purchaseO
                 )}
               />
             </>
+          ) : selectedType === 'labour' ? (
+            <>
+              <Controller
+                name="subcontractWorkOrderId"
+                control={control}
+                render={({ field }) => (
+                  <Form.Item label="WO Number (optional)">
+                    <Select
+                      {...field}
+                      allowClear
+                      showSearch
+                      placeholder="Choose the work order this payment is against"
+                      optionFilterProp="label"
+                      options={subcontractWorkOrders.map((wo) => ({ label: `${wo.woNumber} — ${wo.subcontractor?.name || ''}`, value: wo.id }))}
+                      onChange={(val) => {
+                        field.onChange(val);
+                        const wo = subcontractWorkOrders.find((w) => w.id === val);
+                        if (wo) {
+                          setValue('projectId', wo.projectId);
+                          setValue('payeeName', wo.subcontractor?.name || '');
+                        }
+                      }}
+                    />
+                  </Form.Item>
+                )}
+              />
+              <Controller
+                name="subcontractorPaymentRequestId"
+                control={control}
+                render={({ field }) => (
+                  <Form.Item label="Subcontractor Payment Request (Admin Approved, optional)">
+                    <Select
+                      {...field}
+                      allowClear
+                      showSearch
+                      placeholder="Choose an admin-approved subcontractor payment request"
+                      optionFilterProp="label"
+                      options={subcontractorPaymentRequests.map((r) => ({
+                        label: `${r.subcontractor?.name || ''} — ${formatCurrency(r.amount)}${r.subcontractWorkOrder?.woNumber ? ` (${r.subcontractWorkOrder.woNumber})` : ''}`,
+                        value: r.id,
+                      }))}
+                      onChange={(val) => {
+                        field.onChange(val);
+                        const r = subcontractorPaymentRequests.find((req) => req.id === val);
+                        if (r) {
+                          setValue('projectId', r.projectId);
+                          setValue('payeeName', r.subcontractor?.name || '');
+                          setValue('amount', Number(r.amount));
+                        }
+                      }}
+                    />
+                  </Form.Item>
+                )}
+              />
+              <Controller
+                name="payeeName"
+                control={control}
+                render={({ field }) => (
+                  <Form.Item label="Contractor Name">
+                    <Input {...field} placeholder="Enter contractor name" />
+                  </Form.Item>
+                )}
+              />
+            </>
           ) : (
             <Controller
               name="payeeName"
@@ -530,6 +677,27 @@ export function PaymentsClient({ payments, summary, projects, vendors, purchaseO
           />
         </Form>
       </Drawer>
+
+      <Modal
+        title={historyTarget ? `Payment History — ${historyTarget.label}` : 'Payment History'}
+        open={historyOpen}
+        onCancel={() => { setHistoryOpen(false); setHistoryTarget(null); }}
+        footer={null}
+      >
+        <Table
+          dataSource={historyPayments}
+          rowKey="id"
+          size="small"
+          pagination={false}
+          locale={{ emptyText: 'No payments recorded yet' }}
+          columns={[
+            { title: 'Date', dataIndex: 'paymentDate', render: formatDate },
+            { title: 'Amount', dataIndex: 'amount', align: 'right', render: (v: number | string) => formatCurrency(v) },
+            { title: 'Mode', dataIndex: 'paymentMode', render: (v: string) => v?.toUpperCase() },
+            { title: 'Reference', dataIndex: 'referenceNumber', render: (v?: string | null) => v || '-' },
+          ]}
+        />
+      </Modal>
     </div>
   );
 }

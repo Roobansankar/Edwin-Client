@@ -4,22 +4,23 @@ import { useEffect, useState, useCallback } from 'react';
 import { clientApiFetch } from '@/lib/client-api';
 import { DpwClient } from '@/components/dashboard/DpwClient';
 import { Alert, Spin } from 'antd';
-import type { Project, Trade, DailyLabourReport } from '@/types/erp';
+import type { Project, Trade, Team, DailyLabourReport } from '@/types/erp';
 
 export default function NewDpwPage() {
-  const [data, setData] = useState<{ projects: Project[], trades: Trade[], reports: DailyLabourReport[] } | null>(null);
+  const [data, setData] = useState<{ projects: Project[], trades: Trade[], teams: Team[], reports: DailyLabourReport[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async (isRefresh = false) => {
     if (!isRefresh) setLoading(true);
     try {
-      const [projects, trades, reports] = await Promise.all([
+      const [projects, trades, teams, reports] = await Promise.all([
         clientApiFetch<Project[]>('/projects'),
         clientApiFetch<Trade[]>('/trades'),
+        clientApiFetch<Team[]>('/teams'),
         clientApiFetch<DailyLabourReport[]>('/daily-labour'),
       ]);
-      setData({ projects, trades, reports });
+      setData({ projects, trades, teams, reports });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -37,10 +38,11 @@ export default function NewDpwPage() {
 
   return (
     <div className="p-4">
-      <DpwClient 
-        reports={data.reports} 
-        projects={data.projects} 
+      <DpwClient
+        reports={data.reports}
+        projects={data.projects}
         trades={data.trades}
+        teams={data.teams}
         onRefresh={() => load(true)}
         defaultOpen={false}
         title="Daily Entry List"

@@ -17,6 +17,7 @@ import type {
   DailyLabourReport,
   WorkCategory,
   Trade,
+  Team,
   WorkOrder,
   Drawing,
   PurchaseOrder,
@@ -91,6 +92,7 @@ export const fetchWorkCategories = () => apiFetch<WorkCategory[]>('/work-categor
 export const fetchProjectCategories = () => apiFetch<ProjectCategory[]>('/project-categories');
 export const fetchUsers = () => apiFetch<AppUser[]>('/users');
 export const fetchTrades = () => apiFetch<Trade[]>('/trades');
+export const fetchTeams = () => apiFetch<Team[]>('/teams');
 export const fetchInvoices = () => apiFetch<SalesInvoice[]>('/invoices');
 export const fetchInvoice = (id: string) => apiFetch<SalesInvoice>(`/invoices/${id}`);
 export const fetchBills = () => apiFetch<PurchaseBill[]>('/bills');

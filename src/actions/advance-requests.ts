@@ -18,6 +18,7 @@ export async function createAdvanceRequest(data: {
   projectId: string;
   materialRequirementNo?: string;
   vendorQuotationId?: string;
+  purchaseOrderId?: string;
   amount: number;
   notes?: string;
 }) {

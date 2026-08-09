@@ -329,26 +329,19 @@ export function OfficeStaffClient({ officeStaff, salaries }: OfficeStaffClientPr
             />
           </Flex>
 
-          <Flex gap={16}>
-            <Controller
-              control={control}
-              name="employeeId"
-              render={({ field }) => (
-                <Form.Item label="Employee ID" className="flex-1">
-                  <Input {...field} placeholder="EMP-101" />
-                </Form.Item>
-              )}
-            />
-            <Controller
-              control={control}
-              name="phone"
-              render={({ field }) => (
-                <Form.Item label="Phone Number" className="flex-1">
-                  <Input {...field} placeholder="+91..." />
-                </Form.Item>
-              )}
-            />
-          </Flex>
+          <Form.Item label="Employee ID">
+            <Input value={editingStaff?.employeeId || 'Auto-generated on save'} disabled />
+          </Form.Item>
+
+          <Controller
+            control={control}
+            name="phone"
+            render={({ field }) => (
+              <Form.Item label="Phone Number">
+                <Input {...field} placeholder="+91..." />
+              </Form.Item>
+            )}
+          />
 
           <Controller
             control={control}
@@ -414,7 +407,7 @@ export function OfficeStaffClient({ officeStaff, salaries }: OfficeStaffClientPr
                   placeholder="Select salary grade"
                   allowClear
                   options={salaries.map((s) => ({
-                    label: `${s.grades} (${s.expInYears} yrs - ₹${Number(s.monthlySalary).toLocaleString()})`,
+                    label: s.grades,
                     value: s.id,
                   }))}
                   style={{ width: '100%' }}

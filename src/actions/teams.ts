@@ -13,18 +13,18 @@ async function getAuthHeaders() {
   };
 }
 
-export async function createTrade(data: { name: string; teamId?: string; shiftWiseAmount?: number }) {
+export async function createTeam(data: { name: string }) {
   const headers = await getAuthHeaders();
 
-  const res = await fetch(`${getApiBaseUrl()}/trades`, {
+  const res = await fetch(`${getApiBaseUrl()}/teams`, {
     method: 'POST',
     headers,
     body: JSON.stringify(data),
   });
 
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to create trade' }));
-    throw new Error(error.message || 'Failed to create trade');
+    const error = await res.json().catch(() => ({ message: 'Failed to create team' }));
+    throw new Error(error.message || 'Failed to create team');
   }
 
   revalidatePath('/dashboard/dpw');
@@ -33,17 +33,17 @@ export async function createTrade(data: { name: string; teamId?: string; shiftWi
   return res.json();
 }
 
-export async function deleteTrade(id: string) {
+export async function deleteTeam(id: string) {
   const headers = await getAuthHeaders();
 
-  const res = await fetch(`${getApiBaseUrl()}/trades/${id}`, {
+  const res = await fetch(`${getApiBaseUrl()}/teams/${id}`, {
     method: 'DELETE',
     headers,
   });
 
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to delete trade' }));
-    throw new Error(error.message || 'Failed to delete trade');
+    const error = await res.json().catch(() => ({ message: 'Failed to delete team' }));
+    throw new Error(error.message || 'Failed to delete team');
   }
 
   revalidatePath('/dashboard/dpw');
@@ -52,21 +52,18 @@ export async function deleteTrade(id: string) {
   return res.json();
 }
 
-export async function updateTrade(
-  id: string,
-  data: { name?: string; teamId?: string; shiftWiseAmount?: number },
-) {
+export async function updateTeam(id: string, data: { name?: string }) {
   const headers = await getAuthHeaders();
 
-  const res = await fetch(`${getApiBaseUrl()}/trades/${id}`, {
+  const res = await fetch(`${getApiBaseUrl()}/teams/${id}`, {
     method: 'PATCH',
     headers,
     body: JSON.stringify(data),
   });
 
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to update trade' }));
-    throw new Error(error.message || 'Failed to update trade');
+    const error = await res.json().catch(() => ({ message: 'Failed to update team' }));
+    throw new Error(error.message || 'Failed to update team');
   }
 
   revalidatePath('/dashboard/dpw');

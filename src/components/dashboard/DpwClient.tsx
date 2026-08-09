@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { deleteDailyLabourReport } from '@/actions/daily-labour';
 import { DpwForm } from './DpwForm';
-import type { DailyLabourReport, Project, Trade, DailyWorker } from '@/types/erp';
+import type { DailyLabourReport, Project, Trade, Team, DailyWorker } from '@/types/erp';
 import { cardClassName, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
 import { getApiOrigin } from '@/lib/api-url';
 
@@ -17,17 +17,19 @@ type Props = {
   reports: DailyLabourReport[];
   projects: Project[];
   trades: Trade[];
+  teams?: Team[];
   onRefresh?: () => void;
   defaultOpen?: boolean;
   title?: string;
   showActions?: boolean;
 };
 
-export function DpwClient({ 
-  reports, 
-  projects, 
-  trades, 
-  onRefresh, 
+export function DpwClient({
+  reports,
+  projects,
+  trades,
+  teams = [],
+  onRefresh,
   defaultOpen = false,
   title = 'Daily Entry List',
   showActions = true
@@ -229,9 +231,10 @@ export function DpwClient({
         destroyOnClose
         styles={{ body: { padding: 0 } }}
       >
-        <DpwForm 
-          projects={projects} 
-          trades={trades} 
+        <DpwForm
+          projects={projects}
+          trades={trades}
+          teams={teams}
           initialValues={editingReport}
           onSuccess={() => {
             handleClose();
