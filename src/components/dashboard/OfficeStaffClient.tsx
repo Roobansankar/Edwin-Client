@@ -329,9 +329,18 @@ export function OfficeStaffClient({ officeStaff, salaries }: OfficeStaffClientPr
             />
           </Flex>
 
-          <Form.Item label="Employee ID">
-            <Input value={editingStaff?.employeeId || 'Auto-generated on save'} disabled />
-          </Form.Item>
+          <Controller
+            control={control}
+            name="employeeId"
+            render={({ field }) => (
+              <Form.Item
+                label="Employee ID"
+                extra="Leave blank to auto-generate (e.g. EMP-101)"
+              >
+                <Input {...field} placeholder="EMP-101" />
+              </Form.Item>
+            )}
+          />
 
           <Controller
             control={control}
