@@ -180,6 +180,20 @@ export const OFFICE_STAFF_TYPES = [
 
 export type OfficeStaffType = (typeof OFFICE_STAFF_TYPES)[number];
 
+export const STAFF_ROLES = [
+  'office_staff',
+  'accounts_manager',
+  'purchase_team',
+] as const;
+
+export type StaffRole = (typeof STAFF_ROLES)[number];
+
+export const STAFF_ROLE_LABELS: Record<StaffRole, string> = {
+  office_staff: 'Office Staff',
+  accounts_manager: 'Accounts Manager',
+  purchase_team: 'Purchase Team',
+};
+
 export type OfficeStaff = {
   id: string;
   name: string;
@@ -188,6 +202,7 @@ export type OfficeStaff = {
   employeeId?: string | null;
   phone?: string | null;
   address?: string | null;
+  role?: string | null;
   staffType?: OfficeStaffType | null;
   isActive: boolean;
   salaryGradeId?: string | null;

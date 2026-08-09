@@ -32,8 +32,8 @@ import {
   deleteOfficeStaff,
   updateOfficeStaff,
 } from '@/actions/office-staff';
-import { OFFICE_STAFF_TYPES } from '@/types/erp';
-import type { OfficeStaff, Salary } from '@/types/erp';
+import { OFFICE_STAFF_TYPES, STAFF_ROLE_LABELS, STAFF_ROLES } from '@/types/erp';
+import type { OfficeStaff, Salary, StaffRole } from '@/types/erp';
 import {
   cardClassName,
   pageHeaderClassName,
@@ -42,8 +42,9 @@ import {
 } from './ui';
 
 const officeStaffSchema = z.object({
+  role: z.enum(STAFF_ROLES, { message: 'Role is required' }),
   name: z.string().min(2, 'Name is required'),
-  staffType: z.enum(OFFICE_STAFF_TYPES, { message: 'Staff type is required' }),
+  staffType: z.enum(OFFICE_STAFF_TYPES).optional(),
   employeeId: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().email('Invalid email address').optional().or(z.literal('')),
@@ -69,9 +70,10 @@ export function OfficeStaffClient({ officeStaff, salaries }: OfficeStaffClientPr
   const [pageSize, setPageSize] = useState(10);
   const { message } = App.useApp();
 
-  const { control, handleSubmit, reset, setValue } = useForm<OfficeStaffFormValues>({
+  const { control, handleSubmit, reset, setValue, watch } = useForm<OfficeStaffFormValues>({
     resolver: zodResolver(officeStaffSchema),
     defaultValues: {
+      role: 'office_staff',
       name: '',
       staffType: 'Architect',
       employeeId: '',
@@ -85,8 +87,11 @@ export function OfficeStaffClient({ officeStaff, salaries }: OfficeStaffClientPr
     },
   });
 
+  const selectedRole = watch('role');
+
   useEffect(() => {
     if (editingStaff) {
+      setValue('role', (editingStaff.role as StaffRole) || 'office_staff');
       setValue('name', editingStaff.name);
       setValue('staffType', (editingStaff.staffType as OfficeStaffFormValues['staffType']) || 'Architect');
       setValue('employeeId', editingStaff.employeeId || '');
@@ -99,6 +104,7 @@ export function OfficeStaffClient({ officeStaff, salaries }: OfficeStaffClientPr
       setValue('password', '');
     } else {
       reset({
+        role: 'office_staff',
         name: '',
         staffType: 'Architect',
         employeeId: '',
@@ -148,6 +154,14 @@ export function OfficeStaffClient({ officeStaff, salaries }: OfficeStaffClientPr
       width: 160,
       sorter: (a, b) => (a.staffType || '').localeCompare(b.staffType || ''),
       render: (value: string) => (value ? <Tag color="purple">{value}</Tag> : '-'),
+    },
+    {
+      title: 'Role',
+      dataIndex: 'role',
+      width: 150,
+      render: (value: string) => (
+        <Tag color="blue">{STAFF_ROLE_LABELS[value as StaffRole] || 'Office Staff'}</Tag>
+      ),
     },
     {
       title: 'Employee ID',
@@ -295,6 +309,25 @@ export function OfficeStaffClient({ officeStaff, salaries }: OfficeStaffClientPr
           <Flex gap={16}>
             <Controller
               control={control}
+              name="role"
+              render={({ field, fieldState }) => (
+                <Form.Item
+                  label="Role"
+                  required
+                  className="flex-1"
+                  validateStatus={fieldState.error ? 'error' : undefined}
+                  help={fieldState.error?.message}
+                >
+                  <Select
+                    {...field}
+                    placeholder="Select role"
+                    options={STAFF_ROLES.map((r) => ({ value: r, label: STAFF_ROLE_LABELS[r] }))}
+                  />
+                </Form.Item>
+              )}
+            />
+            <Controller
+              control={control}
               name="name"
               render={({ field, fieldState }) => (
                 <Form.Item
@@ -308,25 +341,27 @@ export function OfficeStaffClient({ officeStaff, salaries }: OfficeStaffClientPr
                 </Form.Item>
               )}
             />
-            <Controller
-              control={control}
-              name="staffType"
-              render={({ field, fieldState }) => (
-                <Form.Item
-                  label="Staff Type"
-                  required
-                  className="flex-1"
-                  validateStatus={fieldState.error ? 'error' : undefined}
-                  help={fieldState.error?.message}
-                >
-                  <Select
-                    {...field}
-                    placeholder="Select staff type"
-                    options={OFFICE_STAFF_TYPES.map((t) => ({ value: t, label: t }))}
-                  />
-                </Form.Item>
-              )}
-            />
+            {selectedRole === 'office_staff' && (
+              <Controller
+                control={control}
+                name="staffType"
+                render={({ field, fieldState }) => (
+                  <Form.Item
+                    label="Staff Type"
+                    required
+                    className="flex-1"
+                    validateStatus={fieldState.error ? 'error' : undefined}
+                    help={fieldState.error?.message}
+                  >
+                    <Select
+                      {...field}
+                      placeholder="Select staff type"
+                      options={OFFICE_STAFF_TYPES.map((t) => ({ value: t, label: t }))}
+                    />
+                  </Form.Item>
+                )}
+              />
+            )}
           </Flex>
 
           <Controller
