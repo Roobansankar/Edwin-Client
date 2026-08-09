@@ -178,7 +178,8 @@ export function ProjectDetailsClient({ data }: Props) {
           <Text type="secondary">{project.location}</Text>
         </Flex>
         <Flex gap={16} wrap="wrap">
-          <Text><Text strong>Budget:</Text> {formatCurrency(project.estimatedBudget)}</Text>
+          <Text><Text strong>Estimated:</Text> {formatCurrency(Number(project.estimatedTotal) || Number(project.estimatedBudget) || 0)}</Text>
+          <Text type="secondary"><Text strong>Amount:</Text> {formatCurrency(project.estimatedBudget)} · <Text strong>GST:</Text> {formatCurrency(project.estimatedGst)}</Text>
           <Text><Text strong>Start:</Text> {formatDate(project.startDate)}</Text>
           <Text><Text strong>End:</Text> {formatDate(project.endDate)}</Text>
         </Flex>

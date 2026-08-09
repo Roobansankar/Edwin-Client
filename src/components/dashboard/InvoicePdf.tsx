@@ -249,15 +249,25 @@ export function InvoicePdf({ invoice }: Props) {
             <Text style={[styles.th, styles.colAmt]}>Amount</Text>
           </View>
 
-          {items.map((item, index) => (
-            <View key={index} style={styles.tableRow} wrap={false}>
-              <Text style={[styles.td, styles.colNo]}>{index + 1}</Text>
-              <Text style={[styles.td, styles.colDesc]}>{item.description}</Text>
-              <Text style={[styles.td, styles.colQty]}>{item.quantity} {item.unit}</Text>
-              <Text style={[styles.td, styles.colRate]}>{formatINR(item.rate)}</Text>
-              <Text style={[styles.td, styles.colAmt, { fontFamily: 'Helvetica-Bold' }]}>{formatINR(item.amount || 0)}</Text>
+          {items.length > 0 ? (
+            items.map((item, index) => (
+              <View key={index} style={styles.tableRow} wrap={false}>
+                <Text style={[styles.td, styles.colNo]}>{index + 1}</Text>
+                <Text style={[styles.td, styles.colDesc]}>{item.description}</Text>
+                <Text style={[styles.td, styles.colQty]}>{item.quantity} {item.unit}</Text>
+                <Text style={[styles.td, styles.colRate]}>{formatINR(item.rate)}</Text>
+                <Text style={[styles.td, styles.colAmt, { fontFamily: 'Helvetica-Bold' }]}>{formatINR(item.amount || 0)}</Text>
+              </View>
+            ))
+          ) : (
+            <View style={styles.tableRow} wrap={false}>
+              <Text style={[styles.td, styles.colNo]}>1</Text>
+              <Text style={[styles.td, styles.colDesc]}>Project Billing — {invoice.project?.name || 'General'}</Text>
+              <Text style={[styles.td, styles.colQty]}>1</Text>
+              <Text style={[styles.td, styles.colRate]}>{formatINR(subtotal)}</Text>
+              <Text style={[styles.td, styles.colAmt, { fontFamily: 'Helvetica-Bold' }]}>{formatINR(subtotal)}</Text>
             </View>
-          ))}
+          )}
         </View>
 
         <View style={styles.totalsContainer}>

@@ -89,6 +89,8 @@ export type Project = {
   status: ProjectStatus;
   completionPct: number | string;
   estimatedBudget: number | string;
+  estimatedGst?: number | string;
+  estimatedTotal?: number | string;
   startDate?: string | null;
   endDate?: string | null;
   projectCategoryId?: string | null;

@@ -6,7 +6,7 @@ import { AutoComplete, Button, Card, Col, DatePicker, Divider, Drawer, Flex, For
 import type { ColumnsType } from 'antd/es/table';
 import { DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined, ProjectOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import dayjs from 'dayjs';
 import { createProject, deleteProject, updateProject } from '@/actions/projects';
@@ -43,6 +43,9 @@ const projectSchema = z.object({
   description: z.string().optional(),
   status: z.enum(['planning', 'in_progress', 'on_hold', 'completed']),
   estimatedBudget: z.number().nonnegative().optional(),
+  estimatedGst: z.number().nonnegative().optional(),
+  estimatedTotal: z.number().nonnegative().optional(),
+  gstPercent: z.number().min(0).max(100).optional(),
   startDate: z.any().optional(),
   endDate: z.any().optional(),
   completionPct: z.number().min(0).max(100).optional(),
@@ -116,11 +119,17 @@ export function ProjectsClient({ projects, projectCategories, users }: ProjectsC
       description: '',
       status: 'planning',
       estimatedBudget: 0,
+      estimatedGst: 0,
+      estimatedTotal: 0,
+      gstPercent: 18,
       completionPct: 0,
       jobStatus: 'bidding',
       resourceIds: [],
     },
   });
+
+  const estimatedBudgetWatch = useWatch({ control, name: 'estimatedBudget' }) || 0;
+  const gstPercentWatch = useWatch({ control, name: 'gstPercent' }) || 0;
 
   useEffect(() => {
     if (editingProject) {
@@ -134,6 +143,14 @@ export function ProjectsClient({ projects, projectCategories, users }: ProjectsC
       setValue('description', editingProject.description || '');
       setValue('status', editingProject.status);
       setValue('estimatedBudget', Number(editingProject.estimatedBudget) || 0);
+      setValue('estimatedGst', Number(editingProject.estimatedGst) || 0);
+      setValue('estimatedTotal', Number(editingProject.estimatedTotal) || 0);
+      setValue(
+        'gstPercent',
+        Number(editingProject.estimatedBudget || 0) > 0
+          ? Math.round((Number(editingProject.estimatedGst || 0) / Number(editingProject.estimatedBudget)) * 100)
+          : 18,
+      );
       setValue('completionPct', Number(editingProject.completionPct) || 0);
       setValue('startDate', editingProject.startDate ? dayjs(editingProject.startDate) : undefined);
       setValue('endDate', editingProject.endDate ? dayjs(editingProject.endDate) : undefined);
@@ -156,6 +173,9 @@ export function ProjectsClient({ projects, projectCategories, users }: ProjectsC
         description: '',
         status: 'planning',
         estimatedBudget: 0,
+        estimatedGst: 0,
+        estimatedTotal: 0,
+        gstPercent: 18,
         completionPct: 0,
         startDate: undefined,
         endDate: undefined,
@@ -245,10 +265,22 @@ export function ProjectsClient({ projects, projectCategories, users }: ProjectsC
     },
     {
       title: 'Budget',
-      dataIndex: 'estimatedBudget',
+      key: 'budget',
       align: 'right',
-      sorter: (a, b) => Number(a.estimatedBudget) - Number(b.estimatedBudget),
-      render: formatCurrency,
+      sorter: (a, b) => Number(a.estimatedTotal || a.estimatedBudget) - Number(b.estimatedTotal || b.estimatedBudget),
+      render: (_, record) => {
+        const base = Number(record.estimatedBudget) || 0;
+        const gst = Number(record.estimatedGst) || 0;
+        const total = Number(record.estimatedTotal) || base + gst;
+        return (
+          <Flex vertical gap={0} className="items-end">
+            <Typography.Text strong>{formatCurrency(total)}</Typography.Text>
+            <Typography.Text type="secondary" className={`${secondaryTextClassName} text-[10px]`}>
+              Amount: {formatCurrency(base)} · GST: {formatCurrency(gst)}
+            </Typography.Text>
+          </Flex>
+        );
+      },
     },
     {
       title: 'Timeline',
@@ -298,8 +330,17 @@ export function ProjectsClient({ projects, projectCategories, users }: ProjectsC
   ];
 
   const submit = (values: ProjectFormValues) => {
+    const base = Number(values.estimatedBudget || 0);
+    const pct = Number(values.gstPercent || 0);
+    const gst = values.estimatedGst != null && values.estimatedGst > 0 && values.estimatedGst !== base * (pct / 100)
+      ? Number(values.estimatedGst)
+      : Math.round((base * pct) / 100);
+    const { gstPercent, ...restValues } = values;
     const data = {
-      ...values,
+      ...restValues,
+      estimatedBudget: base,
+      estimatedGst: gst,
+      estimatedTotal: base + gst,
       startDate: values.startDate ? values.startDate.toISOString() : undefined,
       endDate: values.endDate ? values.endDate.toISOString() : undefined,
       dateOfCreation: values.dateOfCreation ? values.dateOfCreation.toISOString() : undefined,
@@ -523,7 +564,7 @@ export function ProjectsClient({ projects, projectCategories, users }: ProjectsC
               control={control}
               name="estimatedBudget"
               render={({ field }) => (
-                <Form.Item label="Estimated Budget" className="flex-1">
+                <Form.Item label="Estimated Amount" className="flex-1">
                   <InputNumber
                     {...field}
                     min={0}
@@ -534,8 +575,27 @@ export function ProjectsClient({ projects, projectCategories, users }: ProjectsC
                 </Form.Item>
               )}
             />
-            <Space className="flex-1" />
+            <Controller
+              control={control}
+              name="gstPercent"
+              render={({ field }) => (
+                <Form.Item label="GST %" className="flex-1">
+                  <InputNumber
+                    {...field}
+                    min={0}
+                    max={100}
+                    className="w-full"
+                    formatter={(value) => `${value}%`}
+                    parser={(value) => Number(String(value).replace('%', ''))}
+                  />
+                </Form.Item>
+              )}
+            />
           </Flex>
+          <Typography.Text type="secondary" className="mb-2 block text-xs">
+            GST Amount: {formatCurrency(Math.round((Number(estimatedBudgetWatch) * Number(gstPercentWatch)) / 100) * 1)} · Total Estimated:{' '}
+            {formatCurrency(Number(estimatedBudgetWatch) + Math.round((Number(estimatedBudgetWatch) * Number(gstPercentWatch)) / 100))}
+          </Typography.Text>
 
           <Flex gap={16}>
             <Controller

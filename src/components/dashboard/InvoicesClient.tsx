@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { App, Button, Card, DatePicker, Drawer, Flex, Form, Select, Space, Table, Typography, Modal, Input, InputNumber, Popconfirm, Dropdown, MenuProps } from 'antd';
+import { App, Button, Card, DatePicker, Divider, Drawer, Flex, Form, Select, Space, Table, Typography, Modal, Input, InputNumber, Popconfirm, Dropdown, MenuProps } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { EyeOutlined, PlusOutlined, FilePdfOutlined, DeleteOutlined, MoreOutlined, CheckCircleOutlined, HistoryOutlined, CreditCardOutlined, FileTextOutlined } from '@ant-design/icons';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -13,7 +13,6 @@ import { PDFDownloadLink, PDFViewer } from '@react-pdf/renderer';
 import { createInvoice, deleteInvoice, updateInvoiceStatus } from '@/actions/invoices';
 import { createPayment } from '@/actions/payments';
 import type { Project, SalesInvoice, Payment } from '@/types/erp';
-import { LineItemsEditor } from './LineItemsEditor';
 import { InvoicePdf } from './InvoicePdf';
 import { PaymentReceiptPdf } from './PaymentReceiptPdf';
 import {
@@ -27,17 +26,10 @@ import {
   titleIconClassName,
 } from './ui';
 
-const itemSchema = z.object({
-  description: z.string().min(2, 'Enter an item description'),
-  quantity: z.number().positive('Qty must be greater than zero'),
-  unit: z.string().min(1, 'Unit is required'),
-  rate: z.number().nonnegative('Rate cannot be negative'),
-});
-
 const invoiceSchema = z.object({
   projectId: z.string().min(1, 'Select a project'),
   dueDate: z.string().optional(),
-  items: z.array(itemSchema).min(1, 'Add at least one line item'),
+  totalAmount: z.number().min(1, 'Enter invoice amount'),
 });
 
 const paymentSchema = z.object({
@@ -75,13 +67,12 @@ export function InvoicesClient({ invoices, projects }: InvoicesClientProps) {
     control,
     handleSubmit,
     reset,
-    formState: { errors },
   } = useForm<InvoiceFormValues>({
     resolver: zodResolver(invoiceSchema),
     defaultValues: {
       projectId: '',
       dueDate: undefined,
-      items: [{ description: '', quantity: 1, unit: 'nos', rate: 0 }],
+      totalAmount: undefined,
     },
   });
 
@@ -97,11 +88,34 @@ export function InvoicesClient({ invoices, projects }: InvoicesClientProps) {
   });
 
   const selectedProjectId = useWatch({ control, name: 'projectId' });
+  const enteredAmount = Number(useWatch({ control, name: 'totalAmount' }) || 0);
+  const enteredBase = Math.round((enteredAmount / 1.18) * 100) / 100;
+  const enteredGst = Math.round((enteredAmount - enteredBase) * 100) / 100;
 
   const selectedProject = useMemo(() => 
     projects.find(p => p.id === selectedProjectId),
     [selectedProjectId, projects]
   );
+
+  const projectTotals = useMemo(() => {
+    const map = new Map<string, { raised: number; received: number }>();
+    for (const inv of invoices) {
+      const pid = inv.projectId;
+      if (!pid) continue;
+      const entry = map.get(pid) || { raised: 0, received: 0 };
+      entry.raised += Number(inv.totalAmount) + Number(inv.gstAmount);
+      entry.received += Number(inv.paidAmount || 0);
+      map.set(pid, entry);
+    }
+    return map;
+  }, [invoices]);
+
+  const selectedTotals = selectedProjectId ? projectTotals.get(selectedProjectId) : undefined;
+  const selectedBase = Number(selectedProject?.estimatedBudget || 0);
+  const selectedGst = Number(selectedProject?.estimatedGst || 0);
+  const selectedEstimate = Number(selectedProject?.estimatedTotal || selectedBase + selectedGst || 0);
+  const selectedRaised = selectedTotals?.raised || 0;
+  const selectedBalance = selectedEstimate - selectedRaised;
 
   const handleStatusUpdate = (id: string, status: string) => {
     startTransition(async () => {
@@ -161,6 +175,24 @@ export function InvoicesClient({ invoices, projects }: InvoicesClientProps) {
       title: 'Project',
       dataIndex: ['project', 'name'],
       render: (_value, record) => record.project?.name || '-',
+    },
+    {
+      title: 'Estimate',
+      key: 'estimate',
+      align: 'right',
+      width: 140,
+      render: (_, record) => {
+        const estimate = Number(record.project?.estimatedTotal || record.project?.estimatedBudget || 0);
+        const raised = projectTotals.get(record.projectId || '')?.raised || 0;
+        return (
+          <Flex vertical gap={0} className="items-end">
+            <Typography.Text>{formatCurrency(estimate)}</Typography.Text>
+            <Typography.Text type="secondary" className={`${secondaryTextClassName} text-[10px]`}>
+              Raised: {formatCurrency(raised)}
+            </Typography.Text>
+          </Flex>
+        );
+      },
     },
     {
       title: 'Total',
@@ -295,6 +327,7 @@ export function InvoicesClient({ invoices, projects }: InvoicesClientProps) {
           ...values,
           projectId: values.projectId || undefined,
           dueDate: values.dueDate || undefined,
+          totalAmount: Number(values.totalAmount),
         });
         message.success('Invoice created');
         reset();
@@ -387,11 +420,74 @@ export function InvoicesClient({ invoices, projects }: InvoicesClientProps) {
               </Form.Item>
             )}
           />
-          <LineItemsEditor control={control} name="items" />
-          {errors.items?.message && (
-            <Typography.Text type="danger" className="mt-2 block">
-              {errors.items.message}
-            </Typography.Text>
+
+          {selectedProject && (
+            <div className="mb-2! rounded-lg border border-[var(--border)] bg-[var(--subtle-bg)] p-4">
+              <Typography.Text type="secondary" className="mb-2! block">
+                Project Estimate
+              </Typography.Text>
+              <Flex justify="space-between" className="mb-1!">
+                <Typography.Text type="secondary">Base Amount:</Typography.Text>
+                <Typography.Text>{formatCurrency(selectedBase)}</Typography.Text>
+              </Flex>
+              <Flex justify="space-between" className="mb-1!">
+                <Typography.Text type="secondary">GST:</Typography.Text>
+                <Typography.Text>{formatCurrency(selectedGst)}</Typography.Text>
+              </Flex>
+              <Flex justify="space-between" className="mb-2!">
+                <Typography.Text type="secondary">Total:</Typography.Text>
+                <Typography.Text strong>{formatCurrency(selectedEstimate)}</Typography.Text>
+              </Flex>
+              <Divider className="my-2!" />
+              <Flex justify="space-between" className="mb-2!">
+                <Typography.Text type="secondary">Already Raised:</Typography.Text>
+                <Typography.Text>{formatCurrency(selectedRaised)}</Typography.Text>
+              </Flex>
+              <Flex justify="space-between">
+                <Typography.Text type="secondary">Balance to Raise:</Typography.Text>
+                <Typography.Text type={selectedBalance > 0 ? 'danger' : 'secondary'} strong>
+                  {formatCurrency(selectedBalance)}
+                </Typography.Text>
+              </Flex>
+            </div>
+          )}
+
+          <Controller
+            control={control}
+            name="totalAmount"
+            render={({ field, fieldState }) => (
+              <Form.Item
+                label="Invoice Amount (includes GST)"
+                validateStatus={fieldState.error ? 'error' : undefined}
+                help={fieldState.error?.message}
+              >
+                <InputNumber
+                  min={1}
+                  className="w-full"
+                  prefix="₹"
+                  placeholder="Enter the amount to raise (GST included)"
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              </Form.Item>
+            )}
+          />
+
+          {enteredAmount > 0 && (
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--subtle-bg)] p-4">
+              <Flex justify="space-between" className="mb-2!">
+                <Typography.Text type="secondary">Base Amount:</Typography.Text>
+                <Typography.Text>{formatCurrency(enteredBase)}</Typography.Text>
+              </Flex>
+              <Flex justify="space-between" className="mb-2!">
+                <Typography.Text type="secondary">GST (18%):</Typography.Text>
+                <Typography.Text>{formatCurrency(enteredGst)}</Typography.Text>
+              </Flex>
+              <Flex justify="space-between">
+                <Typography.Text type="secondary">Total Billed:</Typography.Text>
+                <Typography.Text strong>{formatCurrency(enteredAmount)}</Typography.Text>
+              </Flex>
+            </div>
           )}
         </Form>
       </Drawer>
