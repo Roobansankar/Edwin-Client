@@ -1,8 +1,34 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
 @import "tailwindcss";
 
-:root, [data-theme="dark"] {
+:root, [data-theme="light"] {
   --app-font: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --primary: #1677ff;
+  --primary-lighter: #e6f4ff;
+  --page-bg: #fafafb;
+  --card-bg: #ffffff;
+  --elevated-bg: #ffffff;
+  --header-bg: rgba(255, 255, 255, 0.9);
+  --sidebar-bg: #ffffff;
+  --subtle-bg: rgba(0, 0, 0, 0.03);
+  --subtle-hover-bg: rgba(0, 0, 0, 0.06);
+  --text-primary: #262626;
+  --text-secondary: #454f5b;
+  --text-muted: #7a828e;
+  --text-very-muted: #9e9e9e;
+  --sidebar-text: #262626;
+  --sidebar-text-muted: #595959;
+  --sidebar-text-very-muted: #8c8c8c;
+  --border: rgba(0, 0, 0, 0.08);
+  --border-secondary: rgba(0, 0, 0, 0.05);
+  --table-header-bg: #f5f5f5;
+  --table-border: rgba(0, 0, 0, 0.06);
+  --overlay-bg: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] {
+  --primary: #38bdf8;
+  --primary-lighter: rgba(56, 189, 248, 0.14);
   --page-bg: #0b1120;
   --card-bg: #101827;
   --elevated-bg: #111827;
@@ -24,28 +50,6 @@
   --overlay-bg: rgba(0, 0, 0, 0.6);
 }
 
-[data-theme="light"] {
-  --page-bg: #f8fafc;
-  --card-bg: #ffffff;
-  --elevated-bg: #ffffff;
-  --header-bg: rgba(255, 255, 255, 0.95);
-  --sidebar-bg: #0b1120;
-  --subtle-bg: rgba(0, 0, 0, 0.03);
-  --subtle-hover-bg: rgba(0, 0, 0, 0.06);
-  --text-primary: #0f172a;
-  --text-secondary: #334155;
-  --text-muted: #64748b;
-  --text-very-muted: #94a3b8;
-  --sidebar-text: #e2e8f0;
-  --sidebar-text-muted: #94a3b8;
-  --sidebar-text-very-muted: #64748b;
-  --border: rgba(0, 0, 0, 0.10);
-  --border-secondary: rgba(0, 0, 0, 0.06);
-  --table-header-bg: rgba(0, 0, 0, 0.03);
-  --table-border: rgba(0, 0, 0, 0.08);
-  --overlay-bg: rgba(0, 0, 0, 0.4);
-}
-
 html {
   background: var(--page-bg);
 }
@@ -60,3 +64,24 @@ body {
 ::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.25); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,0.4); }
 * { scrollbar-width: thin; scrollbar-color: rgba(148,163,184,0.25) transparent; }
+
+/* Mantis-style side navigation */
+.mantis-nav .ant-menu {
+  background: transparent !important;
+  border-inline-end: none !important;
+}
+
+.mantis-nav .ant-menu-item {
+  width: calc(100% - 16px);
+  margin-inline: 8px !important;
+  margin-block: 2px !important;
+  border-radius: 8px;
+}
+
+.mantis-nav .ant-menu-item-selected {
+  border-right: 2px solid var(--primary) !important;
+}
+
+.mantis-nav .ant-menu-item-selected::after {
+  border-inline-end: none !important;
+}

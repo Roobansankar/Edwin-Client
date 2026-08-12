@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Layout, Menu, Typography, Avatar, Dropdown, Popover, Drawer, Space, App, Badge, Flex, Tag } from 'antd';
+import { Layout, Menu, Typography, Avatar, Dropdown, Popover, Drawer, App, Badge, Flex, Tag, Breadcrumb } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   AppstoreOutlined,
@@ -22,14 +22,15 @@ import {
   FormOutlined,
   InboxOutlined,
   LogoutOutlined,
+  MenuFoldOutlined,
   MenuUnfoldOutlined,
   MoonOutlined,
   NodeIndexOutlined,
   ProjectOutlined,
   SafetyCertificateOutlined,
   SolutionOutlined,
+  StarOutlined,
   SunOutlined,
-  SwapOutlined,
   TeamOutlined,
   UserOutlined,
   WalletOutlined,
@@ -42,8 +43,8 @@ import type { EmployeeQuery } from '@/types/erp';
 const { Sider, Content, Header } = Layout;
 const { Text } = Typography;
 
-const SIDEBAR_WIDTH = 280;
-const COLLAPSED_WIDTH = 84;
+const SIDEBAR_WIDTH = 260;
+const COLLAPSED_WIDTH = 60;
 
 type NavItem = {
   key: string;
@@ -82,7 +83,7 @@ const navigationSections: Array<{ title: string; items: NavItem[]; allowedRoles?
       { key: '/dashboard/assigned-projects', icon: <ProjectOutlined />, label: 'Assigned Projects', allowedRoles: ['admin'] },
       { key: '/dashboard/office-staff', icon: <TeamOutlined />, label: 'Office Staff', allowedRoles: ['admin'] },
       { key: '/dashboard/employee-queries', icon: <SolutionOutlined />, label: 'Employee Queries', allowedRoles: ['admin'] },
-      
+
       { key: '/dashboard/subcontract-work-orders', icon: <FileTextOutlined />, label: 'Subcontract WO', allowedRoles: ['purchase_team'] },
       { key: '/dashboard/subcontractor-payments', icon: <DollarOutlined />, label: 'Subcontractor Payments', allowedRoles: ['purchase_team'] },
       { key: '/dashboard/subcontractor-work', icon: <TeamOutlined />, label: 'Subcontractor Work', allowedRoles: ['site_engineer', 'purchase_team', 'admin'] },
@@ -285,7 +286,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
   const visiblePendingQueries = pendingQueries.filter((q) => !dismissedNotifIds.has(q.id));
 
   useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    const checkMobile = () => setIsMobile(window.innerWidth < 992);
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
@@ -370,6 +371,11 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
     return match?.key || '/dashboard';
   }, [pathname, navItems]);
 
+  const currentPageLabel = useMemo(() => {
+    const found = navItems.find((item) => item.key === selectedKey);
+    return typeof found?.label === 'string' ? found.label : 'Dashboard';
+  }, [navItems, selectedKey]);
+
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -395,7 +401,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
               <div
                 key={n.id}
                 className={`relative cursor-pointer rounded-lg border p-2 pr-7 transition hover:bg-[var(--subtle-hover-bg)] ${
-                  n.isRead ? 'border-[var(--border)] opacity-70' : 'border-sky-500/40 bg-sky-500/5'
+                  n.isRead ? 'border-[var(--border)] opacity-70' : 'border-[var(--primary)]/40 bg-[var(--primary-lighter)]'
                 }`}
                 onClick={() => {
                   setAdminNotifOpen(false);
@@ -481,7 +487,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
               <div
                 key={n.id}
                 className={`relative cursor-pointer rounded-lg border p-2 pr-7 transition hover:bg-[var(--subtle-hover-bg)] ${
-                  n.isRead ? 'border-[var(--border)] opacity-70' : 'border-sky-500/40 bg-sky-500/5'
+                  n.isRead ? 'border-[var(--border)] opacity-70' : 'border-[var(--primary)]/40 bg-[var(--primary-lighter)]'
                 }`}
                 onClick={() => {
                   setNotifOpen(false);
@@ -551,7 +557,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
   if (!mounted) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--page-bg)]">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-sky-500 border-t-transparent"></div>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--primary)] border-t-transparent"></div>
       </div>
     );
   }
@@ -565,41 +571,41 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
           collapsed={effectiveCollapsed}
           collapsedWidth={effectiveCollapsedWidth}
           width={SIDEBAR_WIDTH}
-          className={`fixed! left-0 top-0 bottom-0 z-100 h-screen overflow-hidden border-r border-[var(--border)] bg-[var(--sidebar-bg)]! transition-all duration-300 ease-in-out ${
+          className={`mantis-drawer fixed! left-0 top-0 bottom-0 z-100 h-screen overflow-hidden border-r border-[var(--border)] bg-[var(--sidebar-bg)]! transition-all duration-300 ease-in-out ${
             isMobile
               ? mobileSidebarOpen
                 ? 'translate-x-0 shadow-2xl'
                 : '-translate-x-full'
               : ''
           }`}
-          style={isMobile ? { width: `${SIDEBAR_WIDTH}px` } : undefined}
+          style={isMobile ? { width: `${SIDEBAR_WIDTH}px` } : { boxShadow: effectiveCollapsed ? 'none' : 'none' }}
         >
           <div className="flex h-full flex-col">
             <div
-              className={`flex h-18 items-center border-b border-[var(--border)] ${
-                effectiveCollapsed ? 'justify-center px-3' : 'gap-3 px-5'
+              className={`flex h-[70px] shrink-0 items-center border-b border-[var(--border)] ${
+                effectiveCollapsed ? 'justify-center px-0' : 'gap-3 px-6'
               }`}
             >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-sky-400/30 bg-sky-400/10 text-sky-300">
-                <SafetyCertificateOutlined className="text-[22px]" />
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white" style={{ background: '#1677ff' }}>
+                <StarOutlined className="text-[20px]" />
               </div>
               {!effectiveCollapsed && (
                 <div className="min-w-0">
                   <Text strong className="block truncate text-[15px] leading-tight! text-[var(--sidebar-text)]!">
                     Edwin ERP
                   </Text>
-                  <Text className="block truncate text-xs text-[var(--sidebar-text-muted)]!">
+                  <Text className="block truncate text-xs leading-tight! text-[var(--sidebar-text-muted)]!">
                     Construction Management
                   </Text>
                 </div>
               )}
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+            <div className="min-h-0 flex-1 overflow-y-auto py-4">
               {filteredNavigationSections.map((section, index) => (
                 <div key={`${section.title}-${index}`} className={`${section.title ? 'mb-5' : 'mb-0'} last:mb-0`}>
                   {!effectiveCollapsed && section.title && (
-                    <Text className="mb-2 block px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--sidebar-text-very-muted)]!">
+                    <Text className="mb-1.5 block px-6 text-sm font-medium text-[var(--sidebar-text-muted)]!">
                       {section.title}
                     </Text>
                   )}
@@ -609,7 +615,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                     selectedKeys={[selectedKey]}
                     items={section.items}
                     onClick={({ key }) => router.push(key)}
-                    className="border-none! bg-transparent!"
+                    className="mantis-nav border-none! bg-transparent!"
                   />
                 </div>
               ))}
@@ -631,26 +637,28 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
             width: isMobile ? '100%' : `calc(100% - ${sidebarWidth}px)`,
           }}
         >
-          <Header className="sticky top-0 z-90 flex h-16 items-center justify-between border-b border-[var(--border)] bg-[var(--header-bg)]! px-4 sm:px-5 backdrop-blur-xl">
-            <div className="flex items-center gap-4">
+          <Header className="sticky top-0 z-90 flex h-16 items-center justify-between border-b border-[var(--border)] bg-[var(--header-bg)]! px-4! sm:px-6! backdrop-blur-xl">
+            <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => isMobile ? setMobileSidebarOpen(!mobileSidebarOpen) : setCollapsed(!collapsed)}
-                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--subtle-bg)] text-[var(--text-secondary)] transition hover:bg-[var(--subtle-hover-bg)] hover:text-[var(--text-primary)]"
+                className={`flex h-10 w-10 cursor-pointer items-center justify-center rounded-full transition hover:bg-[var(--subtle-bg)] ${
+                  effectiveCollapsed ? 'bg-[var(--subtle-bg)]' : 'bg-transparent'
+                } text-[var(--text-secondary)] hover:text-[var(--text-primary)]`}
                 aria-label={isMobile ? (mobileSidebarOpen ? 'Close sidebar' : 'Open sidebar') : (collapsed ? 'Expand sidebar' : 'Collapse sidebar')}
               >
                 {isMobile
                   ? mobileSidebarOpen ? <CloseOutlined /> : <MenuUnfoldOutlined />
-                  : <SwapOutlined />
+                  : collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />
                 }
               </button>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={toggleTheme}
-                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--subtle-bg)] text-[var(--text-secondary)] transition hover:bg-[var(--subtle-hover-bg)] hover:text-[var(--text-primary)]"
+                className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
                 aria-label="Toggle theme"
               >
                 {mode === 'dark' ? <SunOutlined /> : <MoonOutlined />}
@@ -662,7 +670,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                     <button
                       type="button"
                       onClick={() => { setAdminNotifOpen(true); markPendingSeen(); markNotificationsSeen(); }}
-                      className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--subtle-bg)] text-[var(--text-secondary)] transition hover:bg-[var(--subtle-hover-bg)] hover:text-[var(--text-primary)]"
+                      className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
                       aria-label="Notifications"
                     >
                       <Badge count={pendingEqCount + unseenNotifCount} size="small" offset={[-2, 2]}>
@@ -697,7 +705,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                   >
                     <button
                       type="button"
-                      className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--subtle-bg)] text-[var(--text-secondary)] transition hover:bg-[var(--subtle-hover-bg)] hover:text-[var(--text-primary)]"
+                      className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
                       aria-label="Notifications"
                     >
                       <Badge count={pendingEqCount + unseenNotifCount} size="small" offset={[-2, 2]}>
@@ -714,7 +722,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                     <button
                       type="button"
                       onClick={() => { setNotifOpen(true); markResponsesSeen(); markNotificationsSeen(); }}
-                      className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--subtle-bg)] text-[var(--text-secondary)] transition hover:bg-[var(--subtle-hover-bg)] hover:text-[var(--text-primary)]"
+                      className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
                       aria-label="Notifications"
                     >
                       <Badge count={unseenResponseCount + unseenNotifCount} size="small" offset={[-2, 2]}>
@@ -752,7 +760,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                   >
                     <button
                       type="button"
-                      className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--subtle-bg)] text-[var(--text-secondary)] transition hover:bg-[var(--subtle-hover-bg)] hover:text-[var(--text-primary)]"
+                      className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
                       aria-label="Notifications"
                     >
                       <Badge count={unseenResponseCount + unseenNotifCount} size="small" offset={[-2, 2]}>
@@ -772,30 +780,26 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
               }}
               placement="bottomRight"
             >
-              <Space className="cursor-pointer rounded-lg px-2 py-1 transition hover:bg-[var(--subtle-bg)]">
+              <button
+                type="button"
+                className="flex cursor-pointer items-center rounded-full px-1 py-1 transition hover:opacity-85"
+                aria-label="Profile"
+              >
                 <Avatar
-                  className="bg-linear-to-br! from-sky-500! to-cyan-500!"
+                  className="bg-[#1677ff]!"
                   icon={<UserOutlined />}
                 />
-                {user && !isMobile && (
-                  <Flex vertical gap={0}>
-                    <Text className="text-sm font-medium leading-tight text-[var(--text-primary)]!">
-                      {user.name}
-                    </Text>
-                    {user.role === 'office_staff' && user.staffType && (
-                      <Text className="text-xs leading-tight text-[var(--text-muted)]!">
-                        {user.staffType}
-                      </Text>
-                    )}
-                  </Flex>
-                )}
-              </Space>
+              </button>
             </Dropdown>
             </div>
           </Header>
 
-          <Content className="min-h-[calc(100vh-64px)] bg-[var(--page-bg)] px-6 pt-6">
+          <Content className="bg-[var(--page-bg)] px-4 pt-4 sm:px-6 sm:pt-5">
             <div className="mx-auto w-full max-w-[1600px]" style={{ marginBottom: 80 }}>
+              <Breadcrumb
+                className="mb-3"
+                items={[{ title: 'Home' }, { title: currentPageLabel }]}
+              />
               {children}
             </div>
           </Content>
