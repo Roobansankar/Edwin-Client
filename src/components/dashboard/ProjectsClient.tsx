@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AutoComplete, Button, Card, Col, DatePicker, Divider, Drawer, Flex, Form, Input, InputNumber, Popconfirm, Progress, Row, Select, Space, Statistic, Table, Tag, Typography, App } from 'antd';
+import { AutoComplete, Button, Card, Col, DatePicker, Divider, Drawer, Flex, Form, Input, InputNumber, Popconfirm, Progress, Row, Select, Space, Table, Tag, Typography, App } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined, ProjectOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
@@ -13,15 +13,18 @@ import { createProject, deleteProject, updateProject } from '@/actions/projects'
 import { createProjectCategory } from '@/actions/project-categories';
 import type { AppUser, Project, ProjectCategory } from '@/types/erp';
 import {
-  StatusTag,
-  cardClassName,
   formatCurrency,
   formatDate,
   pageHeaderClassName,
   pageTitleClassName,
   secondaryTextClassName,
+  titleCase,
   titleIconClassName,
 } from './ui';
+
+function StatusDot({ value, label }: { value: string; label?: string }) {
+  return <Typography.Text>{label || titleCase(value)}</Typography.Text>;
+}
 
 function generateFinancialYears(): string[] {
   const currentYear = dayjs().year();
@@ -248,7 +251,7 @@ export function ProjectsClient({ projects, projectCategories, users }: ProjectsC
         { text: 'Completed', value: 'completed' },
       ],
       onFilter: (value, record) => record.status === value,
-      render: (value: string) => <StatusTag value={value} />,
+      render: (value: string) => <StatusDot value={value} />,
     },
     {
       title: 'Completion',
@@ -368,6 +371,13 @@ export function ProjectsClient({ projects, projectCategories, users }: ProjectsC
     setEditingProject(null);
   };
 
+  const statusStats = [
+    { status: 'planning', label: 'Planning' },
+    { status: 'in_progress', label: 'In Progress' },
+    { status: 'on_hold', label: 'On Hold' },
+    { status: 'completed', label: 'Completed' },
+  ];
+
   return (
     <div>
       <Flex justify="space-between" align="center" className={pageHeaderClassName} gap={16} wrap="wrap">
@@ -378,27 +388,36 @@ export function ProjectsClient({ projects, projectCategories, users }: ProjectsC
           Add Project
         </Button>
       </Flex>
-      <Card className={cardClassName} styles={{ body: { overflowX: 'auto' } }}>
-        <Row gutter={[10, 10]} className="mb-4">
-          {[
-            { status: 'planning', label: 'Planning', color: 'processing' },
-            { status: 'in_progress', label: 'In Progress', color: 'success' },
-            { status: 'on_hold', label: 'On Hold', color: 'warning' },
-            { status: 'completed', label: 'Completed', color: 'default' },
-          ].map((item) => (
-            <Col xs={12} sm={12} md={6} key={item.status}>
-              <Card className={cardClassName} size="small">
-                <Statistic
-                  title={<Tag color={item.color}>{item.label}</Tag>}
-                  value={projects.filter((p) => p.status === item.status).length}
-                  styles={{ content: { fontSize: 24, fontWeight: 700, color: 'var(--text-primary)' } }}
-                />
+
+      <Row gutter={[16, 16]} className="mb-4">
+        {statusStats.map((item) => {
+          const count = projects.filter((p) => p.status === item.status).length;
+          return (
+            <Col xs={24} sm={12} md={6} key={item.status}>
+              <Card
+                className="rounded-xl! border! border-[var(--border)]!"
+                styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}
+              >
+                <Flex vertical gap={10}>
+                  <Typography.Text className="text-sm text-[var(--text-muted)]!">{item.label}</Typography.Text>
+                  <Flex align="center" gap={10}>
+                    <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">
+                      {count}
+                    </Typography.Title>
+                  </Flex>
+                </Flex>
               </Card>
             </Col>
-          ))}
-        </Row>
+          );
+        })}
+      </Row>
 
+      <Card
+        className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
+        styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
+      >
         <Table
+          className="mantis-table"
           dataSource={projects}
           columns={columns}
           rowKey="id"
