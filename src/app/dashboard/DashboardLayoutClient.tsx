@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Layout, Menu, Typography, Avatar, Dropdown, Popover, Drawer, App, Badge, Flex, Tag, Breadcrumb } from 'antd';
+import { Layout, Menu, Typography, Avatar, Dropdown, Popover, Drawer, App, Badge, Flex, Tag } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   AppstoreOutlined,
@@ -42,7 +42,7 @@ import type { EmployeeQuery } from '@/types/erp';
 const { Sider, Content, Header } = Layout;
 const { Text } = Typography;
 
-const SIDEBAR_WIDTH = 260;
+const SIDEBAR_WIDTH = 280;
 const COLLAPSED_WIDTH = 60;
 
 type NavItem = {
@@ -369,11 +369,6 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
 
     return match?.key || '/dashboard';
   }, [pathname, navItems]);
-
-  const currentPageLabel = useMemo(() => {
-    const found = navItems.find((item) => item.key === selectedKey);
-    return typeof found?.label === 'string' ? found.label : 'Dashboard';
-  }, [navItems, selectedKey]);
 
 
   const handleLogout = async () => {
@@ -795,10 +790,6 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
 
           <Content className="bg-[var(--page-bg)] px-4 pt-4 sm:px-6 sm:pt-5">
             <div className="mx-auto w-full max-w-[1600px]" style={{ marginBottom: 80 }}>
-              <Breadcrumb
-                className="mb-3"
-                items={[{ title: 'Home' }, { title: currentPageLabel }]}
-              />
               {children}
             </div>
           </Content>

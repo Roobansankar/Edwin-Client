@@ -41,7 +41,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           Layout: {
             headerBg: isDark ? '#101827' : '#ffffff',
             bodyBg: isDark ? '#0b1120' : '#fafafb',
-            siderBg: isDark ? '#0b1120' : '#ffffff',
+            siderBg: '#0b1120',
           },
           Menu: {
             itemBg: 'transparent',
