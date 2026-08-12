@@ -29,7 +29,6 @@ import {
   ProjectOutlined,
   SafetyCertificateOutlined,
   SolutionOutlined,
-  StarOutlined,
   SunOutlined,
   TeamOutlined,
   UserOutlined,
@@ -586,8 +585,8 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                 effectiveCollapsed ? 'justify-center px-0' : 'gap-3 px-6'
               }`}
             >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white" style={{ background: '#1677ff' }}>
-                <StarOutlined className="text-[20px]" />
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-sky-400/30 bg-sky-400/10 text-sky-300">
+                <SafetyCertificateOutlined className="text-[22px]" />
               </div>
               {!effectiveCollapsed && (
                 <div className="min-w-0">

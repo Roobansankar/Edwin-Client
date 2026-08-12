@@ -78,10 +78,6 @@ body {
   border-radius: 8px;
 }
 
-.mantis-nav .ant-menu-item-selected {
-  border-right: 2px solid var(--primary) !important;
-}
-
 .mantis-nav .ant-menu-item-selected::after {
   border-inline-end: none !important;
 }
