@@ -93,7 +93,8 @@ export const fetchProjectCategories = () => apiFetch<ProjectCategory[]>('/projec
 export const fetchUsers = () => apiFetch<AppUser[]>('/users');
 export const fetchTrades = () => apiFetch<Trade[]>('/trades');
 export const fetchTeams = () => apiFetch<Team[]>('/teams');
-export const fetchInvoices = () => apiFetch<SalesInvoice[]>('/invoices');
+export const fetchInvoices = (projectId?: string) =>
+  apiFetch<SalesInvoice[]>(`/invoices${projectId ? `?projectId=${projectId}` : ''}`);
 export const fetchInvoice = (id: string) => apiFetch<SalesInvoice>(`/invoices/${id}`);
 export const fetchBills = () => apiFetch<PurchaseBill[]>('/bills');
 export const fetchBill = (id: string) => apiFetch<PurchaseBill>(`/bills/${id}`);

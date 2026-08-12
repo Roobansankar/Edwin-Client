@@ -22,7 +22,6 @@ import {
   FormOutlined,
   InboxOutlined,
   LogoutOutlined,
-  MenuFoldOutlined,
   MenuUnfoldOutlined,
   MoonOutlined,
   NodeIndexOutlined,
@@ -30,6 +29,7 @@ import {
   SafetyCertificateOutlined,
   SolutionOutlined,
   SunOutlined,
+  SwapOutlined,
   TeamOutlined,
   UserOutlined,
   WalletOutlined,
@@ -631,8 +631,8 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
             width: isMobile ? '100%' : `calc(100% - ${sidebarWidth}px)`,
           }}
         >
-          <Header className="sticky top-0 z-90 flex h-16 items-center justify-between border-b border-[var(--border)] bg-[var(--header-bg)]! px-1 sm:px-5 backdrop-blur-xl">
-            <div className="flex items-center gap-3">
+          <Header className="sticky top-0 z-90 flex h-16 items-center justify-between border-b border-[var(--border)] bg-[var(--header-bg)]! px-4 sm:px-5 backdrop-blur-xl">
+            <div className="flex items-center gap-4">
               <button
                 type="button"
                 onClick={() => isMobile ? setMobileSidebarOpen(!mobileSidebarOpen) : setCollapsed(!collapsed)}
@@ -641,12 +641,12 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
               >
                 {isMobile
                   ? mobileSidebarOpen ? <CloseOutlined /> : <MenuUnfoldOutlined />
-                  : collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />
+                  : <SwapOutlined />
                 }
               </button>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={toggleTheme}
@@ -777,8 +777,8 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                   className="bg-linear-to-br! from-sky-500! to-cyan-500!"
                   icon={<UserOutlined />}
                 />
-                {user && (
-                  <Flex vertical gap={0} className="hidden sm:flex">
+                {user && !isMobile && (
+                  <Flex vertical gap={0}>
                     <Text className="text-sm font-medium leading-tight text-[var(--text-primary)]!">
                       {user.name}
                     </Text>

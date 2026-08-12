@@ -1,19 +1,32 @@
 'use client';
 
-import { Button, Card, Flex, Space, Table, Typography } from 'antd';
+import { useMemo } from 'react';
+import { Button, Card, Col, Flex, Row, Space, Statistic, Table, Typography } from 'antd';
 import { ArrowLeftOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import Link from 'next/link';
 import type { SalesInvoice } from '@/types/erp';
 import { InvoicePdf } from './InvoicePdf';
 import { PaymentReceiptPdf } from './PaymentReceiptPdf';
-import { StatusTag, formatCurrency, formatDate } from './ui';
+import { cardClassName, StatusTag, formatCurrency, formatDate } from './ui';
 
 type Props = {
   invoice: SalesInvoice | null;
+  projectInvoices?: SalesInvoice[];
 };
 
-export function InvoiceDetailClient({ invoice }: Props) {
+export function InvoiceDetailClient({ invoice, projectInvoices = [] }: Props) {
+  const totals = useMemo(() => {
+    const estimate = Number(
+      invoice?.project?.estimatedTotal ||
+      (Number(invoice?.project?.estimatedBudget || 0) + Number(invoice?.project?.estimatedGst || 0)),
+    );
+    const raised = projectInvoices.reduce((sum, inv) => sum + Number(inv.totalAmount) + Number(inv.gstAmount), 0);
+    const received = projectInvoices.reduce((sum, inv) => sum + Number(inv.paidAmount || 0), 0);
+    const balance = raised - received;
+    return { estimate, raised, received, balance };
+  }, [invoice, projectInvoices]);
+
   if (!invoice) {
     return (
       <div className="py-16 text-center">
@@ -24,9 +37,6 @@ export function InvoiceDetailClient({ invoice }: Props) {
       </div>
     );
   }
-
-  const total = Number(invoice.totalAmount) + Number(invoice.gstAmount);
-  const balance = total - Number(invoice.paidAmount || 0);
 
   return (
     <div>
@@ -71,49 +81,51 @@ export function InvoiceDetailClient({ invoice }: Props) {
           </Flex>
         </Card>
 
-        {invoice.items && invoice.items.length > 0 && (
-          <Card title="Line Items" size="small">
-            <Table
-              dataSource={invoice.items}
-              pagination={false}
-              size="small"
-              rowKey={(_, i) => String(i)}
-              columns={[
-                { title: '#', key: 'sno', width: 40, render: (_, __, i) => i + 1 },
-                { title: 'Description', dataIndex: 'description' },
-                { title: 'Qty', dataIndex: 'quantity', align: 'right' },
-                { title: 'Unit', dataIndex: 'unit', align: 'center' },
-                { title: 'Rate', dataIndex: 'rate', align: 'right', render: (val) => formatCurrency(val) },
-                { title: 'Amount', key: 'amount', align: 'right', render: (_, r) => formatCurrency(Number(r.quantity) * Number(r.rate)) },
-              ]}
-            />
-          </Card>
-        )}
-
-        <Card size="small">
-          <Flex vertical gap={8} className="items-end">
-            <Flex>
-              <Typography.Text strong className="w-32">Subtotal:</Typography.Text>
-              <Typography.Text className="w-28 text-right">{formatCurrency(invoice.totalAmount)}</Typography.Text>
-            </Flex>
-            <Flex>
-              <Typography.Text strong className="w-32">GST:</Typography.Text>
-              <Typography.Text className="w-28 text-right">{formatCurrency(invoice.gstAmount)}</Typography.Text>
-            </Flex>
-            <Flex>
-              <Typography.Text strong className="w-32">Total:</Typography.Text>
-              <Typography.Text className="w-28 text-right">{formatCurrency(total)}</Typography.Text>
-            </Flex>
-            <Flex>
-              <Typography.Text strong className="w-32">Paid:</Typography.Text>
-              <Typography.Text className="w-28 text-right" type="success">{formatCurrency(invoice.paidAmount)}</Typography.Text>
-            </Flex>
-            <Flex>
-              <Typography.Text strong className="w-32">Balance:</Typography.Text>
-              <Typography.Text className="w-28 text-right" type="danger">{formatCurrency(balance)}</Typography.Text>
-            </Flex>
-          </Flex>
-        </Card>
+        <Row gutter={[16, 16]}>
+          <Col xs={24} sm={12} lg={6}>
+            <Card className={cardClassName} variant="borderless">
+              <Statistic
+                title="Project Estimate"
+                value={totals.estimate}
+                precision={2}
+                formatter={(val) => formatCurrency(val as number)}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card className={cardClassName} variant="borderless">
+              <Statistic
+                title="Raised"
+                value={totals.raised}
+                precision={2}
+                styles={{ content: { color: '#1677ff' } }}
+                formatter={(val) => formatCurrency(val as number)}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card className={cardClassName} variant="borderless">
+              <Statistic
+                title="Received"
+                value={totals.received}
+                precision={2}
+                styles={{ content: { color: '#3f8600' } }}
+                formatter={(val) => formatCurrency(val as number)}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card className={cardClassName} variant="borderless">
+              <Statistic
+                title="Balance"
+                value={totals.balance}
+                precision={2}
+                styles={{ content: { color: totals.balance > 0 ? '#cf1322' : undefined } }}
+                formatter={(val) => formatCurrency(val as number)}
+              />
+            </Card>
+          </Col>
+        </Row>
 
         <Card title="Payment History" size="small">
           {invoice.payments && invoice.payments.length > 0 ? (
