@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { App, Button, Card, DatePicker, Divider, Drawer, Flex, Form, Select, Space, Table, Typography, Modal, Input, InputNumber, Popconfirm, Dropdown, MenuProps } from 'antd';
+import { App, Button, Card, Col, DatePicker, Divider, Drawer, Flex, Form, Row, Select, Space, Table, Typography, Modal, Input, InputNumber, Popconfirm, Dropdown, MenuProps } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { EyeOutlined, PlusOutlined, FilePdfOutlined, DeleteOutlined, MoreOutlined, CheckCircleOutlined, HistoryOutlined, CreditCardOutlined, FileTextOutlined } from '@ant-design/icons';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -17,7 +17,6 @@ import { InvoicePdf } from './InvoicePdf';
 import { PaymentReceiptPdf } from './PaymentReceiptPdf';
 import {
   StatusTag,
-  cardClassName,
   formatCurrency,
   formatDate,
   pageHeaderClassName,
@@ -338,6 +337,19 @@ export function InvoicesClient({ invoices, projects }: InvoicesClientProps) {
     });
   };
 
+  const invoiceStats = useMemo(() => {
+    const totalInvoices = invoices.length;
+    const totalRaised = invoices.reduce((sum, inv) => sum + Number(inv.totalAmount) + Number(inv.gstAmount), 0);
+    const totalReceived = invoices.reduce((sum, inv) => sum + Number(inv.paidAmount || 0), 0);
+    const receivables = totalRaised - totalReceived;
+    return [
+      { label: 'Total Invoices', value: totalInvoices },
+      { label: 'Total Raised', value: formatCurrency(totalRaised) },
+      { label: 'Received', value: formatCurrency(totalReceived) },
+      { label: 'Receivable', value: formatCurrency(receivables) },
+    ];
+  }, [invoices]);
+
   return (
     <div>
       <Flex justify="space-between" align="center" className={pageHeaderClassName} gap={16} wrap="wrap">
@@ -349,8 +361,30 @@ export function InvoicesClient({ invoices, projects }: InvoicesClientProps) {
         </Button>
       </Flex>
 
-      <Card className={cardClassName}>
+      <Row gutter={[16, 16]} className="mb-4">
+        {invoiceStats.map((stat) => (
+          <Col xs={24} sm={12} md={6} key={stat.label}>
+            <Card
+              className="rounded-xl! border! border-[var(--border)]!"
+              styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}
+            >
+              <Flex vertical gap={10}>
+                <Typography.Text className="text-sm text-[var(--text-muted)]!">{stat.label}</Typography.Text>
+                <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">
+                  {stat.value}
+                </Typography.Title>
+              </Flex>
+            </Card>
+          </Col>
+        ))}
+      </Row>
+
+      <Card
+        className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
+        styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
+      >
         <Table
+          className="mantis-table"
           dataSource={invoices}
           columns={columns}
           rowKey="id"

@@ -6,11 +6,13 @@ import {
   App,
   Button,
   Card,
+  Col,
   Drawer,
   Flex,
   Form,
   Input,
   Popconfirm,
+  Row,
   Select,
   Space,
   Switch,
@@ -35,7 +37,6 @@ import {
 import { OFFICE_STAFF_TYPES, STAFF_ROLE_LABELS, STAFF_ROLES } from '@/types/erp';
 import type { OfficeStaff, Salary, StaffRole } from '@/types/erp';
 import {
-  cardClassName,
   pageHeaderClassName,
   pageTitleClassName,
   titleIconClassName,
@@ -260,6 +261,17 @@ export function OfficeStaffClient({ officeStaff, salaries }: OfficeStaffClientPr
     setEditingStaff(null);
   };
 
+  const activeCount = officeStaff.filter((s) => s.isActive).length;
+  const staffStats = [
+    { label: 'Total Staff', value: officeStaff.length },
+    { label: 'Active', value: activeCount },
+    { label: 'Inactive', value: officeStaff.length - activeCount },
+    {
+      label: 'Office Staff',
+      value: officeStaff.filter((s) => s.role === 'office_staff').length,
+    },
+  ];
+
   return (
     <div>
       <Flex justify="space-between" align="center" className={pageHeaderClassName} gap={16} wrap="wrap">
@@ -271,8 +283,30 @@ export function OfficeStaffClient({ officeStaff, salaries }: OfficeStaffClientPr
         </Button>
       </Flex>
 
-      <Card className={cardClassName} styles={{ body: { overflowX: 'auto' } }}>
+      <Row gutter={[16, 16]} className="mb-4">
+        {staffStats.map((stat) => (
+          <Col xs={24} sm={12} md={6} key={stat.label}>
+            <Card
+              className="rounded-xl! border! border-[var(--border)]!"
+              styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}
+            >
+              <Flex vertical gap={10}>
+                <Typography.Text className="text-sm text-[var(--text-muted)]!">{stat.label}</Typography.Text>
+                <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">
+                  {stat.value}
+                </Typography.Title>
+              </Flex>
+            </Card>
+          </Col>
+        ))}
+      </Row>
+
+      <Card
+        className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
+        styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
+      >
         <Table
+          className="mantis-table"
           dataSource={officeStaff}
           columns={columns}
           rowKey="id"

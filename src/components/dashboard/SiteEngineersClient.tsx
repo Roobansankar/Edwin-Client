@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Button, Card, Drawer, Flex, Form, Input, Popconfirm, Space, Table, Typography, App, Select, Switch, Tag } from 'antd';
+import { Button, Card, Col, Drawer, Flex, Form, Input, Popconfirm, Row, Space, Table, Typography, App, Select, Switch, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DeleteOutlined, EditOutlined, PlusOutlined, UserOutlined } from '@ant-design/icons';
 import { Controller, useForm } from 'react-hook-form';
@@ -10,7 +10,6 @@ import { z } from 'zod';
 import { createSiteEngineer, deleteSiteEngineer, updateSiteEngineer } from '@/actions/site-engineers';
 import type { SiteEngineer, Salary } from '@/types/erp';
 import {
-  cardClassName,
   pageHeaderClassName,
   pageTitleClassName,
   titleIconClassName,
@@ -226,6 +225,16 @@ export function SiteEngineersClient({ siteEngineers, salaries }: SiteEngineersCl
     setEditingEngineer(null);
   };
 
+  const activeCount = siteEngineers.filter((e) => e.isActive).length;
+  const inactiveCount = siteEngineers.length - activeCount;
+  const withProjects = siteEngineers.filter((e) => (e.projects?.length ?? 0) > 0).length;
+  const stats = [
+    { label: 'Total Engineers', value: siteEngineers.length },
+    { label: 'Active', value: activeCount },
+    { label: 'Inactive', value: inactiveCount },
+    { label: 'With Projects', value: withProjects },
+  ];
+
   return (
     <div>
       <Flex justify="space-between" align="center" className={pageHeaderClassName} gap={16} wrap="wrap">
@@ -237,8 +246,30 @@ export function SiteEngineersClient({ siteEngineers, salaries }: SiteEngineersCl
         </Button>
       </Flex>
 
-      <Card className={cardClassName} styles={{ body: { overflowX: 'auto' } }}>
+      <Row gutter={[16, 16]} className="mb-4">
+        {stats.map((stat) => (
+          <Col xs={24} sm={12} md={6} key={stat.label}>
+            <Card
+              className="rounded-xl! border! border-[var(--border)]!"
+              styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}
+            >
+              <Flex vertical gap={10}>
+                <Typography.Text className="text-sm text-[var(--text-muted)]!">{stat.label}</Typography.Text>
+                <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">
+                  {stat.value}
+                </Typography.Title>
+              </Flex>
+            </Card>
+          </Col>
+        ))}
+      </Row>
+
+      <Card
+        className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
+        styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
+      >
         <Table
+          className="mantis-table"
           dataSource={siteEngineers}
           columns={columns}
           rowKey="id"

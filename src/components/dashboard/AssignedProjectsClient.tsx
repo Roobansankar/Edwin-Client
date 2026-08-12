@@ -1,14 +1,13 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
-import { App, Button, Card, Flex, Input, Modal, Select, Table, Tag, Typography } from 'antd';
+import { App, Button, Card, Col, Flex, Input, Modal, Row, Select, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { ProjectOutlined, SwapOutlined, UserOutlined } from '@ant-design/icons';
+import { ProjectOutlined, SwapOutlined } from '@ant-design/icons';
 import { updateSiteEngineer } from '@/actions/site-engineers';
 import { useAuthStore } from '@/store/auth';
 import type { Project, SiteEngineer } from '@/types/erp';
 import {
-  cardClassName,
   pageHeaderClassName,
   pageTitleClassName,
   titleIconClassName,
@@ -161,35 +160,34 @@ export function AssignedProjectsClient({ siteEngineers, projects }: AssignedProj
         />
       </Flex>
 
-      <Flex gap={16} wrap="wrap" className="mb-6!">
+      <Row gutter={[16, 16]} className="mb-4">
         {[
-          { label: 'Total Engineers', value: engineers.length, color: '#3b82f6', icon: <UserOutlined /> },
-          { label: 'With Projects', value: assignedCount, color: '#10b981', icon: <ProjectOutlined /> },
-          { label: 'Unassigned', value: engineers.length - assignedCount, color: '#f59e0b', icon: <SwapOutlined /> },
+          { label: 'Total Engineers', value: engineers.length },
+          { label: 'With Projects', value: assignedCount },
+          { label: 'Unassigned', value: engineers.length - assignedCount },
         ].map((stat) => (
-          <Card key={stat.label} className={`${cardClassName} flex-1! min-w-[180px]!`} styles={{ body: { padding: 16 } }}>
-            <Flex align="center" gap={12}>
-              <div
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg"
-                style={{ backgroundColor: `${stat.color}1a`, color: stat.color }}
-              >
-                {stat.icon}
-              </div>
-              <div className="min-w-0">
-                <Typography.Text type="secondary" className="block text-xs">
-                  {stat.label}
-                </Typography.Text>
-                <Typography.Title level={4} className="m-0!">
+          <Col xs={24} sm={12} md={8} key={stat.label}>
+            <Card
+              className="rounded-xl! border! border-[var(--border)]!"
+              styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}
+            >
+              <Flex vertical gap={10}>
+                <Typography.Text className="text-sm text-[var(--text-muted)]!">{stat.label}</Typography.Text>
+                <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">
                   {stat.value}
                 </Typography.Title>
-              </div>
-            </Flex>
-          </Card>
+              </Flex>
+            </Card>
+          </Col>
         ))}
-      </Flex>
+      </Row>
 
-      <Card className={cardClassName} styles={{ body: { overflowX: 'auto' } }}>
+      <Card
+        className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
+        styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
+      >
         <Table
+          className="mantis-table"
           dataSource={filteredEngineers}
           columns={columns}
           rowKey="id"

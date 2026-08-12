@@ -1,13 +1,13 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
-import { App, Button, Card, Col, Flex, Popconfirm, Row, Select, Statistic, Table, Tag, Typography } from 'antd';
+import { App, Button, Card, Col, Flex, Popconfirm, Row, Select, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { CheckOutlined, CloseOutlined, SolutionOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { respondEmployeeQuery } from '@/actions/employee-queries';
 import type { EmployeeQuery } from '@/types/erp';
-import { cardClassName, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
+import { formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -145,25 +145,32 @@ export function EmployeeQueriesClient({ queries }: Props) {
         </Typography.Title>
       </Flex>
 
-      <Card className={cardClassName}>
-        <Row gutter={16} className="mb-4">
-          <Col xs={12} sm={6} md={4}>
-            <Card size="small" className="border! border-amber-500/20! bg-amber-500/5!">
-              <Statistic title={<Tag color="warning">Pending</Tag>} value={counts.pending} />
+      <Row gutter={[16, 16]} className="mb-4">
+        {[
+          { label: 'Pending', value: counts.pending },
+          { label: 'Approved', value: counts.approved },
+          { label: 'Rejected', value: counts.rejected },
+        ].map((stat) => (
+          <Col xs={24} sm={12} md={8} key={stat.label}>
+            <Card
+              className="rounded-xl! border! border-[var(--border)]!"
+              styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}
+            >
+              <Flex vertical gap={10}>
+                <Typography.Text className="text-sm text-[var(--text-muted)]!">{stat.label}</Typography.Text>
+                <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">
+                  {stat.value}
+                </Typography.Title>
+              </Flex>
             </Card>
           </Col>
-          <Col xs={12} sm={6} md={4}>
-            <Card size="small" className="border! border-emerald-500/20! bg-emerald-500/5!">
-              <Statistic title={<Tag color="success">Approved</Tag>} value={counts.approved} />
-            </Card>
-          </Col>
-          <Col xs={12} sm={6} md={4}>
-            <Card size="small" className="border! border-red-500/20! bg-red-500/5!">
-              <Statistic title={<Tag color="error">Rejected</Tag>} value={counts.rejected} />
-            </Card>
-          </Col>
-        </Row>
+        ))}
+      </Row>
 
+      <Card
+        className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
+        styles={{ body: { padding: '16px 20px' } }}
+      >
         <Flex justify="flex-end" className="mb-4!">
           <Select
             allowClear
@@ -176,6 +183,7 @@ export function EmployeeQueriesClient({ queries }: Props) {
         </Flex>
 
         <Table
+          className="mantis-table"
           dataSource={filtered}
           columns={columns}
           rowKey="id"
