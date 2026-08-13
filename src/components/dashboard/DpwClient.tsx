@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation';
 import { deleteDailyLabourReport } from '@/actions/daily-labour';
 import { DpwForm } from './DpwForm';
 import type { DailyLabourReport, Project, Trade, Team, DailyWorker } from '@/types/erp';
-import { cardClassName, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
+import { pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
 import { getApiOrigin } from '@/lib/api-url';
 
 type Props = {
@@ -110,7 +110,7 @@ export function DpwClient({
     {
       title: '#',
       key: 'sno',
-      width: 60,
+      width: 80,
       render: (_, __, index) => <Typography.Text>{index + 1}</Typography.Text>,
     },
     {
@@ -210,16 +210,23 @@ export function DpwClient({
         )}
       </Flex>
 
-      <Card className={cardClassName} style={{marginTop:"14px"}}>
+      <Card
+        className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
+        style={{ marginTop: '14px' }}
+        styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
+      >
         <Table
+          className="mantis-table"
           dataSource={reports}
           columns={columns}
           rowKey="id"
+          size="middle"
           pagination={{
             pageSize: 10,
-            showTotal: (total) => `Total ${total} reports`,
+            showSizeChanger: true,
+            showTotal: (total) => `${total} reports`,
           }}
-          scroll={{ x: 800 }}
+          scroll={{ x: 1000 }}
         />
       </Card>
 

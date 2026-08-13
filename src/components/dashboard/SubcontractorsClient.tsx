@@ -12,7 +12,6 @@ import { createSubcontractor, deleteSubcontractor, updateSubcontractor } from '@
 import { createWorkCategory } from '@/actions/work-categories';
 import type { Subcontractor, WorkCategory } from '@/types/erp';
 import {
-  cardClassName,
   formatDate,
   pageHeaderClassName,
   pageTitleClassName,
@@ -135,7 +134,7 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
     {
       title: 'S.No',
       key: 'sno',
-      width: 60,
+      width: 80,
       render: (_text, _record, index) => index + 1,
     },
     {
@@ -250,8 +249,12 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
         </Button>
       </Flex>
 
-      <Card className={cardClassName}>
+      <Card
+        className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
+        styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
+      >
         <Table
+          className="mantis-table"
           dataSource={subcontractors}
           columns={columns}
           rowKey="id"

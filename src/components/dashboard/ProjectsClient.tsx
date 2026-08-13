@@ -213,7 +213,7 @@ export function ProjectsClient({ projects, projectCategories, users }: ProjectsC
     {
       title: 'S.No',
       key: 'sno',
-      width: 60,
+      width: 80,
       render: (_text, _record, index) => index + 1,
     },
     {

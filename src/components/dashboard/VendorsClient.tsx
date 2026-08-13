@@ -10,7 +10,6 @@ import { z } from 'zod';
 import { createVendor, deleteVendor, updateVendor } from '@/actions/vendors';
 import type { Vendor } from '@/types/erp';
 import {
-  cardClassName,
   formatDate,
   pageHeaderClassName,
   pageTitleClassName,
@@ -96,7 +95,7 @@ export function VendorsClient({ vendors }: VendorsClientProps) {
     {
       title: 'S.No',
       key: 'sno',
-      width: 60,
+      width: 80,
       render: (_text, _record, index) => index + 1,
     },
     {
@@ -198,8 +197,12 @@ export function VendorsClient({ vendors }: VendorsClientProps) {
         </Button>
       </Flex>
 
-      <Card className={cardClassName}>
+      <Card
+        className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
+        styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
+      >
         <Table
+          className="mantis-table"
           dataSource={vendors}
           columns={columns}
           rowKey="id"

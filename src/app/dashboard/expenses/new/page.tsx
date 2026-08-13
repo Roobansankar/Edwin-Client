@@ -3,10 +3,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { clientApiFetch } from '@/lib/client-api';
 import { ExpenseForm } from '@/components/dashboard/ExpenseForm';
-import { Alert, Spin, Typography, Button, Drawer, Card, Table, Tag, Space, Image } from 'antd';
+import { Alert, Spin, Typography, Button, Drawer, Card, Table, Tag, Space, Image, Flex } from 'antd';
 import type { Project, Trade, Expense, ExpenseType } from '@/types/erp';
 import { DollarOutlined, PlusOutlined, FileTextOutlined } from '@ant-design/icons';
-import { cardClassName, formatCurrency, formatDate, StatusTag } from '@/components/dashboard/ui';
+import { formatCurrency, formatDate, StatusTag, pageHeaderClassName, pageTitleClassName, titleIconClassName } from '@/components/dashboard/ui';
 import type { ColumnsType } from 'antd/es/table';
 import { getApiOrigin } from '@/lib/api-url';
 
@@ -41,7 +41,7 @@ export default function NewExpensePage() {
     {
       title: 'S.No',
       key: 'sno',
-      width: 60,
+      width: 80,
       render: (_text, _record, index) => index + 1,
     },
     {
@@ -137,34 +137,31 @@ export default function NewExpensePage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <Typography.Title level={3} className="m-0! text-[var(--text-primary)]!">
-            <DollarOutlined className="mr-2 text-sky-500" />
-            My Expenses
-          </Typography.Title>
-          <Typography.Text className="text-[var(--text-muted)]">
-            Track and submit your project-related expenses.
-          </Typography.Text>
-        </div>
-        <Button 
-          type="primary" 
-          icon={<PlusOutlined />} 
+      <Flex justify="space-between" align="center" className={pageHeaderClassName} gap={16} wrap="wrap">
+        <Typography.Title level={3} className={pageTitleClassName}>
+          <DollarOutlined className={titleIconClassName} /> My Expenses
+        </Typography.Title>
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
           onClick={() => setOpen(true)}
-          size="large"
         >
           Add Expense
         </Button>
-      </div>
+      </Flex>
 
-      <Card className={cardClassName}>
+      <Card
+        className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
+        styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
+      >
         <Table
+          className="mantis-table"
           dataSource={data.expenses}
           columns={columns}
           rowKey="id"
           size="middle"
           scroll={{ x: 1300 }}
-          pagination={{ pageSize: 10 }}
+          pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} expenses` }}
         />
       </Card>
 

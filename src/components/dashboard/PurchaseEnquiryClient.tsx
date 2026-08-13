@@ -11,7 +11,7 @@ import { PDFDownloadLink, PDFViewer } from '@react-pdf/renderer';
 import { createPurchaseEnquiry, updatePurchaseEnquiry, deletePurchaseEnquiry, updatePurchaseEnquiryStatus } from '@/actions/purchase-enquiries';
 import { createItemDescription, deleteItemDescription } from '@/actions/item-descriptions';
 import type { Project, Vendor, PurchaseEnquiry, ItemDescription, EnquiryItem, PurchaseOrder, Payment } from '@/types/erp';
-import { cardClassName, formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
+import { pageHeaderClassName, pageTitleClassName, titleIconClassName, formatCurrency, formatDate } from './ui';
 import { PurchaseEnquiryPdf } from './PurchaseEnquiryPdf';
 import { useAuthStore } from '@/store/auth';
 
@@ -201,7 +201,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
   };
 
   const columns: ColumnsType<PurchaseEnquiry> = [
-    { title: 'S.No', key: 'sno', width: 60, render: (_, __, i) => i + 1 },
+    { title: 'S.No', key: 'sno', width: 80, render: (_, __, i) => i + 1 },
     { title: 'Enquiry No', dataIndex: 'enquiryNo', key: 'enquiryNo', width: 150 },
 
     { title: 'Project', key: 'project', width: 180, render: (_, r) => r.project?.name || r.projectId },
@@ -256,8 +256,22 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
           <Flex vertical gap={0}>
             <Typography.Text className="text-xs">Total: <Typography.Text strong>{formatCurrency(total)}</Typography.Text></Typography.Text>
             <Typography.Text className="text-xs">Balance: <Typography.Text strong>{formatCurrency(balance)}</Typography.Text></Typography.Text>
-            <Button type="link" size="small" className="px-0! h-auto!" icon={<HistoryOutlined />} onClick={() => openHistory(r)}>History</Button>
           </Flex>
+        );
+      },
+    },
+    {
+      title: 'History',
+      key: 'history',
+      width: 90,
+      render: (_, r) => {
+        const { hasPo } = enquiryTotals(r.enquiryNo);
+        return hasPo ? (
+          <Button type="link" size="small" className="px-0! h-auto!" icon={<HistoryOutlined />} onClick={() => openHistory(r)}>
+            History
+          </Button>
+        ) : (
+          <Typography.Text type="secondary">-</Typography.Text>
         );
       },
     },
@@ -343,13 +357,18 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
         )}
       </Flex>
 
-      <Card className={cardClassName}>
+      <Card
+        className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
+        styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
+      >
         <Table
+          className="mantis-table"
           dataSource={enquiries}
           columns={columns}
           rowKey="id"
           loading={isPending}
-          pagination={{ pageSize: 20, showSizeChanger: true }}
+          size="middle"
+          pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (total) => `${total} enquiries` }}
           scroll={{ x: 1300 }}
           locale={{ emptyText: isSiteEngineer ? 'No material requirements yet. Create one!' : 'No material requirement requests yet.' }}
         />

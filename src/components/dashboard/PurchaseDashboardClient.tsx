@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, Col, Row, Statistic, Table, Typography, Progress, Flex, Alert, Spin, Divider } from 'antd';
+import { Card, Col, Row, Statistic, Table, Typography, Flex, Alert, Spin, Divider } from 'antd';
 import { ShoppingCartOutlined, InboxOutlined, FileTextOutlined, WarningOutlined } from '@ant-design/icons';
 import { fetchPurchaseDashboard } from '@/lib/client-api';
 import { StatusTag, formatDate } from './ui';
@@ -47,16 +47,6 @@ export function PurchaseDashboardClient() {
       title: 'Project',
       dataIndex: 'projectName',
       key: 'projectName',
-    },
-    {
-      title: 'Fulfillment',
-      key: 'fulfillment',
-      render: (_: any, record: any) => (
-        <Flex vertical gap={4}>
-          <Progress percent={record.fulfillment} size="small" status={record.fulfillment === 100 ? 'success' : 'active'} />
-          <Typography.Text type="secondary" className="text-[10px]">{record.fulfillment}% billed</Typography.Text>
-        </Flex>
-      ),
     },
   ];
 
@@ -127,7 +117,7 @@ export function PurchaseDashboardClient() {
 
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={16}>
-          <Card title="Pending Purchase Orders (Fulfillment Tracking)" className="h-full border-[var(--border)]">
+          <Card title="Pending Purchase Orders" className="h-full border-[var(--border)]">
             <Table
               dataSource={data.pendingPOs}
               columns={poColumns}

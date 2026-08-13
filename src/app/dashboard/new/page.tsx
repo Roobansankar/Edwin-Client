@@ -37,16 +37,14 @@ export default function NewDpwPage() {
   if (!data) return null;
 
   return (
-    <div className="p-4">
-      <DpwClient
-        reports={data.reports}
-        projects={data.projects}
-        trades={data.trades}
-        teams={data.teams}
-        onRefresh={() => load(true)}
-        defaultOpen={false}
-        title="Daily Entry List"
-      />
-    </div>
+    <DpwClient
+      reports={data.reports}
+      projects={data.projects}
+      trades={data.trades}
+      teams={data.teams}
+      onRefresh={() => load(true)}
+      defaultOpen={false}
+      title="Daily Entry List"
+    />
   );
 }
