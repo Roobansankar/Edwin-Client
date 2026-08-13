@@ -12,7 +12,6 @@ import { getApiOrigin } from '@/lib/api-url';
 import { useAuthStore } from '@/store/auth';
 import {
   StatusTag,
-  cardClassName,
   formatCurrency,
   formatDate,
   pageHeaderClassName,
@@ -266,8 +265,12 @@ export function ExpensesClient({ expenses: initialExpenses, projects }: Expenses
         </Button>
       </Flex>
 
-      <Card className={cardClassName}>
+      <Card
+        className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
+        styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
+      >
         <Table
+          className="mantis-table"
           dataSource={expenses}
           columns={columns}
           rowKey="id"

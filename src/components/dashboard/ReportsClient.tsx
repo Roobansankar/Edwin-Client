@@ -10,7 +10,6 @@ import {
   Flex,
   Row,
   Select,
-  Statistic,
   Table,
   Tabs,
   Tag,
@@ -29,7 +28,6 @@ import type { DprReport, Project, PurchaseBill, WeeklyTimesheet, Expense } from 
 import { exportToExcel } from '@/lib/excel';
 import { getApiOrigin } from '@/lib/api-url';
 import {
-  cardClassName,
   formatCurrency,
   formatDate,
   pageHeaderClassName,
@@ -414,42 +412,78 @@ export function ReportsClient({ projects, bills, timesheets, expenses, dprReport
           <>
             <Row gutter={[16, 16]} className="mb-4">
               <Col xs={12} sm={6}>
-                <Card className={cardClassName}>
-                  <Statistic title="Bills" value={projectSummary.count} />
+                <Card
+                  className="rounded-xl! border! border-[var(--border)]!"
+                  styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}
+                >
+                  <Flex vertical gap={10}>
+                    <Typography.Text className="text-sm text-[var(--text-muted)]!">Bills</Typography.Text>
+                    <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">
+                      {projectSummary.count}
+                    </Typography.Title>
+                  </Flex>
                 </Card>
               </Col>
               <Col xs={12} sm={6}>
-                <Card className={cardClassName}>
-                  <Statistic title="Total Amount" value={projectSummary.totalAmount} precision={0} prefix="₹" />
+                <Card
+                  className="rounded-xl! border! border-[var(--border)]!"
+                  styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}
+                >
+                  <Flex vertical gap={10}>
+                    <Typography.Text className="text-sm text-[var(--text-muted)]!">Total Amount</Typography.Text>
+                    <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">
+                      {formatCurrency(projectSummary.totalAmount)}
+                    </Typography.Title>
+                  </Flex>
                 </Card>
               </Col>
               <Col xs={12} sm={6}>
-                <Card className={cardClassName}>
-                  <Statistic title="Paid" value={projectSummary.totalPaid} precision={0} prefix="₹" />
+                <Card
+                  className="rounded-xl! border! border-[var(--border)]!"
+                  styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}
+                >
+                  <Flex vertical gap={10}>
+                    <Typography.Text className="text-sm text-[var(--text-muted)]!">Paid</Typography.Text>
+                    <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">
+                      {formatCurrency(projectSummary.totalPaid)}
+                    </Typography.Title>
+                  </Flex>
                 </Card>
               </Col>
               <Col xs={12} sm={6}>
-                <Card className={cardClassName}>
-                  <Statistic
-                    title="Outstanding"
-                    value={projectSummary.outstanding}
-                    precision={0}
-                    prefix="₹"
-                    styles={{ content: projectSummary.outstanding > 0 ? { color: '#cf1322' } : undefined }}
-                  />
+                <Card
+                  className="rounded-xl! border! border-[var(--border)]!"
+                  styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}
+                >
+                  <Flex vertical gap={10}>
+                    <Typography.Text className="text-sm text-[var(--text-muted)]!">Outstanding</Typography.Text>
+                    <Typography.Title
+                      level={4}
+                      className="m-0! text-[var(--text-primary)]!"
+                      style={projectSummary.outstanding > 0 ? { color: '#cf1322' } : undefined}
+                    >
+                      {formatCurrency(projectSummary.outstanding)}
+                    </Typography.Title>
+                  </Flex>
                 </Card>
               </Col>
             </Row>
 
-            <Table
-              dataSource={projectBills}
-              columns={billColumns}
-              rowKey="id"
-              size="middle"
-              scroll={{ x: 1100 }}
-              pagination={{ pageSize: 10, showTotal: (total) => `${total} bills` }}
-              locale={{ emptyText: 'No purchase bills for this project yet' }}
-            />
+            <Card
+              className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
+              styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
+            >
+              <Table
+                className="mantis-table"
+                dataSource={projectBills}
+                columns={billColumns}
+                rowKey="id"
+                size="middle"
+                scroll={{ x: 1100 }}
+                pagination={{ pageSize: 10, showTotal: (total) => `${total} bills` }}
+                locale={{ emptyText: 'No purchase bills for this project yet' }}
+              />
+            </Card>
 
             <Flex justify="space-between" align="center" gap={16} wrap="wrap" className="mt-8! mb-4!">
               <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">
@@ -467,26 +501,48 @@ export function ReportsClient({ projects, bills, timesheets, expenses, dprReport
 
             <Row gutter={[16, 16]} className="mb-4">
               <Col xs={12} sm={6}>
-                <Card className={cardClassName}>
-                  <Statistic title="Expenses" value={projectExpenseSummary.count} />
+                <Card
+                  className="rounded-xl! border! border-[var(--border)]!"
+                  styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}
+                >
+                  <Flex vertical gap={10}>
+                    <Typography.Text className="text-sm text-[var(--text-muted)]!">Expenses</Typography.Text>
+                    <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">
+                      {projectExpenseSummary.count}
+                    </Typography.Title>
+                  </Flex>
                 </Card>
               </Col>
               <Col xs={12} sm={6}>
-                <Card className={cardClassName}>
-                  <Statistic title="Total Expense Amount" value={projectExpenseSummary.total} precision={0} prefix="₹" />
+                <Card
+                  className="rounded-xl! border! border-[var(--border)]!"
+                  styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}
+                >
+                  <Flex vertical gap={10}>
+                    <Typography.Text className="text-sm text-[var(--text-muted)]!">Total Expense Amount</Typography.Text>
+                    <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">
+                      {formatCurrency(projectExpenseSummary.total)}
+                    </Typography.Title>
+                  </Flex>
                 </Card>
               </Col>
             </Row>
 
-            <Table
-              dataSource={projectExpenses}
-              columns={expenseColumns}
-              rowKey="id"
-              size="middle"
-              scroll={{ x: 1100 }}
-              pagination={{ pageSize: 10, showTotal: (total) => `${total} expenses` }}
-              locale={{ emptyText: 'No expenses for this project yet' }}
-            />
+            <Card
+              className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
+              styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
+            >
+              <Table
+                className="mantis-table"
+                dataSource={projectExpenses}
+                columns={expenseColumns}
+                rowKey="id"
+                size="middle"
+                scroll={{ x: 1100 }}
+                pagination={{ pageSize: 10, showTotal: (total) => `${total} expenses` }}
+                locale={{ emptyText: 'No expenses for this project yet' }}
+              />
+            </Card>
           </>
         )}
       </div>
@@ -553,36 +609,74 @@ export function ReportsClient({ projects, bills, timesheets, expenses, dprReport
 
         <Row gutter={[16, 16]} className="mb-4">
           <Col xs={12} sm={6}>
-            <Card className={cardClassName}>
-              <Statistic title="Engineers" value={timesheetSummary.engineers} />
+            <Card
+              className="rounded-xl! border! border-[var(--border)]!"
+              styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}
+            >
+              <Flex vertical gap={10}>
+                <Typography.Text className="text-sm text-[var(--text-muted)]!">Engineers</Typography.Text>
+                <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">
+                  {timesheetSummary.engineers}
+                </Typography.Title>
+              </Flex>
             </Card>
           </Col>
           <Col xs={12} sm={6}>
-            <Card className={cardClassName}>
-              <Statistic title="Work Entries" value={timesheetSummary.rows} />
+            <Card
+              className="rounded-xl! border! border-[var(--border)]!"
+              styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}
+            >
+              <Flex vertical gap={10}>
+                <Typography.Text className="text-sm text-[var(--text-muted)]!">Work Entries</Typography.Text>
+                <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">
+                  {timesheetSummary.rows}
+                </Typography.Title>
+              </Flex>
             </Card>
           </Col>
           <Col xs={12} sm={6}>
-            <Card className={cardClassName}>
-              <Statistic title="Total Hours" value={timesheetSummary.totalHours} precision={2} />
+            <Card
+              className="rounded-xl! border! border-[var(--border)]!"
+              styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}
+            >
+              <Flex vertical gap={10}>
+                <Typography.Text className="text-sm text-[var(--text-muted)]!">Total Hours</Typography.Text>
+                <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">
+                  {timesheetSummary.totalHours.toFixed(2)}
+                </Typography.Title>
+              </Flex>
             </Card>
           </Col>
           <Col xs={12} sm={6}>
-            <Card className={cardClassName}>
-              <Statistic title="Labour Cost" value={timesheetSummary.totalCost} precision={0} prefix="₹" />
+            <Card
+              className="rounded-xl! border! border-[var(--border)]!"
+              styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}
+            >
+              <Flex vertical gap={10}>
+                <Typography.Text className="text-sm text-[var(--text-muted)]!">Labour Cost</Typography.Text>
+                <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">
+                  {formatCurrency(timesheetSummary.totalCost)}
+                </Typography.Title>
+              </Flex>
             </Card>
           </Col>
         </Row>
 
-        <Table
-          dataSource={timesheetRows}
-          columns={timesheetColumns}
-          rowKey="key"
-          size="middle"
-          scroll={{ x: 1400 }}
-          pagination={{ pageSize: 15, showTotal: (total) => `${total} entries` }}
-          locale={{ emptyText: 'No timesheet hours for the selected filters' }}
-        />
+        <Card
+          className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
+          styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
+        >
+          <Table
+            className="mantis-table"
+            dataSource={timesheetRows}
+            columns={timesheetColumns}
+            rowKey="key"
+            size="middle"
+            scroll={{ x: 1400 }}
+            pagination={{ pageSize: 15, showTotal: (total) => `${total} entries` }}
+            locale={{ emptyText: 'No timesheet hours for the selected filters' }}
+          />
+        </Card>
       </div>
     ),
   };
@@ -633,15 +727,21 @@ export function ReportsClient({ projects, bills, timesheets, expenses, dprReport
           </Button>
         </Flex>
 
-        <Table
-          dataSource={filteredDprReports}
-          columns={dprColumns}
-          rowKey="id"
-          size="middle"
-          scroll={{ x: 900 }}
-          pagination={{ pageSize: 15, showTotal: (total) => `${total} reports` }}
-          locale={{ emptyText: 'No DPR reports for the selected filters' }}
-        />
+        <Card
+          className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
+          styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
+        >
+          <Table
+            className="mantis-table"
+            dataSource={filteredDprReports}
+            columns={dprColumns}
+            rowKey="id"
+            size="middle"
+            scroll={{ x: 900 }}
+            pagination={{ pageSize: 15, showTotal: (total) => `${total} reports` }}
+            locale={{ emptyText: 'No DPR reports for the selected filters' }}
+          />
+        </Card>
       </div>
     ),
   };
@@ -659,7 +759,10 @@ export function ReportsClient({ projects, bills, timesheets, expenses, dprReport
         </Typography.Title>
       </Flex>
 
-      <Card className={cardClassName}>
+      <Card
+        className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
+        styles={{ body: { padding: '8px 8px' } }}
+      >
         <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
       </Card>
     </div>
