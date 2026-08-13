@@ -43,8 +43,8 @@ function LoginForm() {
 
   return (
     <Card
-      className="w-105 rounded-2xl! border! border-[var(--border)]! bg-[var(--subtle-bg)] shadow-[0_32px_64px_rgba(0,0,0,0.4)] backdrop-blur-2xl"
-      classNames={{ body: 'px-8 py-10' }}
+      className="w-full max-w-[420px]! rounded-2xl! border! border-[var(--border)]! bg-[var(--subtle-bg)] shadow-[0_32px_64px_rgba(0,0,0,0.4)] backdrop-blur-2xl sm:min-w-[420px]"
+      classNames={{ body: 'px-5 py-8 sm:px-8 sm:py-10' }}
     >
       <Space orientation="vertical" size="large" className="w-full text-center">
         <div>
@@ -111,7 +111,7 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <div
-      className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--page-bg)]"
+      className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--page-bg)] px-4 py-8"
     >
       <div className="absolute -right-25 -top-25 h-100 w-100 rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.15)_0%,transparent_70%)]" />
       <div className="absolute -bottom-12.5 -left-12.5 h-75 w-75 rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.1)_0%,transparent_70%)]" />
