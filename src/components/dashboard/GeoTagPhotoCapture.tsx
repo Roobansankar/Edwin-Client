@@ -34,6 +34,50 @@ function getLocation(): Promise<{ lat: number; lng: number } | null> {
   });
 }
 
+async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=0`,
+      { signal: controller.signal, headers: { Accept: 'application/json' } },
+    );
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return typeof data?.display_name === 'string' ? data.display_name : null;
+  } catch {
+    return null;
+  }
+}
+
+function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let current = '';
+  for (const word of words) {
+    const test = current ? `${current} ${word}` : word;
+    if (current && ctx.measureText(test).width > maxWidth) {
+      lines.push(current);
+      current = word;
+      if (lines.length === maxLines) break;
+    } else {
+      current = test;
+    }
+  }
+  if (lines.length < maxLines && current) lines.push(current);
+
+  if (lines.length === maxLines) {
+    let last = lines[maxLines - 1];
+    while (last.length > 1 && ctx.measureText(`${last}…`).width > maxWidth) {
+      last = last.slice(0, -1);
+    }
+    lines[maxLines - 1] = `${last}…`;
+  }
+
+  return lines;
+}
+
 function loadImage(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
@@ -50,7 +94,11 @@ function loadImage(file: File): Promise<HTMLImageElement> {
   });
 }
 
-async function stampImage(file: File, location: { lat: number; lng: number } | null): Promise<File> {
+async function stampImage(
+  file: File,
+  location: { lat: number; lng: number } | null,
+  address: string | null,
+): Promise<File> {
   const img = await loadImage(file);
 
   const canvas = document.createElement('canvas');
@@ -61,23 +109,27 @@ async function stampImage(file: File, location: { lat: number; lng: number } | n
   ctx.drawImage(img, 0, 0);
 
   const now = dayjs();
-  const groups: { label: string; lines: string[] }[] = [
-    {
-      label: 'Location',
-      lines: location ? [location.lat.toFixed(4), location.lng.toFixed(4)] : ['Unavailable'],
-    },
-    { label: 'Captured', lines: [now.format('DD MMM YYYY'), now.format('hh:mm A')] },
-  ];
-
   const fontSize = Math.max(16, Math.round(canvas.width * 0.028));
   const labelFontSize = Math.round(fontSize * 1.05);
   const lineHeight = Math.round(fontSize * 1.3);
   const groupGap = Math.round(lineHeight * 0.5);
   const padding = Math.max(14, Math.round(canvas.width * 0.025));
+  const boxWidth = Math.min(canvas.width, Math.round(canvas.width * 0.55));
+
+  ctx.font = `${fontSize}px sans-serif`;
+  const locationLines = address
+    ? wrapText(ctx, address, boxWidth - padding * 2, 3)
+    : location
+      ? [`${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`]
+      : ['Unavailable'];
+
+  const groups: { label: string; lines: string[] }[] = [
+    { label: 'Location', lines: locationLines },
+    { label: 'Captured', lines: [now.format('DD MMM YYYY'), now.format('hh:mm A')] },
+  ];
 
   const totalLines = groups.reduce((sum, g) => sum + 1 + g.lines.length, 0);
   const boxHeight = totalLines * lineHeight + (groups.length - 1) * groupGap + padding * 2;
-  const boxWidth = Math.min(canvas.width, Math.round(canvas.width * 0.55));
 
   ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
   ctx.fillRect(0, canvas.height - boxHeight, boxWidth, boxHeight);
@@ -115,7 +167,8 @@ export function GeoTagPhotoCapture({ fileList, onChange, maxCount = 2 }: Props) 
     setCapturing(true);
     try {
       const location = await getLocation();
-      const stamped = await stampImage(file, location);
+      const address = location ? await reverseGeocode(location.lat, location.lng) : null;
+      const stamped = await stampImage(file, location, address);
       const url = URL.createObjectURL(stamped);
       const newItem: GeoTagFile = {
         uid: `geo-${Date.now()}`,
