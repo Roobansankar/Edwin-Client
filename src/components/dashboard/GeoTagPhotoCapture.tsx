@@ -100,6 +100,12 @@ function loadImage(file: File): Promise<HTMLImageElement> {
   });
 }
 
+// Phone cameras commonly shoot 8-12MP+ photos (several MB each once re-encoded).
+// With up to 10 photos per trade entry across multiple entries, uploading them at
+// full resolution can blow past the report submit request's size limit. These are
+// site-verification photos, not print material, so downscaling is safe.
+const MAX_DIMENSION = 1600;
+
 async function stampImage(
   file: File,
   location: { lat: number; lng: number } | null,
@@ -107,12 +113,16 @@ async function stampImage(
 ): Promise<File> {
   const img = await loadImage(file);
 
+  const scale = Math.min(1, MAX_DIMENSION / Math.max(img.naturalWidth, img.naturalHeight));
+  const drawWidth = Math.round(img.naturalWidth * scale);
+  const drawHeight = Math.round(img.naturalHeight * scale);
+
   const canvas = document.createElement('canvas');
-  canvas.width = img.naturalWidth;
-  canvas.height = img.naturalHeight;
+  canvas.width = drawWidth;
+  canvas.height = drawHeight;
   const ctx = canvas.getContext('2d');
   if (!ctx) return file;
-  ctx.drawImage(img, 0, 0);
+  ctx.drawImage(img, 0, 0, drawWidth, drawHeight);
 
   const now = dayjs();
   const fontSize = Math.max(16, Math.round(canvas.width * 0.028));
@@ -158,7 +168,7 @@ async function stampImage(
     if (gi < groups.length - 1) y += groupGap;
   });
 
-  const blob: Blob | null = await new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.9));
+  const blob: Blob | null = await new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.8));
   if (!blob) return file;
   const stampedName = file.name.replace(/\.[^./]+$/, '') + '-geotag.jpg';
   return new File([blob], stampedName, { type: 'image/jpeg' });
