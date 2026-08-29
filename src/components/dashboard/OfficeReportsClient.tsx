@@ -32,7 +32,6 @@ import {
   deleteOfficeReport,
 } from '@/actions/office-reports';
 import type { OfficeReport, Project } from '@/types/erp';
-import { getApiOrigin } from '@/lib/api-url';
 import {
   cardClassName,
   pageHeaderClassName,
@@ -140,7 +139,7 @@ export function OfficeReportsClient({ reports, categories, projects }: OfficeRep
       key: 'file',
       render: (_, record) => (
         <Typography.Link
-          href={`${getApiOrigin()}${record.fileUrl}`}
+          href={record.fileUrl}
           target="_blank"
         >
           {record.fileKey}
@@ -167,7 +166,7 @@ export function OfficeReportsClient({ reports, categories, projects }: OfficeRep
             <Button
               type="text"
               icon={<DownloadOutlined />}
-              href={`${getApiOrigin()}${record.fileUrl}`}
+              href={record.fileUrl}
               target="_blank"
               download
             />

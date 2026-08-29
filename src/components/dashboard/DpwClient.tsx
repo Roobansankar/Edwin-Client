@@ -11,7 +11,6 @@ import { deleteDailyLabourReport } from '@/actions/daily-labour';
 import { DpwForm } from './DpwForm';
 import type { DailyLabourReport, Project, Trade, Team, DailyWorker } from '@/types/erp';
 import { pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
-import { getApiOrigin } from '@/lib/api-url';
 
 type Props = {
   reports: DailyLabourReport[];

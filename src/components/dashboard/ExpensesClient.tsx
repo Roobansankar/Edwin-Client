@@ -8,7 +8,6 @@ import { deleteExpense, updateExpenseStatus } from '@/actions/expenses';
 import type { Expense, Trade, Project, ExpenseType } from '@/types/erp';
 import { ExpenseForm } from './ExpenseForm';
 import { clientApiFetch } from '@/lib/client-api';
-import { getApiOrigin } from '@/lib/api-url';
 import { useAuthStore } from '@/store/auth';
 import {
   StatusTag,
@@ -197,7 +196,7 @@ export function ExpensesClient({ expenses: initialExpenses, projects }: Expenses
               type="text" 
               size="small"
               icon={<FileTextOutlined className="text-sky-500" />} 
-              onClick={() => window.open(`${getApiOrigin()}${url}`, '_blank')}
+              onClick={() => window.open(url, '_blank')}
             />
           ))}
         </Space>
@@ -212,7 +211,7 @@ export function ExpensesClient({ expenses: initialExpenses, projects }: Expenses
             {urls.map((url, i) => (
               <Image
                 key={i}
-                src={`${getApiOrigin()}${url}`}
+                src={url}
                 width={30}
                 height={30}
                 className="rounded object-cover border border-[var(--border)]"

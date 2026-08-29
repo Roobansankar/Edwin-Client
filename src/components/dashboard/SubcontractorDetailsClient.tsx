@@ -14,7 +14,6 @@ import {
   pageTitleClassName,
   titleIconClassName,
 } from './ui';
-import { getApiOrigin } from '@/lib/api-url';
 
 type SubcontractorDetailsClientProps = {
   subcontractor: Subcontractor;
@@ -46,7 +45,7 @@ export function SubcontractorDetailsClient({ subcontractor, workOrders }: Subcon
       key: 'workorder',
       render: (_, record) =>
         record.workorderUrl ? (
-          <Typography.Link href={`${getApiOrigin()}${record.workorderUrl}`} target="_blank">
+          <Typography.Link href={record.workorderUrl} target="_blank">
             <FilePdfOutlined className="text-red-500" /> View File
           </Typography.Link>
         ) : '-',

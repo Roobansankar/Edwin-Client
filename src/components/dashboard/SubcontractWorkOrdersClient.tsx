@@ -56,7 +56,6 @@ import {
   pageTitleClassName,
   titleIconClassName,
 } from './ui';
-import { getApiOrigin } from '@/lib/api-url';
 import { useAuthStore } from '@/store/auth';
 
 const swoSchema = z.object({
@@ -380,7 +379,7 @@ export function SubcontractWorkOrdersClient({
                 type="link"
                 size="small"
                 icon={<FilePdfOutlined />}
-                href={`${getApiOrigin()}${record.workorderUrl}`}
+                href={record.workorderUrl}
                 target="_blank"
               />
             </Tooltip>
@@ -389,7 +388,7 @@ export function SubcontractWorkOrdersClient({
                 type="link"
                 size="small"
                 icon={<DownloadOutlined />}
-                href={`${getApiOrigin()}${record.workorderUrl}`}
+                href={record.workorderUrl}
                 target="_blank"
                 download
               />
@@ -712,7 +711,7 @@ export function SubcontractWorkOrdersClient({
                   type="link"
                   size="small"
                   icon={<FilePdfOutlined />}
-                  href={`${getApiOrigin()}${uploadedFile.workorderUrl}`}
+                  href={uploadedFile.workorderUrl}
                   target="_blank"
                 >
                   View
@@ -721,7 +720,7 @@ export function SubcontractWorkOrdersClient({
                   type="link"
                   size="small"
                   icon={<DownloadOutlined />}
-                  href={`${getApiOrigin()}${uploadedFile.workorderUrl}`}
+                  href={uploadedFile.workorderUrl}
                   target="_blank"
                   download
                 >

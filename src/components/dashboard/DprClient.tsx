@@ -43,7 +43,7 @@ import {
   secondaryTextClassName,
   titleIconClassName,
 } from './ui';
-import { getApiBaseUrl, getApiOrigin } from '@/lib/api-url';
+import { getApiBaseUrl } from '@/lib/api-url';
 import { clientApiFetch } from '@/lib/client-api';
 
 const { RangePicker } = DatePicker;
@@ -174,7 +174,7 @@ export function DprClient({ projects, initialDprs }: DprClientProps) {
       render: (_, record) => (
         <Space>
           {getFileIcon(record.fileType)}
-          <Typography.Link href={`${getApiOrigin()}${record.fileUrl}`} target="_blank">
+          <Typography.Link href={record.fileUrl} target="_blank">
             {record.fileKey}
           </Typography.Link>
         </Space>
@@ -195,7 +195,7 @@ export function DprClient({ projects, initialDprs }: DprClientProps) {
             <Button
               type="text"
               icon={<DownloadOutlined />}
-              href={`${getApiOrigin()}${record.fileUrl}`}
+              href={record.fileUrl}
               target="_blank"
               download
             />

@@ -7,7 +7,6 @@ import { CalendarOutlined, ArrowLeftOutlined, ProjectOutlined, TeamOutlined, Pic
 import dayjs from 'dayjs';
 import { clientApiFetch } from '@/lib/client-api';
 import type { DailyLabourReport, DailyWorker } from '@/types/erp';
-import { getApiOrigin } from '@/lib/api-url';
 import { useAuthStore } from '@/store/auth';
 
 const PHOTO_SLOTS = [1, 2, 3, 4, 5] as const;
@@ -237,7 +236,7 @@ export function DailyLabourDetailClient() {
                           {morningUrls.map((url, i) => (
                             <Col span={12} key={i}>
                               <Image
-                                src={`${getApiOrigin()}${url}`}
+                                src={url}
                                 className="rounded-lg object-cover w-full aspect-video border border-[var(--border)] shadow-lg hover:scale-[1.02] transition-transform"
                                 placeholder={<div className="w-full aspect-video bg-slate-800 animate-pulse rounded-lg" />}
                               />
@@ -259,7 +258,7 @@ export function DailyLabourDetailClient() {
                           {eveningUrls.map((url, i) => (
                             <Col span={12} key={i}>
                               <Image
-                                src={`${getApiOrigin()}${url}`}
+                                src={url}
                                 className="rounded-lg object-cover w-full aspect-video border border-[var(--border)] shadow-lg hover:scale-[1.02] transition-transform"
                                 placeholder={<div className="w-full aspect-video bg-slate-800 animate-pulse rounded-lg" />}
                               />

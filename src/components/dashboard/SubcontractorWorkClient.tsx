@@ -8,7 +8,6 @@ import { DeleteOutlined, DownloadOutlined, FileExcelOutlined, FilePdfOutlined, F
 import { createSubcontractorWork, deleteSubcontractorWork, updateSubcontractorWorkStatus } from '@/actions/subcontractor-work';
 import type { Payment, Project, Subcontractor, SubcontractorWork, SubcontractWorkOrder } from '@/types/erp';
 import { useAuthStore } from '@/store/auth';
-import { getApiOrigin } from '@/lib/api-url';
 import {
   cardClassName,
   formatCurrency,
@@ -217,10 +216,10 @@ export function SubcontractorWorkClient({ works, projects, subcontractors, subco
           <Space>
             {getFileIcon(r.subcontractWorkOrder.workorderKey || '')}
             <Tooltip title="View">
-              <Button type="link" size="small" icon={<FilePdfOutlined />} href={`${getApiOrigin()}${r.subcontractWorkOrder.workorderUrl}`} target="_blank" />
+              <Button type="link" size="small" icon={<FilePdfOutlined />} href={r.subcontractWorkOrder.workorderUrl} target="_blank" />
             </Tooltip>
             <Tooltip title="Download">
-              <Button type="link" size="small" icon={<DownloadOutlined />} href={`${getApiOrigin()}${r.subcontractWorkOrder.workorderUrl}`} target="_blank" download />
+              <Button type="link" size="small" icon={<DownloadOutlined />} href={r.subcontractWorkOrder.workorderUrl} target="_blank" download />
             </Tooltip>
           </Space>
         ) : <Typography.Text type="secondary">-</Typography.Text>,
@@ -234,7 +233,7 @@ export function SubcontractorWorkClient({ works, projects, subcontractors, subco
         <Image.PreviewGroup>
           <Space>
             {r.photoUrls.slice(0, 3).map((url, i) => (
-              <Image key={i} src={`${getApiOrigin()}${url}`} width={36} height={36} className="rounded object-cover border border-[var(--border)]" />
+              <Image key={i} src={url} width={36} height={36} className="rounded object-cover border border-[var(--border)]" />
             ))}
             {r.photoUrls.length > 3 && <Typography.Text type="secondary" className="text-xs">+{r.photoUrls.length - 3}</Typography.Text>}
           </Space>
@@ -341,7 +340,7 @@ export function SubcontractorWorkClient({ works, projects, subcontractors, subco
                   <Flex vertical gap={2}><Typography.Text type="secondary">Description</Typography.Text><Typography.Text>{selectedWo.description}</Typography.Text></Flex>
                 )}
                 {selectedWo.workorderUrl && (
-                  <Button size="small" icon={<FilePdfOutlined />} href={`${getApiOrigin()}${selectedWo.workorderUrl}`} target="_blank">
+                  <Button size="small" icon={<FilePdfOutlined />} href={selectedWo.workorderUrl} target="_blank">
                     View Work Order
                   </Button>
                 )}

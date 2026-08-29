@@ -13,7 +13,6 @@ import { useAuthStore } from '@/store/auth';
 import { GeoTagPhotoCapture, type GeoTagFile } from './GeoTagPhotoCapture';
 
 import { useRouter } from 'next/navigation';
-import { getApiOrigin } from '@/lib/api-url';
 
 const MAX_PHOTOS_PER_SESSION = 5;
 const PHOTO_SLOTS = [1, 2, 3, 4, 5] as const;
@@ -66,7 +65,7 @@ export function DpwForm({ projects, trades, teams = [], initialValues, onSuccess
           PHOTO_SLOTS.flatMap((slot) => {
             const url = (w as Record<string, unknown>)[`${session}Photo${slot}Url`] as string | undefined;
             if (!url) return [];
-            return [{ uid: `-${session[0]}${slot}-${index}`, name: `${session}${slot}.jpg`, status: 'done' as const, url: `${getApiOrigin()}${url}` }];
+            return [{ uid: `-${session[0]}${slot}-${index}`, name: `${session}${slot}.jpg`, status: 'done' as const, url }];
           });
 
         photos[index] = { morning: buildList('morning'), evening: buildList('evening') };
@@ -197,7 +196,7 @@ export function DpwForm({ projects, trades, teams = [], initialValues, onSuccess
               if (item?.originFileObj) {
                 formData.append(`worker_${index}_${session}Photo${slot}`, item.originFileObj);
               }
-              photoUrls[`${session}Photo${slot}Url`] = item?.url?.replace(getApiOrigin(), '') || undefined;
+              photoUrls[`${session}Photo${slot}Url`] = item?.url || undefined;
             });
           }
 

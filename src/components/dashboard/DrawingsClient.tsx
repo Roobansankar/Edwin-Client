@@ -40,7 +40,6 @@ import {
   titleIconClassName,
   titleCase,
 } from './ui';
-import { getApiOrigin } from '@/lib/api-url';
 import { clientApiFetch } from '@/lib/client-api';
 
 const { Option } = Select;
@@ -245,7 +244,7 @@ export function DrawingsClient({ projects, initialDrawings }: DrawingsClientProp
               ghost
               size="small"
               icon={<DownloadOutlined />}
-              href={`${getApiOrigin()}${record.fileUrl}`}
+              href={record.fileUrl}
               target="_blank"
             >
               View

@@ -26,7 +26,6 @@ import {
 } from '@ant-design/icons';
 import type { DprReport, Project, PurchaseBill, WeeklyTimesheet, Expense } from '@/types/erp';
 import { exportToExcel } from '@/lib/excel';
-import { getApiOrigin } from '@/lib/api-url';
 import {
   formatCurrency,
   formatDate,
@@ -353,7 +352,7 @@ export function ReportsClient({ projects, bills, timesheets, expenses, dprReport
       title: 'File',
       key: 'file',
       render: (_, r) => (
-        <Typography.Link href={`${getApiOrigin()}${r.fileUrl}`} target="_blank">
+        <Typography.Link href={r.fileUrl} target="_blank">
           {r.fileKey || 'View File'}
         </Typography.Link>
       ),

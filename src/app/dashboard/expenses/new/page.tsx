@@ -8,7 +8,6 @@ import type { Project, Trade, Expense, ExpenseType } from '@/types/erp';
 import { DollarOutlined, PlusOutlined, FileTextOutlined } from '@ant-design/icons';
 import { formatCurrency, formatDate, StatusTag, pageHeaderClassName, pageTitleClassName, titleIconClassName } from '@/components/dashboard/ui';
 import type { ColumnsType } from 'antd/es/table';
-import { getApiOrigin } from '@/lib/api-url';
 
 export default function NewExpensePage() {
   const [data, setData] = useState<{ projects: Project[], trades: Trade[], expenseTypes: ExpenseType[], expenses: Expense[] } | null>(null);
@@ -104,7 +103,7 @@ export default function NewExpensePage() {
               type="text" 
               size="small"
               icon={<FileTextOutlined className="text-sky-500" />} 
-              onClick={() => window.open(`${getApiOrigin()}${url}`, '_blank')}
+              onClick={() => window.open(url, '_blank')}
             />
           ))}
         </Space>
@@ -119,7 +118,7 @@ export default function NewExpensePage() {
             {urls.map((url, i) => (
               <Image
                 key={i}
-                src={`${getApiOrigin()}${url}`}
+                src={url}
                 width={30}
                 height={30}
                 className="rounded object-cover border border-[var(--border)]"
