@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useCallback } from 'react';
 import { Button, Flex, App } from 'antd';
 import { CameraOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -29,7 +29,7 @@ function getLocation(): Promise<{ lat: number; lng: number } | null> {
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
       () => resolve(null),
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
     );
   });
 }
@@ -37,10 +37,16 @@ function getLocation(): Promise<{ lat: number; lng: number } | null> {
 async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 6000);
+    const timeout = setTimeout(() => controller.abort(), 8000);
     const res = await fetch(
       `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=0`,
-      { signal: controller.signal, headers: { Accept: 'application/json' } },
+      {
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'EdwinConstructionERP/1.0 (photo-geotag)',
+        },
+      },
     );
     clearTimeout(timeout);
     if (!res.ok) return null;
@@ -69,10 +75,10 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number,
 
   if (lines.length === maxLines) {
     let last = lines[maxLines - 1];
-    while (last.length > 1 && ctx.measureText(`${last}…`).width > maxWidth) {
+    while (last.length > 1 && ctx.measureText(`${last}\u2026`).width > maxWidth) {
       last = last.slice(0, -1);
     }
-    lines[maxLines - 1] = `${last}…`;
+    lines[maxLines - 1] = `${last}\u2026`;
   }
 
   return lines;
@@ -163,11 +169,26 @@ export function GeoTagPhotoCapture({ fileList, onChange, maxCount = 2 }: Props) 
   const [capturing, setCapturing] = useState(false);
   const { message } = App.useApp();
 
-  const handleFile = async (file: File) => {
+  const handleFile = useCallback(async (file: File) => {
     setCapturing(true);
     try {
-      const location = await getLocation();
-      const address = location ? await reverseGeocode(location.lat, location.lng) : null;
+      let location: { lat: number; lng: number } | null = null;
+      let address: string | null = null;
+
+      try {
+        location = await getLocation();
+      } catch {
+        location = null;
+      }
+
+      if (location) {
+        try {
+          address = await reverseGeocode(location.lat, location.lng);
+        } catch {
+          address = null;
+        }
+      }
+
       const stamped = await stampImage(file, location, address);
       const url = URL.createObjectURL(stamped);
       const newItem: GeoTagFile = {
@@ -184,7 +205,13 @@ export function GeoTagPhotoCapture({ fileList, onChange, maxCount = 2 }: Props) 
     } finally {
       setCapturing(false);
     }
-  };
+  }, [fileList, maxCount, onChange, message]);
+
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFile(file);
+    e.target.value = '';
+  }, [handleFile]);
 
   return (
     <div>
@@ -194,11 +221,7 @@ export function GeoTagPhotoCapture({ fileList, onChange, maxCount = 2 }: Props) 
         accept="image/*"
         capture="environment"
         style={{ display: 'none' }}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) handleFile(file);
-          e.target.value = '';
-        }}
+        onChange={handleInputChange}
       />
       <Flex gap={8} wrap="wrap">
         {fileList.map((f) => (
