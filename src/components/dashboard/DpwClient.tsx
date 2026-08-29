@@ -233,7 +233,7 @@ export function DpwClient({
         title={editingReport ? "Edit Daily Labour Report" : "Daily Labour Entry"}
         open={open}
         onClose={handleClose}
-        width={500}
+        size={500}
         destroyOnClose
         styles={{ body: { padding: 0 } }}
       >
@@ -254,7 +254,7 @@ export function DpwClient({
         title="Report Details"
         open={viewOpen}
         onClose={handleViewClose}
-        width={600}
+        size={600}
         destroyOnClose
       >
         {viewingReport && (
