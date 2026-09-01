@@ -59,7 +59,6 @@ import {
 import { useAuthStore } from '@/store/auth';
 
 const swoSchema = z.object({
-  woNumber: z.string().min(2, 'WO number is required'),
   projectId: z.string().min(1, 'Project is required'),
   subcontractorId: z.string().min(1, 'Subcontractor is required'),
   workCategoryId: z.string().min(1, 'Work category is required'),
@@ -200,7 +199,6 @@ export function SubcontractWorkOrdersClient({
   } = useForm<SwoFormValues>({
     resolver: zodResolver(swoSchema),
     defaultValues: {
-      woNumber: '',
       projectId: '',
       subcontractorId: '',
       workCategoryId: '',
@@ -227,7 +225,6 @@ export function SubcontractWorkOrdersClient({
 
   useEffect(() => {
     if (editingSwo) {
-      setValue('woNumber', editingSwo.woNumber);
       setValue('projectId', editingSwo.projectId);
       setValue('subcontractorId', editingSwo.subcontractorId);
       setValue('workCategoryId', editingSwo.workCategoryId);
@@ -245,7 +242,6 @@ export function SubcontractWorkOrdersClient({
       }
     } else {
       reset({
-        woNumber: `SWO-${dayjs().format('YYYY')}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
         projectId: '',
         subcontractorId: '',
         workCategoryId: '',
@@ -515,7 +511,7 @@ export function SubcontractWorkOrdersClient({
       </Card>
 
       <Drawer
-        title={editingSwo ? 'Edit Subcontract WO' : 'New Subcontract WO'}
+        title={editingSwo ? `Edit Subcontract WO — ${editingSwo.woNumber}` : 'New Subcontract WO'}
         size="large"
         open={open}
         onClose={() => setOpen(false)}
@@ -530,42 +526,24 @@ export function SubcontractWorkOrdersClient({
         }
       >
         <Form layout="vertical">
-          <Flex gap={16}>
-            <Controller
-              control={control}
-              name="woNumber"
-              render={({ field, fieldState }) => (
-                <Form.Item
-                  label="WO Number"
-                  required
-                  className="flex-1"
-                  validateStatus={fieldState.error ? 'error' : undefined}
-                  help={fieldState.error?.message}
-                >
-                  <Input {...field} placeholder="WO-2026-001" />
-                </Form.Item>
-              )}
-            />
-            <Controller
-              control={control}
-              name="projectId"
-              render={({ field, fieldState }) => (
-                <Form.Item
-                  label="Project"
-                  required
-                  className="flex-1"
-                  validateStatus={fieldState.error ? 'error' : undefined}
-                  help={fieldState.error?.message}
-                >
-                  <Select
-                    {...field}
-                    options={projects.map((p) => ({ label: p.name, value: p.id }))}
-                    placeholder="Select Project"
-                  />
-                </Form.Item>
-              )}
-            />
-          </Flex>
+          <Controller
+            control={control}
+            name="projectId"
+            render={({ field, fieldState }) => (
+              <Form.Item
+                label="Project"
+                required
+                validateStatus={fieldState.error ? 'error' : undefined}
+                help={fieldState.error?.message}
+              >
+                <Select
+                  {...field}
+                  options={projects.map((p) => ({ label: p.name, value: p.id }))}
+                  placeholder="Select Project"
+                />
+              </Form.Item>
+            )}
+          />
 
           <Flex gap={16}>
             <Controller
