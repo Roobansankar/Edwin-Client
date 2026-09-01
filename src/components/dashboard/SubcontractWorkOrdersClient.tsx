@@ -526,6 +526,13 @@ export function SubcontractWorkOrdersClient({
         }
       >
         <Form layout="vertical">
+          <Form.Item label="WO Number">
+            <Input
+              value={editingSwo ? editingSwo.woNumber : 'Auto-generated on save'}
+              disabled
+            />
+          </Form.Item>
+
           <Controller
             control={control}
             name="projectId"
