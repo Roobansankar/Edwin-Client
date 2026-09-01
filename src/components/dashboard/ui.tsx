@@ -47,11 +47,16 @@ export function formatCurrency(value: number | string | null | undefined) {
 
 export function formatDate(value?: string | null) {
   if (!value) return '-';
+  const date = new Date(value);
+  // Intl.DateTimeFormat#format throws RangeError: Invalid time value on a bad
+  // date instead of just rendering something odd — one malformed date field
+  // anywhere in a table would otherwise crash the whole page's render.
+  if (Number.isNaN(date.getTime())) return '-';
   return new Intl.DateTimeFormat('en-IN', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
-  }).format(new Date(value));
+  }).format(date);
 }
 
 export function titleCase(value?: string | null) {
