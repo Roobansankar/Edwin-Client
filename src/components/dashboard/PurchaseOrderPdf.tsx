@@ -146,6 +146,13 @@ const styles = StyleSheet.create({
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    paddingVertical: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: SLATE_200,
+  },
+  grandTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     paddingVertical: 10,
     marginTop: 5,
     borderTopWidth: 2,
@@ -203,7 +210,10 @@ interface Props {
 
 export function PurchaseOrderPdf({ purchaseOrder }: Props) {
   const items = purchaseOrder.items || [];
-  const total = Number(purchaseOrder.totalAmount) || 0;
+  const basicAmount = Number(purchaseOrder.totalAmount) || 0;
+  const gstPercent = Number(purchaseOrder.gstPercent) || 0;
+  const gstAmount = Number(purchaseOrder.gstAmount) || 0;
+  const total = Number(purchaseOrder.totalWithGst) || basicAmount + gstAmount;
 
   return (
     <Document>
@@ -274,6 +284,16 @@ export function PurchaseOrderPdf({ purchaseOrder }: Props) {
         <View style={styles.totalsContainer}>
           <View style={styles.totalsBox}>
             <View style={styles.totalRow}>
+              <Text style={styles.td}>Basic Amount</Text>
+              <Text style={styles.td}>{formatINR(basicAmount)}</Text>
+            </View>
+            {gstPercent > 0 && (
+              <View style={styles.totalRow}>
+                <Text style={styles.td}>GST ({gstPercent}%)</Text>
+                <Text style={styles.td}>{formatINR(gstAmount)}</Text>
+              </View>
+            )}
+            <View style={styles.grandTotalRow}>
               <Text style={styles.grandTotalLabel}>Total Amount</Text>
               <Text style={styles.grandTotalValue}>INR {formatINR(total)}</Text>
             </View>
