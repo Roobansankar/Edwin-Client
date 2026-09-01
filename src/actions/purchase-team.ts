@@ -14,51 +14,66 @@ async function getAuthHeaders() {
 }
 
 export async function createPurchaseTeamMember(data: Record<string, unknown>) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/purchase-team`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(data),
-  });
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/purchase-team`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data),
+    });
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to create purchase team member' }));
-    throw new Error(error.message || 'Failed to create purchase team member');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to create purchase team member' }));
+      throw new Error(error.message || 'Failed to create purchase team member');
+    }
+
+    revalidatePath('/dashboard/purchase-team');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-
-  revalidatePath('/dashboard/purchase-team');
-  return res.json();
 }
 
 export async function updatePurchaseTeamMember(id: string, data: Record<string, unknown>) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/purchase-team/${id}`, {
-    method: 'PATCH',
-    headers,
-    body: JSON.stringify(data),
-  });
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/purchase-team/${id}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(data),
+    });
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to update purchase team member' }));
-    throw new Error(error.message || 'Failed to update purchase team member');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to update purchase team member' }));
+      throw new Error(error.message || 'Failed to update purchase team member');
+    }
+
+    revalidatePath('/dashboard/purchase-team');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-
-  revalidatePath('/dashboard/purchase-team');
-  return res.json();
 }
 
 export async function deletePurchaseTeamMember(id: string) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/purchase-team/${id}`, {
-    method: 'DELETE',
-    headers,
-  });
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/purchase-team/${id}`, {
+      method: 'DELETE',
+      headers,
+    });
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to delete purchase team member' }));
-    throw new Error(error.message || 'Failed to delete purchase team member');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to delete purchase team member' }));
+      throw new Error(error.message || 'Failed to delete purchase team member');
+    }
+
+    revalidatePath('/dashboard/purchase-team');
+    return { success: true };
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-
-  revalidatePath('/dashboard/purchase-team');
-  return { success: true };
 }

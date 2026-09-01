@@ -14,51 +14,66 @@ async function getAuthHeaders() {
 }
 
 export async function createItemDescription(name: string) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/item-descriptions`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ name }),
-  });
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/item-descriptions`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ name }),
+    });
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to create' }));
-    throw new Error(error.message || 'Failed to create');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to create' }));
+      throw new Error(error.message || 'Failed to create');
+    }
+
+    revalidatePath('/dashboard/purchase-orders');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-
-  revalidatePath('/dashboard/purchase-orders');
-  return res.json();
 }
 
 export async function updateItemDescription(id: string, name: string) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/item-descriptions/${id}`, {
-    method: 'PATCH',
-    headers,
-    body: JSON.stringify({ name }),
-  });
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/item-descriptions/${id}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ name }),
+    });
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to update' }));
-    throw new Error(error.message || 'Failed to update');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to update' }));
+      throw new Error(error.message || 'Failed to update');
+    }
+
+    revalidatePath('/dashboard/purchase-orders');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-
-  revalidatePath('/dashboard/purchase-orders');
-  return res.json();
 }
 
 export async function deleteItemDescription(id: string) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/item-descriptions/${id}`, {
-    method: 'DELETE',
-    headers,
-  });
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/item-descriptions/${id}`, {
+      method: 'DELETE',
+      headers,
+    });
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to delete' }));
-    throw new Error(error.message || 'Failed to delete');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to delete' }));
+      throw new Error(error.message || 'Failed to delete');
+    }
+
+    revalidatePath('/dashboard/purchase-orders');
+    return { success: true };
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-
-  revalidatePath('/dashboard/purchase-orders');
-  return { success: true };
 }

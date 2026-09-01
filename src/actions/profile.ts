@@ -14,35 +14,45 @@ async function getAuthHeaders() {
 }
 
 export async function updateMyProfile(data: Record<string, unknown>) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/users/me`, {
-    method: 'PATCH',
-    headers,
-    body: JSON.stringify(data),
-  });
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/users/me`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(data),
+    });
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to update profile' }));
-    throw new Error(error.message || 'Failed to update profile');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to update profile' }));
+      throw new Error(error.message || 'Failed to update profile');
+    }
+
+    revalidatePath('/dashboard/profile');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-
-  revalidatePath('/dashboard/profile');
-  return res.json();
 }
 
 export async function updateMySalary(data: Record<string, unknown>) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/salaries/me`, {
-    method: 'PUT',
-    headers,
-    body: JSON.stringify(data),
-  });
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/salaries/me`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(data),
+    });
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to save salary' }));
-    throw new Error(error.message || 'Failed to save salary');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to save salary' }));
+      throw new Error(error.message || 'Failed to save salary');
+    }
+
+    revalidatePath('/dashboard/profile');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-
-  revalidatePath('/dashboard/profile');
-  return res.json();
 }

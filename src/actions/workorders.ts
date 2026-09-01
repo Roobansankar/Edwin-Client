@@ -14,48 +14,68 @@ async function getAuthHeaders() {
 }
 
 export async function createWorkOrder(data: Record<string, unknown>) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/work-orders`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) throw new Error('Failed to create work order');
-  revalidatePath('/dashboard/work-orders');
-  return res.json();
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/work-orders`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to create work order');
+    revalidatePath('/dashboard/work-orders');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
+  }
 }
 
 export async function updateWorkOrder(id: string, data: Record<string, unknown>) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/work-orders/${id}`, {
-    method: 'PATCH',
-    headers,
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) throw new Error('Failed to update work order');
-  revalidatePath('/dashboard/work-orders');
-  return res.json();
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/work-orders/${id}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to update work order');
+    revalidatePath('/dashboard/work-orders');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
+  }
 }
 
 export async function updateWorkOrderStatus(id: string, status: string) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/work-orders/${id}/status`, {
-    method: 'PATCH',
-    headers,
-    body: JSON.stringify({ status }),
-  });
-  if (!res.ok) throw new Error('Failed to update status');
-  revalidatePath('/dashboard/work-orders');
-  return res.json();
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/work-orders/${id}/status`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) throw new Error('Failed to update status');
+    revalidatePath('/dashboard/work-orders');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
+  }
 }
 
 export async function deleteWorkOrder(id: string) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/work-orders/${id}`, {
-    method: 'DELETE',
-    headers,
-  });
-  if (!res.ok) throw new Error('Failed to delete work order');
-  revalidatePath('/dashboard/work-orders');
-  return { success: true };
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/work-orders/${id}`, {
+      method: 'DELETE',
+      headers,
+    });
+    if (!res.ok) throw new Error('Failed to delete work order');
+    revalidatePath('/dashboard/work-orders');
+    return { success: true };
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
+  }
 }

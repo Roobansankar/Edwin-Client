@@ -14,60 +14,75 @@ async function getAuthHeaders() {
 }
 
 export async function createTeam(data: { name: string }) {
-  const headers = await getAuthHeaders();
+  try {
+    const headers = await getAuthHeaders();
 
-  const res = await fetch(`${getApiBaseUrl()}/teams`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(data),
-  });
+    const res = await fetch(`${getApiBaseUrl()}/teams`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data),
+    });
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to create team' }));
-    throw new Error(error.message || 'Failed to create team');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to create team' }));
+      throw new Error(error.message || 'Failed to create team');
+    }
+
+    revalidatePath('/dashboard/dpw');
+    revalidatePath('/dashboard/salary');
+    revalidatePath('/dashboard/new');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-
-  revalidatePath('/dashboard/dpw');
-  revalidatePath('/dashboard/salary');
-  revalidatePath('/dashboard/new');
-  return res.json();
 }
 
 export async function deleteTeam(id: string) {
-  const headers = await getAuthHeaders();
+  try {
+    const headers = await getAuthHeaders();
 
-  const res = await fetch(`${getApiBaseUrl()}/teams/${id}`, {
-    method: 'DELETE',
-    headers,
-  });
+    const res = await fetch(`${getApiBaseUrl()}/teams/${id}`, {
+      method: 'DELETE',
+      headers,
+    });
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to delete team' }));
-    throw new Error(error.message || 'Failed to delete team');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to delete team' }));
+      throw new Error(error.message || 'Failed to delete team');
+    }
+
+    revalidatePath('/dashboard/dpw');
+    revalidatePath('/dashboard/salary');
+    revalidatePath('/dashboard/new');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-
-  revalidatePath('/dashboard/dpw');
-  revalidatePath('/dashboard/salary');
-  revalidatePath('/dashboard/new');
-  return res.json();
 }
 
 export async function updateTeam(id: string, data: { name?: string }) {
-  const headers = await getAuthHeaders();
+  try {
+    const headers = await getAuthHeaders();
 
-  const res = await fetch(`${getApiBaseUrl()}/teams/${id}`, {
-    method: 'PATCH',
-    headers,
-    body: JSON.stringify(data),
-  });
+    const res = await fetch(`${getApiBaseUrl()}/teams/${id}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(data),
+    });
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to update team' }));
-    throw new Error(error.message || 'Failed to update team');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to update team' }));
+      throw new Error(error.message || 'Failed to update team');
+    }
+
+    revalidatePath('/dashboard/dpw');
+    revalidatePath('/dashboard/salary');
+    revalidatePath('/dashboard/new');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-
-  revalidatePath('/dashboard/dpw');
-  revalidatePath('/dashboard/salary');
-  revalidatePath('/dashboard/new');
-  return res.json();
 }

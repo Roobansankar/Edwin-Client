@@ -14,59 +14,79 @@ async function getAuthHeaders() {
 }
 
 export async function saveTimesheet(data: Record<string, unknown>) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/timesheet-attendance`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to save timesheet' }));
-    throw new Error(error.message || 'Failed to save timesheet');
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/timesheet-attendance`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to save timesheet' }));
+      throw new Error(error.message || 'Failed to save timesheet');
+    }
+    revalidatePath('/dashboard/timesheet-attendance');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-  revalidatePath('/dashboard/timesheet-attendance');
-  return res.json();
 }
 
 export async function updateTimesheet(id: string, data: Record<string, unknown>) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/timesheet-attendance/${id}`, {
-    method: 'PATCH',
-    headers,
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to update timesheet' }));
-    throw new Error(error.message || 'Failed to update timesheet');
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/timesheet-attendance/${id}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to update timesheet' }));
+      throw new Error(error.message || 'Failed to update timesheet');
+    }
+    revalidatePath('/dashboard/timesheet-attendance');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-  revalidatePath('/dashboard/timesheet-attendance');
-  return res.json();
 }
 
 export async function submitTimesheet(id: string) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/timesheet-attendance/${id}/submit`, {
-    method: 'PATCH',
-    headers,
-  });
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to submit timesheet' }));
-    throw new Error(error.message || 'Failed to submit timesheet');
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/timesheet-attendance/${id}/submit`, {
+      method: 'PATCH',
+      headers,
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to submit timesheet' }));
+      throw new Error(error.message || 'Failed to submit timesheet');
+    }
+    revalidatePath('/dashboard/timesheet-attendance');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-  revalidatePath('/dashboard/timesheet-attendance');
-  return res.json();
 }
 
 export async function deleteTimesheet(id: string) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/timesheet-attendance/${id}`, {
-    method: 'DELETE',
-    headers,
-  });
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to delete timesheet' }));
-    throw new Error(error.message || 'Failed to delete timesheet');
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/timesheet-attendance/${id}`, {
+      method: 'DELETE',
+      headers,
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to delete timesheet' }));
+      throw new Error(error.message || 'Failed to delete timesheet');
+    }
+    revalidatePath('/dashboard/timesheet-attendance');
+    return { success: true };
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-  revalidatePath('/dashboard/timesheet-attendance');
-  return { success: true };
 }

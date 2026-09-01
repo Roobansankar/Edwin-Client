@@ -14,67 +14,87 @@ async function getAuthHeaders(isFormData = false) {
 }
 
 export async function createExpense(data: FormData | Record<string, unknown>) {
-  const isFormData = data instanceof FormData;
-  const headers = await getAuthHeaders(isFormData);
-  
-  const res = await fetch(`${getApiBaseUrl()}/expenses`, {
-    method: 'POST', 
-    headers, 
-    body: isFormData ? data : JSON.stringify(data),
-  });
-  
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to create expense' }));
-    throw new Error(error.message || 'Failed to create expense');
+  try {
+    const isFormData = data instanceof FormData;
+    const headers = await getAuthHeaders(isFormData);
+
+    const res = await fetch(`${getApiBaseUrl()}/expenses`, {
+      method: 'POST',
+      headers,
+      body: isFormData ? data : JSON.stringify(data),
+    });
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to create expense' }));
+      throw new Error(error.message || 'Failed to create expense');
+    }
+
+    revalidatePath('/dashboard/expenses');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-  
-  revalidatePath('/dashboard/expenses');
-  return res.json();
 }
 
 
 export async function updateExpense(id: string, data: FormData | Record<string, unknown>) {
-  const isFormData = data instanceof FormData;
-  const headers = await getAuthHeaders(isFormData);
-  
-  const res = await fetch(`${getApiBaseUrl()}/expenses/${id}`, {
-    method: 'PATCH', 
-    headers, 
-    body: isFormData ? data : JSON.stringify(data),
-  });
-  
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to update expense' }));
-    throw new Error(error.message || 'Failed to update expense');
+  try {
+    const isFormData = data instanceof FormData;
+    const headers = await getAuthHeaders(isFormData);
+
+    const res = await fetch(`${getApiBaseUrl()}/expenses/${id}`, {
+      method: 'PATCH',
+      headers,
+      body: isFormData ? data : JSON.stringify(data),
+    });
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to update expense' }));
+      throw new Error(error.message || 'Failed to update expense');
+    }
+
+    revalidatePath('/dashboard/expenses');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-  
-  revalidatePath('/dashboard/expenses');
-  return res.json();
 }
 
 export async function deleteExpense(id: string) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/expenses/${id}`, {
-    method: 'DELETE', headers,
-  });
-  if (!res.ok) throw new Error('Failed to delete expense');
-  revalidatePath('/dashboard/expenses');
-  revalidatePath('/dashboard/payments');
-  return { success: true };
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/expenses/${id}`, {
+      method: 'DELETE', headers,
+    });
+    if (!res.ok) throw new Error('Failed to delete expense');
+    revalidatePath('/dashboard/expenses');
+    revalidatePath('/dashboard/payments');
+    return { success: true };
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
+  }
 }
 
 export async function updateExpenseStatus(id: string, status: string) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/expenses/${id}`, {
-    method: 'PATCH',
-    headers,
-    body: JSON.stringify({ status }),
-  });
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to update status' }));
-    throw new Error(error.message || 'Failed to update status');
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/expenses/${id}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to update status' }));
+      throw new Error(error.message || 'Failed to update status');
+    }
+    revalidatePath('/dashboard/expenses');
+    revalidatePath('/dashboard/approvals');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-  revalidatePath('/dashboard/expenses');
-  revalidatePath('/dashboard/approvals');
-  return res.json();
 }

@@ -14,36 +14,46 @@ async function getAuthHeaders() {
 }
 
 export async function createEmployeeQuery(data: { timesheetId: string; reason: string; dayIndex: number }) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/employee-queries`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(data),
-  });
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/employee-queries`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data),
+    });
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to send edit request' }));
-    throw new Error(error.message || 'Failed to send edit request');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to send edit request' }));
+      throw new Error(error.message || 'Failed to send edit request');
+    }
+
+    revalidatePath('/dashboard/timesheet-attendance');
+    revalidatePath('/dashboard/employee-queries');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-
-  revalidatePath('/dashboard/timesheet-attendance');
-  revalidatePath('/dashboard/employee-queries');
-  return res.json();
 }
 
 export async function respondEmployeeQuery(id: string, action: 'approved' | 'rejected') {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/employee-queries/${id}/respond`, {
-    method: 'PATCH',
-    headers,
-    body: JSON.stringify({ action }),
-  });
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/employee-queries/${id}/respond`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ action }),
+    });
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to respond to request' }));
-    throw new Error(error.message || 'Failed to respond to request');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to respond to request' }));
+      throw new Error(error.message || 'Failed to respond to request');
+    }
+
+    revalidatePath('/dashboard/employee-queries');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-
-  revalidatePath('/dashboard/employee-queries');
-  return res.json();
 }

@@ -14,51 +14,66 @@ async function getAuthHeaders() {
 }
 
 export async function createSalary(data: Record<string, unknown>) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/salaries`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(data),
-  });
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/salaries`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data),
+    });
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to create salary record' }));
-    throw new Error(error.message || 'Failed to create salary record');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to create salary record' }));
+      throw new Error(error.message || 'Failed to create salary record');
+    }
+
+    revalidatePath('/dashboard/salary');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-
-  revalidatePath('/dashboard/salary');
-  return res.json();
 }
 
 export async function updateSalary(id: string, data: Record<string, unknown>) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/salaries/${id}`, {
-    method: 'PATCH',
-    headers,
-    body: JSON.stringify(data),
-  });
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/salaries/${id}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(data),
+    });
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to update salary record' }));
-    throw new Error(error.message || 'Failed to update salary record');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to update salary record' }));
+      throw new Error(error.message || 'Failed to update salary record');
+    }
+
+    revalidatePath('/dashboard/salary');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-
-  revalidatePath('/dashboard/salary');
-  return res.json();
 }
 
 export async function deleteSalary(id: string) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/salaries/${id}`, {
-    method: 'DELETE',
-    headers,
-  });
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/salaries/${id}`, {
+      method: 'DELETE',
+      headers,
+    });
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to delete salary record' }));
-    throw new Error(error.message || 'Failed to delete salary record');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to delete salary record' }));
+      throw new Error(error.message || 'Failed to delete salary record');
+    }
+
+    revalidatePath('/dashboard/salary');
+    return { success: true };
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-
-  revalidatePath('/dashboard/salary');
-  return { success: true };
 }

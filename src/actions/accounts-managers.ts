@@ -14,51 +14,66 @@ async function getAuthHeaders() {
 }
 
 export async function createAccountsManager(data: Record<string, unknown>) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/accounts-managers`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(data),
-  });
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/accounts-managers`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data),
+    });
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to create accounts manager' }));
-    throw new Error(error.message || 'Failed to create accounts manager');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to create accounts manager' }));
+      throw new Error(error.message || 'Failed to create accounts manager');
+    }
+
+    revalidatePath('/dashboard/accounts-managers');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-
-  revalidatePath('/dashboard/accounts-managers');
-  return res.json();
 }
 
 export async function updateAccountsManager(id: string, data: Record<string, unknown>) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/accounts-managers/${id}`, {
-    method: 'PATCH',
-    headers,
-    body: JSON.stringify(data),
-  });
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/accounts-managers/${id}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(data),
+    });
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to update accounts manager' }));
-    throw new Error(error.message || 'Failed to update accounts manager');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to update accounts manager' }));
+      throw new Error(error.message || 'Failed to update accounts manager');
+    }
+
+    revalidatePath('/dashboard/accounts-managers');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-
-  revalidatePath('/dashboard/accounts-managers');
-  return res.json();
 }
 
 export async function deleteAccountsManager(id: string) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/accounts-managers/${id}`, {
-    method: 'DELETE',
-    headers,
-  });
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/accounts-managers/${id}`, {
+      method: 'DELETE',
+      headers,
+    });
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to delete accounts manager' }));
-    throw new Error(error.message || 'Failed to delete accounts manager');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to delete accounts manager' }));
+      throw new Error(error.message || 'Failed to delete accounts manager');
+    }
+
+    revalidatePath('/dashboard/accounts-managers');
+    return { success: true };
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-
-  revalidatePath('/dashboard/accounts-managers');
-  return { success: true };
 }

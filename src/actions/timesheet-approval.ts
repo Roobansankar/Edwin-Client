@@ -14,43 +14,58 @@ async function getAuthHeaders() {
 }
 
 export async function verifyTimesheet(id: string) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/timesheet-attendance/${id}/verify`, {
-    method: 'PATCH',
-    headers,
-  });
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to verify' }));
-    throw new Error(error.message || 'Failed to verify');
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/timesheet-attendance/${id}/verify`, {
+      method: 'PATCH',
+      headers,
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to verify' }));
+      throw new Error(error.message || 'Failed to verify');
+    }
+    revalidatePath('/dashboard/approvals');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-  revalidatePath('/dashboard/approvals');
-  return res.json();
 }
 
 export async function approveTimesheet(id: string) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/timesheet-attendance/${id}/approve`, {
-    method: 'PATCH',
-    headers,
-  });
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to approve' }));
-    throw new Error(error.message || 'Failed to approve');
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/timesheet-attendance/${id}/approve`, {
+      method: 'PATCH',
+      headers,
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to approve' }));
+      throw new Error(error.message || 'Failed to approve');
+    }
+    revalidatePath('/dashboard/approvals');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-  revalidatePath('/dashboard/approvals');
-  return res.json();
 }
 
 export async function rejectTimesheet(id: string) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/timesheet-attendance/${id}/reject`, {
-    method: 'PATCH',
-    headers,
-  });
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to reject' }));
-    throw new Error(error.message || 'Failed to reject');
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/timesheet-attendance/${id}/reject`, {
+      method: 'PATCH',
+      headers,
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to reject' }));
+      throw new Error(error.message || 'Failed to reject');
+    }
+    revalidatePath('/dashboard/approvals');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-  revalidatePath('/dashboard/approvals');
-  return res.json();
 }

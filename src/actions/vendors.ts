@@ -14,51 +14,66 @@ async function getAuthHeaders() {
 }
 
 export async function createVendor(data: Record<string, unknown>) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/vendors`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(data),
-  });
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/vendors`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data),
+    });
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to create vendor' }));
-    throw new Error(error.message || 'Failed to create vendor');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to create vendor' }));
+      throw new Error(error.message || 'Failed to create vendor');
+    }
+
+    revalidatePath('/dashboard/vendors');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-
-  revalidatePath('/dashboard/vendors');
-  return res.json();
 }
 
 export async function updateVendor(id: string, data: Record<string, unknown>) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/vendors/${id}`, {
-    method: 'PATCH',
-    headers,
-    body: JSON.stringify(data),
-  });
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/vendors/${id}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(data),
+    });
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to update vendor' }));
-    throw new Error(error.message || 'Failed to update vendor');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to update vendor' }));
+      throw new Error(error.message || 'Failed to update vendor');
+    }
+
+    revalidatePath('/dashboard/vendors');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-
-  revalidatePath('/dashboard/vendors');
-  return res.json();
 }
 
 export async function deleteVendor(id: string) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/vendors/${id}`, {
-    method: 'DELETE',
-    headers,
-  });
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/vendors/${id}`, {
+      method: 'DELETE',
+      headers,
+    });
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to delete vendor' }));
-    throw new Error(error.message || 'Failed to delete vendor');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to delete vendor' }));
+      throw new Error(error.message || 'Failed to delete vendor');
+    }
+
+    revalidatePath('/dashboard/vendors');
+    return { success: true };
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-
-  revalidatePath('/dashboard/vendors');
-  return { success: true };
 }

@@ -14,34 +14,44 @@ async function getAuthHeaders(isFormData = false) {
 }
 
 export async function createOfficeReport(data: FormData) {
-  const headers = await getAuthHeaders(true);
-  const res = await fetch(`${getApiBaseUrl()}/office-reports`, {
-    method: 'POST',
-    headers,
-    body: data,
-  });
+  try {
+    const headers = await getAuthHeaders(true);
+    const res = await fetch(`${getApiBaseUrl()}/office-reports`, {
+      method: 'POST',
+      headers,
+      body: data,
+    });
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to upload report' }));
-    throw new Error(error.message || 'Failed to upload report');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to upload report' }));
+      throw new Error(error.message || 'Failed to upload report');
+    }
+
+    revalidatePath('/dashboard/reports');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-
-  revalidatePath('/dashboard/reports');
-  return res.json();
 }
 
 export async function deleteOfficeReport(id: string) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${getApiBaseUrl()}/office-reports/${id}`, {
-    method: 'DELETE',
-    headers,
-  });
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/office-reports/${id}`, {
+      method: 'DELETE',
+      headers,
+    });
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Failed to delete report' }));
-    throw new Error(error.message || 'Failed to delete report');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to delete report' }));
+      throw new Error(error.message || 'Failed to delete report');
+    }
+
+    revalidatePath('/dashboard/reports');
+    return { success: true };
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
   }
-
-  revalidatePath('/dashboard/reports');
-  return { success: true };
 }
