@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useState, useTransition, useCallback } from 'react';
 import { Button, Card, DatePicker, Drawer, Flex, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Typography, Upload, App } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { DeleteOutlined, EditOutlined, FilePdfOutlined, HistoryOutlined, PlusOutlined, ShoppingCartOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, EyeOutlined, FilePdfOutlined, HistoryOutlined, PlusOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { PDFDownloadLink, PDFViewer } from '@react-pdf/renderer';
 import { createPurchaseOrder, updatePurchaseOrderStatus, updatePurchaseOrder, deletePurchaseOrder, uploadBillFile } from '@/actions/purchase-orders';
 import { createItemDescription, deleteItemDescription } from '@/actions/item-descriptions';
 import type { Project, Vendor, PurchaseOrder, ItemDescription, VendorQuotation, Payment } from '@/types/erp';
 import { useAuthStore } from '@/store/auth';
+import { PurchaseOrderPdf } from './PurchaseOrderPdf';
 import {
   cardClassName,
   formatCurrency,
@@ -59,6 +61,13 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
   const [historyPo, setHistoryPo] = useState<PurchaseOrder | null>(null);
   const [historyPayments, setHistoryPayments] = useState<Payment[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+
+  const [previewPo, setPreviewPo] = useState<PurchaseOrder | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const vendorQuotations = useMemo(() => vendorQuotationsProp || [], [vendorQuotationsProp]);
   const usedQuotationKeys = useMemo(
@@ -303,6 +312,11 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
     { title: 'PO', key: 'billFile', width: 120, responsive: ['lg'], render: (_, record) =>
       record.billFileUrl ? <Button type="link" size="small" icon={<FilePdfOutlined />} href={record.billFileUrl} target="_blank">View PO</Button> : <Typography.Text type="secondary">—</Typography.Text>,
     },
+    { title: 'PO PDF', key: 'poPdf', width: 130, render: (_, record) =>
+      isClient ? (
+        <Button size="small" icon={<EyeOutlined />} onClick={() => setPreviewPo(record)}>Preview</Button>
+      ) : null,
+    },
     { title: 'Created', dataIndex: 'createdAt', responsive: ['lg'], sorter: (a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime(), render: formatDate },
     ...(canManagePo ? [{ title: 'Actions', key: 'actions', width: 100, render: (_: unknown, record: PurchaseOrder) => (
       <Space>
@@ -519,6 +533,36 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
             { title: 'Reference', dataIndex: 'referenceNumber', render: (v?: string | null) => v || '-' },
           ]}
         />
+      </Modal>
+
+      <Modal
+        title={`Purchase Order PDF — ${previewPo?.poNumber || ''}`}
+        open={!!previewPo}
+        onCancel={() => setPreviewPo(null)}
+        width="90%"
+        style={{ top: 20 }}
+        footer={[
+          <Button key="close" onClick={() => setPreviewPo(null)}>Close</Button>,
+          previewPo && (
+            <PDFDownloadLink
+              key="download"
+              document={<PurchaseOrderPdf purchaseOrder={previewPo} />}
+              fileName={`${previewPo.poNumber}.pdf`}
+            >
+              <Button type="primary" icon={<FilePdfOutlined />}>
+                Download PDF
+              </Button>
+            </PDFDownloadLink>
+          ),
+        ]}
+      >
+        <div style={{ height: '75vh', width: '100%', backgroundColor: '#f0f2f5' }}>
+          {previewPo && (
+            <PDFViewer width="100%" height="100%" showToolbar={true} style={{ border: 'none' }}>
+              <PurchaseOrderPdf purchaseOrder={previewPo} />
+            </PDFViewer>
+          )}
+        </div>
       </Modal>
     </div>
   );
