@@ -45,7 +45,7 @@ export default async function SalaryPage() {
       <SalaryClient salaries={salaries} />
       <Divider />
       {trades === null ? (
-        <Alert message="Failed to load labour trades" type="error" showIcon />
+        <Alert title="Failed to load labour trades" type="error" showIcon />
       ) : (
         <LabourTradesClient trades={trades} teams={teams} />
       )}

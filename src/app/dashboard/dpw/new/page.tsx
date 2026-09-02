@@ -32,7 +32,7 @@ export default function NewDpwPage() {
   }, [load]);
 
   if (loading) return <div className="p-10 text-center"><Spin size="large" /></div>;
-  if (error) return <Alert message="Error" description={error} type="error" showIcon />;
+  if (error) return <Alert title="Error" description={error} type="error" showIcon />;
   if (!data) return null;
 
   return (

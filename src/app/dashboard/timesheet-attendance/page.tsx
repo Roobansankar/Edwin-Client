@@ -13,6 +13,6 @@ async function loadData() {
 
 export default async function AttendancePage() {
   const data = await loadData();
-  if (data === null) return <Alert message="Error" description="Failed to load data" type="error" showIcon />;
+  if (data === null) return <Alert title="Error" description="Failed to load data" type="error" showIcon />;
   return <TimesheetAttendanceClient projects={data.projects} />;
 }
