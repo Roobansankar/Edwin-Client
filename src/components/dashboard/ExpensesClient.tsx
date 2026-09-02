@@ -1,15 +1,17 @@
 'use client';
 
-import { useState, useTransition, useEffect } from 'react';
-import { App, Button, Card, Drawer, Flex, Select, Space, Table, Typography, Popconfirm, Tooltip, Image } from 'antd';
+import { useState, useTransition, useEffect, useMemo } from 'react';
+import { App, Button, Card, Col, DatePicker, Drawer, Flex, Row, Select, Space, Statistic, Table, Typography, Popconfirm, Tooltip, Image } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DollarOutlined, PlusOutlined, EditOutlined, DeleteOutlined, FileTextOutlined, PictureOutlined } from '@ant-design/icons';
+import type { Dayjs } from 'dayjs';
 import { deleteExpense, updateExpenseStatus } from '@/actions/expenses';
 import type { Expense, Trade, Project, ExpenseType } from '@/types/erp';
 import { ExpenseForm } from './ExpenseForm';
 import { clientApiFetch } from '@/lib/client-api';
 import { useAuthStore } from '@/store/auth';
 import {
+  cardClassName,
   StatusTag,
   formatCurrency,
   formatDate,
@@ -17,6 +19,14 @@ import {
   pageTitleClassName,
   titleIconClassName,
 } from './ui';
+
+function inRange(dateStr: string | null | undefined, range: [Dayjs | null, Dayjs | null]) {
+  if (!range[0] || !range[1] || !dateStr) return true;
+  const from = range[0].format('YYYY-MM-DD');
+  const to = range[1].format('YYYY-MM-DD');
+  const d = dateStr.split('T')[0];
+  return d >= from && d <= to;
+}
 const STATUS_OPTIONS = [
   { label: 'Pending', value: 'pending' },
   { label: 'Admin Approved', value: 'admin_approved' },
@@ -42,6 +52,34 @@ export function ExpensesClient({ expenses: initialExpenses, projects }: Expenses
   const statusOptions = user?.role === 'accounts_manager'
     ? STATUS_OPTIONS.filter((opt) => opt.value !== 'admin_approved')
     : STATUS_OPTIONS;
+
+  const [projectFilter, setProjectFilter] = useState<string | undefined>();
+  const [creatorFilter, setCreatorFilter] = useState<string | undefined>();
+  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
+
+  const creatorOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const e of expenses) {
+      if (e.creator?.id) map.set(e.creator.id, e.creator.name);
+    }
+    return Array.from(map, ([value, label]) => ({ value, label }));
+  }, [expenses]);
+
+  const filteredExpenses = useMemo(
+    () =>
+      expenses.filter(
+        (e) =>
+          (!projectFilter || e.projectId === projectFilter) &&
+          (!creatorFilter || e.creator?.id === creatorFilter) &&
+          inRange(e.expenseDate, dateRange),
+      ),
+    [expenses, projectFilter, creatorFilter, dateRange],
+  );
+
+  const totalAmount = useMemo(
+    () => filteredExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0),
+    [filteredExpenses],
+  );
 
   useEffect(() => {
     Promise.all([
@@ -264,13 +302,60 @@ export function ExpensesClient({ expenses: initialExpenses, projects }: Expenses
         </Button>
       </Flex>
 
+      <Flex gap={12} wrap="wrap" style={{ marginBottom: 16 }}>
+        <Select
+          showSearch
+          placeholder="Filter by project"
+          allowClear
+          style={{ minWidth: 220 }}
+          value={projectFilter}
+          onChange={setProjectFilter}
+          options={projects.map((p) => ({ value: p.id, label: p.name }))}
+          filterOption={(input, option) =>
+            String(option?.label || '').toLowerCase().includes(input.toLowerCase())
+          }
+        />
+        <Select
+          showSearch
+          placeholder="Filter by added by"
+          allowClear
+          style={{ minWidth: 200 }}
+          value={creatorFilter}
+          onChange={setCreatorFilter}
+          options={creatorOptions}
+          filterOption={(input, option) =>
+            String(option?.label || '').toLowerCase().includes(input.toLowerCase())
+          }
+        />
+        <DatePicker.RangePicker
+          value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
+          onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+          allowClear
+          placeholder={['From', 'To']}
+        />
+      </Flex>
+
+      <Row gutter={[16, 16]} className="mb-4">
+        <Col xs={24} sm={12} md={8}>
+          <Card className={cardClassName} variant="borderless">
+            <Statistic
+              title="Total Amount"
+              value={totalAmount}
+              precision={2}
+              styles={{ content: { color: '#cf1322' } }}
+              formatter={(val) => formatCurrency(val as number)}
+            />
+          </Card>
+        </Col>
+      </Row>
+
       <Card
         className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
         styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
       >
         <Table
           className="mantis-table"
-          dataSource={expenses}
+          dataSource={filteredExpenses}
           columns={columns}
           rowKey="id"
           size="middle"
