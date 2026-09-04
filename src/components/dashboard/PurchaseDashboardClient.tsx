@@ -57,7 +57,7 @@ export function PurchaseDashboardClient() {
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} lg={6}>
           <Card
-            bordered={false}
+            variant="borderless"
             hoverable
             className="bg-blue-500/10 border border-blue-500/20 cursor-pointer"
             onClick={() => router.push('/dashboard/material-requirement')}
@@ -71,7 +71,7 @@ export function PurchaseDashboardClient() {
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card
-            bordered={false}
+            variant="borderless"
             hoverable
             className="bg-purple-500/10 border border-purple-500/20 cursor-pointer"
             onClick={() => router.push('/dashboard/material-received')}
@@ -85,7 +85,7 @@ export function PurchaseDashboardClient() {
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card
-            bordered={false}
+            variant="borderless"
             hoverable
             className="bg-green-500/10 border border-green-500/20 cursor-pointer"
             onClick={() => router.push('/dashboard/purchase-orders')}
@@ -100,7 +100,7 @@ export function PurchaseDashboardClient() {
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card
-            bordered={false}
+            variant="borderless"
             hoverable
             className="bg-orange-500/10 border border-orange-500/20 cursor-pointer"
             onClick={() => router.push('/dashboard/accounts/bills')}

@@ -242,7 +242,7 @@ export function DpwForm({ projects, trades, teams = [], initialValues, onSuccess
     : projects;
 
   return (
-    <Card className={cardClassName} bordered={false}>
+    <Card className={cardClassName} variant="borderless">
       <Form form={form} layout="vertical" onFinish={handleSubmit}>
         <Row gutter={16}>
           <Col xs={24} sm={12}>
