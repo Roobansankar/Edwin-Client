@@ -2,54 +2,54 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Layout, Menu, Typography, Avatar, Dropdown, Popover, Drawer, App, Badge, Flex, Tag } from 'antd';
-import type { MenuProps } from 'antd';
+import { App } from 'antd';
 import {
-  AppstoreOutlined,
-  AuditOutlined,
-  BankOutlined,
-  BellOutlined,
-  CalendarOutlined,
-  CloseOutlined,
-  CreditCardOutlined,
-  DollarOutlined,
-  FileDoneOutlined,
-  FileImageOutlined,
-  FileProtectOutlined,
-  FileSearchOutlined,
-  FileTextOutlined,
-  FolderOpenOutlined,
-  FormOutlined,
-  InboxOutlined,
-  LogoutOutlined,
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
-  MoonOutlined,
-  NodeIndexOutlined,
-  ProjectOutlined,
-  SafetyCertificateOutlined,
-  SolutionOutlined,
-  SunOutlined,
-  TeamOutlined,
-  UserOutlined,
-  WalletOutlined,
-} from '@ant-design/icons';
+  Bell,
+  Calendar,
+  ClipboardCheck,
+  ClipboardList,
+  CreditCard,
+  FileCheck,
+  FileCheck2,
+  FileSearch,
+  FileText,
+  FolderKanban,
+  FolderOpen,
+  Image as ImageIcon,
+  Inbox,
+  IndianRupee,
+  Landmark,
+  LayoutGrid,
+  LogOut,
+  Moon,
+  MessageSquareText,
+  Network,
+  PanelLeftClose,
+  PanelLeftOpen,
+  ShieldCheck,
+  Sun,
+  User,
+  Users,
+  Wallet,
+  X,
+} from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { NotificationBadge } from '@/components/ui/notification-badge';
 import { useAuthStore } from '@/store/auth';
 import { useThemeStore } from '@/store/theme';
 import { formatDate, titleCase } from '@/components/dashboard/ui';
 import type { EmployeeQuery } from '@/types/erp';
-
-const { Sider, Content, Header } = Layout;
-const { Text } = Typography;
 
 const SIDEBAR_WIDTH = 280;
 const COLLAPSED_WIDTH = 60;
 
 type NavItem = {
   key: string;
-  icon?: React.ReactNode;
+  icon: React.ReactNode;
   label: string;
-  children?: NavItem[];
   allowedRoles?: string[];
   allowedStaffTypes?: string[];
 };
@@ -70,71 +70,71 @@ const navigationSections: Array<{ title: string; items: NavItem[]; allowedRoles?
   {
     title: 'Workspace',
     items: [
-      { key: '/dashboard', icon: <AppstoreOutlined />, label: 'Dashboard', allowedRoles: ['admin', 'accounts_manager', 'site_engineer', 'purchase_team'] },
-      { key: '/dashboard/new', icon: <FormOutlined />, label: 'Daily Entry List', allowedRoles: ['site_engineer'] },
-      { key: '/dashboard/expenses/new', icon: <WalletOutlined />, label: 'Expense', allowedRoles: ['site_engineer'] },
-      { key: '/dashboard/timesheet-attendance', icon: <CalendarOutlined />, label: 'Timesheet', allowedRoles: ['site_engineer', 'purchase_team', 'admin'] },
-      { key: '/dashboard/projects', icon: <FolderOpenOutlined />, label: 'Projects', allowedRoles: ['admin'] },
-      { key: '/dashboard/vendors', icon: <TeamOutlined />, label: 'Vendors', allowedRoles: ['purchase_team'] },
-      { key: '/dashboard/material-requirement', icon: <FileSearchOutlined />, label: 'Material Requirement Request', allowedRoles: ['purchase_team'] },
-      { key: '/dashboard/purchase-enquiry', icon: <AuditOutlined />, label: 'Purchase Enquiry', allowedRoles: ['purchase_team'] },
-      { key: '/dashboard/purchase-orders', icon: <FileProtectOutlined />, label: 'Purchase Orders', allowedRoles: ['purchase_team', 'accounts_manager'] },
-      { key: '/dashboard/material-received', icon: <InboxOutlined />, label: 'Material Received', allowedRoles: ['site_engineer', 'purchase_team'] },
-      { key: '/dashboard/subcontractors', icon: <TeamOutlined />, label: 'Subcontractors', allowedRoles: ['purchase_team'] },
-      { key: '/dashboard/subcontract-work-orders', icon: <FileTextOutlined />, label: 'Subcontract WO', allowedRoles: ['purchase_team'] },
-      { key: '/dashboard/site-engineers', icon: <UserOutlined />, label: 'Site Engineers', allowedRoles: ['admin'] },
-      { key: '/dashboard/assigned-projects', icon: <ProjectOutlined />, label: 'Assigned Projects', allowedRoles: ['admin'] },
-      { key: '/dashboard/office-staff', icon: <TeamOutlined />, label: 'Office Staff', allowedRoles: ['admin'] },
-      { key: '/dashboard/employee-queries', icon: <SolutionOutlined />, label: 'Employee Queries', allowedRoles: ['admin'] },
-      { key: '/dashboard/subcontractor-work', icon: <TeamOutlined />, label: 'Subcontractor Work', allowedRoles: ['site_engineer', 'purchase_team'] },
-      { key: '/dashboard/material-requirement', icon: <FileSearchOutlined />, label: 'Material Requirement', allowedRoles: ['site_engineer'] },
-      { key: '/dashboard/report', icon: <FileTextOutlined />, label: 'My Report', allowedRoles: ['site_engineer'] },
-      { key: '/dashboard/reports', icon: <FileTextOutlined />, label: 'Reports', allowedRoles: ['admin'] },
-      { key: '/dashboard/project-access', icon: <SafetyCertificateOutlined />, label: 'Project Access', allowedRoles: ['admin'] },
-      { key: '/dashboard/architecture', icon: <NodeIndexOutlined />, label: 'System Architecture', allowedRoles: ['admin'] },
+      { key: '/dashboard', icon: <LayoutGrid />, label: 'Dashboard', allowedRoles: ['admin', 'accounts_manager', 'site_engineer', 'purchase_team'] },
+      { key: '/dashboard/new', icon: <ClipboardList />, label: 'Daily Entry List', allowedRoles: ['site_engineer'] },
+      { key: '/dashboard/expenses/new', icon: <Wallet />, label: 'Expense', allowedRoles: ['site_engineer'] },
+      { key: '/dashboard/timesheet-attendance', icon: <Calendar />, label: 'Timesheet', allowedRoles: ['site_engineer', 'purchase_team', 'admin'] },
+      { key: '/dashboard/projects', icon: <FolderOpen />, label: 'Projects', allowedRoles: ['admin'] },
+      { key: '/dashboard/vendors', icon: <Users />, label: 'Vendors', allowedRoles: ['purchase_team'] },
+      { key: '/dashboard/material-requirement', icon: <FileSearch />, label: 'Material Requirement Request', allowedRoles: ['purchase_team'] },
+      { key: '/dashboard/purchase-enquiry', icon: <ClipboardCheck />, label: 'Purchase Enquiry', allowedRoles: ['purchase_team'] },
+      { key: '/dashboard/purchase-orders', icon: <FileCheck2 />, label: 'Purchase Orders', allowedRoles: ['purchase_team', 'accounts_manager'] },
+      { key: '/dashboard/material-received', icon: <Inbox />, label: 'Material Received', allowedRoles: ['site_engineer', 'purchase_team'] },
+      { key: '/dashboard/subcontractors', icon: <Users />, label: 'Subcontractors', allowedRoles: ['purchase_team'] },
+      { key: '/dashboard/subcontract-work-orders', icon: <FileText />, label: 'Subcontract WO', allowedRoles: ['purchase_team'] },
+      { key: '/dashboard/site-engineers', icon: <User />, label: 'Site Engineers', allowedRoles: ['admin'] },
+      { key: '/dashboard/assigned-projects', icon: <FolderKanban />, label: 'Assigned Projects', allowedRoles: ['admin'] },
+      { key: '/dashboard/office-staff', icon: <Users />, label: 'Office Staff', allowedRoles: ['admin'] },
+      { key: '/dashboard/employee-queries', icon: <MessageSquareText />, label: 'Employee Queries', allowedRoles: ['admin'] },
+      { key: '/dashboard/subcontractor-work', icon: <Users />, label: 'Subcontractor Work', allowedRoles: ['site_engineer', 'purchase_team'] },
+      { key: '/dashboard/material-requirement', icon: <FileSearch />, label: 'Material Requirement', allowedRoles: ['site_engineer'] },
+      { key: '/dashboard/report', icon: <FileText />, label: 'My Report', allowedRoles: ['site_engineer'] },
+      { key: '/dashboard/reports', icon: <FileText />, label: 'Reports', allowedRoles: ['admin'] },
+      { key: '/dashboard/project-access', icon: <ShieldCheck />, label: 'Project Access', allowedRoles: ['admin'] },
+      { key: '/dashboard/architecture', icon: <Network />, label: 'System Architecture', allowedRoles: ['admin'] },
     ],
   },
   {
     title: 'Payments',
     allowedRoles: ['purchase_team'],
     items: [
-      { key: '/dashboard/advance', icon: <DollarOutlined />, label: 'Vendor Payments', allowedRoles: ['purchase_team'] },
-      { key: '/dashboard/subcontractor-payments', icon: <DollarOutlined />, label: 'Subcontractor Payments', allowedRoles: ['purchase_team'] },
+      { key: '/dashboard/advance', icon: <IndianRupee />, label: 'Vendor Payments', allowedRoles: ['purchase_team'] },
+      { key: '/dashboard/subcontractor-payments', icon: <IndianRupee />, label: 'Subcontractor Payments', allowedRoles: ['purchase_team'] },
     ],
   },
   {
     title: 'Finance',
     allowedRoles: ['admin', 'accounts_manager', 'purchase_team'],
     items: [
-      { key: '/dashboard/accounts', icon: <BankOutlined />, label: 'Accounts', allowedRoles: ['admin', 'accounts_manager'] },
-      { key: '/dashboard/accounts/invoices', icon: <FileProtectOutlined />, label: 'Invoices', allowedRoles: ['admin', 'accounts_manager'] },
-      { key: '/dashboard/accounts/bills', icon: <FileDoneOutlined />, label: 'Purchase Bills', allowedRoles: ['admin', 'accounts_manager', 'purchase_team'] },
-      { key: '/dashboard/timesheet-attendance', icon: <CalendarOutlined />, label: 'Timesheet', allowedRoles: ['accounts_manager'] },
-      { key: '/dashboard/site-engineer-attendance', icon: <TeamOutlined />, label: 'Timesheet Approvals', allowedRoles: ['admin'] },
-      { key: '/dashboard/approvals', icon: <SafetyCertificateOutlined />, label: 'Approvals', allowedRoles: ['admin', 'accounts_manager'] },
-      { key: '/dashboard/advance-requests', icon: <DollarOutlined />, label: 'Vendor Payment Requests', allowedRoles: ['admin', 'accounts_manager'] },
-      { key: '/dashboard/subcontractor-payment-requests', icon: <DollarOutlined />, label: 'Subcontractor Payment Requests', allowedRoles: ['admin', 'accounts_manager'] },
-      { key: '/dashboard/expenses', icon: <WalletOutlined />, label: 'Expenses', allowedRoles: ['admin', 'accounts_manager'] },
-      { key: '/dashboard/payments', icon: <CreditCardOutlined />, label: 'Payments', allowedRoles: ['admin', 'accounts_manager'] },
+      { key: '/dashboard/accounts', icon: <Landmark />, label: 'Accounts', allowedRoles: ['admin', 'accounts_manager'] },
+      { key: '/dashboard/accounts/invoices', icon: <FileCheck2 />, label: 'Invoices', allowedRoles: ['admin', 'accounts_manager'] },
+      { key: '/dashboard/accounts/bills', icon: <FileCheck />, label: 'Purchase Bills', allowedRoles: ['admin', 'accounts_manager', 'purchase_team'] },
+      { key: '/dashboard/timesheet-attendance', icon: <Calendar />, label: 'Timesheet', allowedRoles: ['accounts_manager'] },
+      { key: '/dashboard/site-engineer-attendance', icon: <Users />, label: 'Timesheet Approvals', allowedRoles: ['admin'] },
+      { key: '/dashboard/approvals', icon: <ShieldCheck />, label: 'Approvals', allowedRoles: ['admin', 'accounts_manager'] },
+      { key: '/dashboard/advance-requests', icon: <IndianRupee />, label: 'Vendor Payment Requests', allowedRoles: ['admin', 'accounts_manager'] },
+      { key: '/dashboard/subcontractor-payment-requests', icon: <IndianRupee />, label: 'Subcontractor Payment Requests', allowedRoles: ['admin', 'accounts_manager'] },
+      { key: '/dashboard/expenses', icon: <Wallet />, label: 'Expenses', allowedRoles: ['admin', 'accounts_manager'] },
+      { key: '/dashboard/payments', icon: <CreditCard />, label: 'Payments', allowedRoles: ['admin', 'accounts_manager'] },
     ],
   },
   {
     title: 'For Office Staff',
     allowedRoles: ['admin', 'office_staff'],
     items: [
-      { key: '/dashboard/timesheet-attendance', icon: <CalendarOutlined />, label: 'Timesheet', allowedRoles: ['office_staff'] },
-      { key: '/dashboard/dpr', icon: <CalendarOutlined />, label: 'Daily Reports (DPR)', allowedRoles: ['office_staff'] },
-      { key: '/dashboard/expenses/new', icon: <WalletOutlined />, label: 'Expense', allowedRoles: ['office_staff'] },
-      { key: '/dashboard/drawings', icon: <FileImageOutlined />, label: 'Drawings', allowedRoles: ['office_staff'] },
-      { key: '/dashboard/accounts/invoices', icon: <FileProtectOutlined />, label: 'Invoice', allowedRoles: ['office_staff'], allowedStaffTypes: ['Project Coordinator'] },
+      { key: '/dashboard/timesheet-attendance', icon: <Calendar />, label: 'Timesheet', allowedRoles: ['office_staff'] },
+      { key: '/dashboard/dpr', icon: <Calendar />, label: 'Daily Reports (DPR)', allowedRoles: ['office_staff'] },
+      { key: '/dashboard/expenses/new', icon: <Wallet />, label: 'Expense', allowedRoles: ['office_staff'] },
+      { key: '/dashboard/drawings', icon: <ImageIcon />, label: 'Drawings', allowedRoles: ['office_staff'] },
+      { key: '/dashboard/accounts/invoices', icon: <FileCheck2 />, label: 'Invoice', allowedRoles: ['office_staff'], allowedStaffTypes: ['Project Coordinator'] },
     ],
   },
   {
     title: 'Settings',
     allowedRoles: ['admin'],
     items: [
-      { key: '/dashboard/profile', icon: <UserOutlined />, label: 'Profile', allowedRoles: ['admin'] },
-      { key: '/dashboard/salary', icon: <DollarOutlined />, label: 'Salary', allowedRoles: ['admin'] },
+      { key: '/dashboard/profile', icon: <User />, label: 'Profile', allowedRoles: ['admin'] },
+      { key: '/dashboard/salary', icon: <IndianRupee />, label: 'Salary', allowedRoles: ['admin'] },
     ],
   },
 ];
@@ -300,51 +300,25 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
 
   const sidebarWidth = isMobile ? 0 : (collapsed ? COLLAPSED_WIDTH : SIDEBAR_WIDTH);
   const effectiveCollapsed = isMobile ? false : collapsed;
-  const effectiveCollapsedWidth = isMobile ? SIDEBAR_WIDTH : COLLAPSED_WIDTH;
 
   const filteredNavigationSections = useMemo(() => {
     const role = user?.role || 'viewer';
     const staffType = user?.staffType || '';
     const matchesStaffType = (item: NavItem) => !item.allowedStaffTypes || item.allowedStaffTypes.includes(staffType);
 
-
     const mappedSections = navigationSections
       .filter((section) => !section.allowedRoles || section.allowedRoles.includes(role))
       .map((section) => ({
         ...section,
         title: role === 'office_staff' && section.title === 'For Office Staff' ? '' : section.title,
-        items: section.items
-          .filter((item) => (!item.allowedRoles || item.allowedRoles.includes(role)) && matchesStaffType(item))
-          .map((item) => {
-             // eslint-disable-next-line @typescript-eslint/no-unused-vars
-             const { allowedRoles, allowedStaffTypes, children, ...restItem } = item;
-             const label = item.key === '/dashboard/employee-queries' && pendingEqCount > 0
-               ? (
-                   <Flex align="center" gap={8}>
-                     <span>{item.label}</span>
-                     <Badge count={pendingEqCount} size="small" />
-                   </Flex>
-                 )
-               : item.label;
-             if (children) {
-               return {
-                 ...restItem,
-                 label,
-                 children: children
-                   .filter((child) => (!child.allowedRoles || child.allowedRoles.includes(role)) && matchesStaffType(child))
-                   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                   .map(({ allowedRoles: _childRoles, allowedStaffTypes: _childStaffTypes, ...restChild }) => restChild)
-               }
-             }
-             return { ...restItem, label };
-          })
+        items: section.items.filter((item) => (!item.allowedRoles || item.allowedRoles.includes(role)) && matchesStaffType(item)),
       }))
-      .filter(section => section.items.length > 0);
+      .filter((section) => section.items.length > 0);
 
     // A section whose title was blanked out for this role (e.g. "For Office
     // Staff" shown to an office_staff user) has nothing to label it, so fold
     // its items into the previous section instead of rendering a second,
-    // visually-gapped <Menu> block right under it.
+    // visually-gapped nav block right under it.
     return mappedSections.reduce<typeof mappedSections>((acc, section) => {
       if (!section.title && acc.length > 0) {
         acc[acc.length - 1].items = [...acc[acc.length - 1].items, ...section.items];
@@ -353,7 +327,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
       acc.push(section);
       return acc;
     }, []);
-  }, [user, pendingEqCount]);
+  }, [user]);
 
   const navItems = useMemo(() => {
     return filteredNavigationSections.flatMap((section) => section.items);
@@ -373,27 +347,20 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
     return match?.key || '/dashboard';
   }, [pathname, navItems]);
 
-
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     logout();
     router.push('/login');
   };
 
-  const userMenuItems: MenuProps['items'] = [
-    { key: 'profile', icon: <UserOutlined />, label: `${user?.name || 'User'} (${user?.role || ''})` },
-    { type: 'divider' },
-    { key: 'logout', icon: <LogoutOutlined />, label: 'Sign Out', danger: true },
-  ];
-
   const adminNotifBody = (
     <>
       {visibleAppNotifications.length > 0 && (
         <div className="mb-2">
-          <Typography.Text className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--text-very-muted)]">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-very-muted)]">
             Updates
-          </Typography.Text>
-          <Flex vertical gap={8}>
+          </p>
+          <div className="flex flex-col gap-2">
             {visibleAppNotifications.slice(0, 10).map((n) => (
               <div
                 key={n.id}
@@ -411,63 +378,59 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                   className="absolute right-1.5 top-1.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-[var(--text-muted)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
                   aria-label="Dismiss notification"
                 >
-                  <CloseOutlined style={{ fontSize: 11 }} />
+                  <X className="h-2.5 w-2.5" />
                 </button>
-                <Typography.Text className="block text-sm">
+                <p className="text-sm">
                   {n.actorName && <strong>{n.actorName}: </strong>}
                   {n.title} — {n.message}
-                </Typography.Text>
+                </p>
                 {n.createdAt && (
-                  <Typography.Text type="secondary" className="mt-0.5 block text-xs">
+                  <p className="mt-0.5 text-xs text-[var(--text-muted)]">
                     {formatDate(n.createdAt)}
-                  </Typography.Text>
+                  </p>
                 )}
               </div>
             ))}
-          </Flex>
+          </div>
         </div>
       )}
-      <Typography.Text className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--text-very-muted)]">
+      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-very-muted)]">
         Edit Requests
-      </Typography.Text>
+      </p>
       {visiblePendingQueries.length === 0 ? (
-        <Typography.Text type="secondary" className="text-sm">
-          No pending edit requests
-        </Typography.Text>
+        <p className="text-sm text-[var(--text-muted)]">No pending edit requests</p>
       ) : (
-      <Flex vertical gap={8}>
-        {visiblePendingQueries.slice(0, 20).map((q) => (
-          <div
-            key={q.id}
-            className="relative cursor-pointer rounded-lg border border-[var(--border)] p-2 pr-7 transition hover:bg-[var(--subtle-hover-bg)]"
-            onClick={() => {
-              setAdminNotifOpen(false);
-              router.push('/dashboard/employee-queries');
-            }}
-          >
-            <button
-              type="button"
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); dismissNotification(q.id); }}
-              className="absolute right-1.5 top-1.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-[var(--text-muted)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
-              aria-label="Dismiss notification"
+        <div className="flex flex-col gap-2">
+          {visiblePendingQueries.slice(0, 20).map((q) => (
+            <div
+              key={q.id}
+              className="relative cursor-pointer rounded-lg border border-[var(--border)] p-2 pr-7 transition hover:bg-[var(--subtle-hover-bg)]"
+              onClick={() => {
+                setAdminNotifOpen(false);
+                router.push('/dashboard/employee-queries');
+              }}
             >
-              <CloseOutlined style={{ fontSize: 11 }} />
-            </button>
-            <Typography.Text className="block text-sm">
-              <strong>{q.siteEngineer?.name || 'Someone'}</strong>
-              {q.siteEngineer?.role && ` (${titleCase(q.siteEngineer.role)})`} requested edit access for timesheet
-            </Typography.Text>
-            {q.timesheet && (
-              <Typography.Text type="secondary" className="mt-1 block text-xs">
-                Week: {formatDate(q.timesheet.weekStart)} - {formatDate(q.timesheet.weekEnd)}
-              </Typography.Text>
-            )}
-            <Typography.Text type="secondary" className="mt-1 block text-xs italic">
-              &ldquo;{q.reason}&rdquo;
-            </Typography.Text>
-          </div>
-        ))}
-      </Flex>
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); dismissNotification(q.id); }}
+                className="absolute right-1.5 top-1.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-[var(--text-muted)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
+                aria-label="Dismiss notification"
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+              <p className="text-sm">
+                <strong>{q.siteEngineer?.name || 'Someone'}</strong>
+                {q.siteEngineer?.role && ` (${titleCase(q.siteEngineer.role)})`} requested edit access for timesheet
+              </p>
+              {q.timesheet && (
+                <p className="mt-1 text-xs text-[var(--text-muted)]">
+                  Week: {formatDate(q.timesheet.weekStart)} - {formatDate(q.timesheet.weekEnd)}
+                </p>
+              )}
+              <p className="mt-1 text-xs italic text-[var(--text-muted)]">&ldquo;{q.reason}&rdquo;</p>
+            </div>
+          ))}
+        </div>
       )}
     </>
   );
@@ -476,10 +439,10 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
     <>
       {visibleAppNotifications.length > 0 && (
         <div className="mb-2">
-          <Typography.Text className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--text-very-muted)]">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-very-muted)]">
             Updates
-          </Typography.Text>
-          <Flex vertical gap={8}>
+          </p>
+          <div className="flex flex-col gap-2">
             {visibleAppNotifications.slice(0, 10).map((n) => (
               <div
                 key={n.id}
@@ -497,31 +460,29 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                   className="absolute right-1.5 top-1.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-[var(--text-muted)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
                   aria-label="Dismiss notification"
                 >
-                  <CloseOutlined style={{ fontSize: 11 }} />
+                  <X className="h-2.5 w-2.5" />
                 </button>
-                <Typography.Text className="block text-sm">
+                <p className="text-sm">
                   {n.actorName && <strong>{n.actorName}: </strong>}
                   {n.title} — {n.message}
-                </Typography.Text>
+                </p>
                 {n.createdAt && (
-                  <Typography.Text type="secondary" className="mt-0.5 block text-xs">
+                  <p className="mt-0.5 text-xs text-[var(--text-muted)]">
                     {formatDate(n.createdAt)}
-                  </Typography.Text>
+                  </p>
                 )}
               </div>
             ))}
-          </Flex>
+          </div>
         </div>
       )}
-      <Typography.Text className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--text-very-muted)]">
+      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-very-muted)]">
         Edit Request Updates
-      </Typography.Text>
+      </p>
       {visibleResponses.length === 0 ? (
-        <Typography.Text type="secondary" className="text-sm">
-          No responses yet
-        </Typography.Text>
+        <p className="text-sm text-[var(--text-muted)]">No responses yet</p>
       ) : (
-        <Flex vertical gap={8}>
+        <div className="flex flex-col gap-2">
           {visibleResponses.slice(0, 20).map((r) => (
             <div key={r.id} className="relative rounded-lg border border-[var(--border)] p-2 pr-7">
               <button
@@ -530,25 +491,80 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                 className="absolute right-1.5 top-1.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-[var(--text-muted)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
                 aria-label="Dismiss notification"
               >
-                <CloseOutlined style={{ fontSize: 11 }} />
+                <X className="h-2.5 w-2.5" />
               </button>
-              <Flex justify="space-between" align="center">
-                <Tag color={r.status === 'approved' ? 'green' : 'red'}>{r.status.toUpperCase()}</Tag>
-                <Typography.Text type="secondary" className="text-xs">
-                  {formatDate(r.respondedAt)}
-                </Typography.Text>
-              </Flex>
-              <Typography.Text className="mt-1 block text-xs">{r.reason}</Typography.Text>
+              <div className="flex items-center justify-between">
+                <span className={`rounded px-2 py-0.5 text-xs font-medium ${r.status === 'approved' ? 'bg-emerald-500/15 text-emerald-500' : 'bg-red-500/15 text-red-500'}`}>
+                  {r.status.toUpperCase()}
+                </span>
+                <span className="text-xs text-[var(--text-muted)]">{formatDate(r.respondedAt)}</span>
+              </div>
+              <p className="mt-1 text-xs">{r.reason}</p>
               {r.timesheet && (
-                <Typography.Text type="secondary" className="mt-1 block text-xs">
+                <p className="mt-1 text-xs text-[var(--text-muted)]">
                   Week: {formatDate(r.timesheet.weekStart)} - {formatDate(r.timesheet.weekEnd)}
-                </Typography.Text>
+                </p>
               )}
             </div>
           ))}
-        </Flex>
+        </div>
       )}
     </>
+  );
+
+  const sidebarLogo = (collapsedMode: boolean) => (
+    <div
+      className={`flex h-[70px] shrink-0 items-center border-b border-[var(--border)] ${
+        collapsedMode ? 'justify-center px-0' : 'gap-3 px-6'
+      }`}
+    >
+      <img src="/logo.png" alt="Edwin Constructions" className="h-12 w-12 shrink-0 object-contain" />
+      {!collapsedMode && <span className="truncate text-sm font-semibold text-white">Edwin Constructions</span>}
+    </div>
+  );
+
+  const sidebarNav = (collapsedMode: boolean) => (
+    <div className="min-h-0 flex-1 overflow-y-auto py-4">
+      {filteredNavigationSections.map((section, index) => (
+        <div key={`${section.title}-${index}`} className={`${section.title ? 'mb-5' : 'mb-0'} last:mb-0`}>
+          {!collapsedMode && section.title && (
+            <p className="mb-1.5 px-6 text-sm font-medium text-[var(--sidebar-text-muted)]">{section.title}</p>
+          )}
+          <nav className="flex flex-col gap-0.5 px-2">
+            {section.items.map((item) => {
+              const isSelected = selectedKey === item.key;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  title={collapsedMode ? item.label : undefined}
+                  onClick={() => router.push(item.key)}
+                  className={`flex cursor-pointer items-center gap-3 rounded-lg px-4 py-2.5 text-left text-sm transition [&_svg]:h-[18px] [&_svg]:w-[18px] [&_svg]:shrink-0 ${
+                    collapsedMode ? 'justify-center px-0' : ''
+                  } ${
+                    isSelected
+                      ? 'bg-[rgba(56,189,248,0.14)] text-[#e0f2fe]'
+                      : 'text-[#cbd5e1] hover:bg-white/10 hover:text-[#f8fafc]'
+                  }`}
+                >
+                  {item.icon}
+                  {!collapsedMode && (
+                    <span className="flex min-w-0 flex-1 items-center gap-2 truncate">
+                      <span className="truncate">{item.label}</span>
+                      {item.key === '/dashboard/employee-queries' && pendingEqCount > 0 && (
+                        <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white">
+                          {pendingEqCount}
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+      ))}
+    </div>
   );
 
   if (!mounted) {
@@ -561,73 +577,34 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
 
   return (
     <App>
-      <Layout className="min-h-screen bg-[var(--page-bg)]">
-        <Sider
-          trigger={null}
-          collapsible
-          collapsed={effectiveCollapsed}
-          collapsedWidth={effectiveCollapsedWidth}
-          width={SIDEBAR_WIDTH}
-          className={`mantis-drawer fixed! left-0 top-0 bottom-0 z-100 h-screen overflow-hidden border-r border-[var(--border)] bg-[var(--sidebar-bg)]! transition-all duration-300 ease-in-out ${
-            isMobile
-              ? mobileSidebarOpen
-                ? 'translate-x-0 shadow-2xl'
-                : '-translate-x-full'
-              : ''
-          }`}
-          style={isMobile ? { width: `${SIDEBAR_WIDTH}px` } : { boxShadow: effectiveCollapsed ? 'none' : 'none' }}
-        >
-          <div className="flex h-full flex-col">
-            <div
-              className={`flex h-[70px] shrink-0 items-center border-b border-[var(--border)] ${
-                effectiveCollapsed ? 'justify-center px-0' : 'gap-3 px-6'
-              }`}
-            >
-              <img src="/logo.png" alt="Edwin Constructions" className="h-12 w-12 shrink-0 object-contain" />
-              {!effectiveCollapsed && (
-                <Text className="truncate text-sm font-semibold! text-white!">
-                  Edwin Constructions
-                </Text>
-              )}
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-y-auto py-4">
-              {filteredNavigationSections.map((section, index) => (
-                <div key={`${section.title}-${index}`} className={`${section.title ? 'mb-5' : 'mb-0'} last:mb-0`}>
-                  {!effectiveCollapsed && section.title && (
-                    <Text className="mb-1.5 block px-6 text-sm font-medium text-[var(--sidebar-text-muted)]!">
-                      {section.title}
-                    </Text>
-                  )}
-                  <Menu
-                    mode="inline"
-                    inlineCollapsed={effectiveCollapsed}
-                    selectedKeys={[selectedKey]}
-                    items={section.items}
-                    onClick={({ key }) => router.push(key)}
-                    className="mantis-nav border-none! bg-transparent!"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        </Sider>
-
-        {isMobile && mobileSidebarOpen && (
-          <div
-            className="fixed inset-0 z-99 bg-[var(--overlay-bg)] backdrop-blur-sm"
-            onClick={() => setMobileSidebarOpen(false)}
-          />
+      <div className="min-h-screen bg-[var(--page-bg)]">
+        {!isMobile && (
+          <aside
+            style={{ width: sidebarWidth }}
+            className="fixed left-0 top-0 bottom-0 z-100 flex h-screen flex-col overflow-hidden border-r border-[var(--border)] bg-[var(--sidebar-bg)] transition-[width] duration-300 ease-in-out"
+          >
+            {sidebarLogo(effectiveCollapsed)}
+            {sidebarNav(effectiveCollapsed)}
+          </aside>
         )}
 
-        <Layout
+        {isMobile && (
+          <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
+            <SheetContent side="left" showClose={false} className="flex w-[280px] flex-col bg-[var(--sidebar-bg)] p-0">
+              {sidebarLogo(false)}
+              {sidebarNav(false)}
+            </SheetContent>
+          </Sheet>
+        )}
+
+        <div
           className="min-w-0 transition-[margin-left,width] duration-300 ease-in-out"
           style={{
             marginLeft: sidebarWidth,
             width: isMobile ? '100%' : `calc(100% - ${sidebarWidth}px)`,
           }}
         >
-          <Header className="sticky top-0 z-90 flex h-16 items-center justify-between border-b border-[var(--border)] bg-[var(--header-bg)]! px-4! sm:px-6! backdrop-blur-xl">
+          <header className="sticky top-0 z-90 flex h-16 items-center justify-between border-b border-[var(--border)] bg-[var(--header-bg)] px-4 backdrop-blur-xl sm:px-6">
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -638,8 +615,8 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                 aria-label={isMobile ? (mobileSidebarOpen ? 'Close sidebar' : 'Open sidebar') : (collapsed ? 'Expand sidebar' : 'Collapse sidebar')}
               >
                 {isMobile
-                  ? mobileSidebarOpen ? <CloseOutlined /> : <MenuUnfoldOutlined />
-                  : collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />
+                  ? mobileSidebarOpen ? <X className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />
+                  : collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />
                 }
               </button>
             </div>
@@ -651,7 +628,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                 className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
                 aria-label="Toggle theme"
               >
-                {mode === 'dark' ? <SunOutlined /> : <MoonOutlined />}
+                {mode === 'dark' ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
               </button>
 
               {user?.role === 'admin' && (
@@ -660,48 +637,41 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                     <button
                       type="button"
                       onClick={() => { setAdminNotifOpen(true); markPendingSeen(); markNotificationsSeen(); }}
-                      className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
+                      className="relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
                       aria-label="Notifications"
                     >
-                      <Badge count={pendingEqCount + unseenNotifCount} size="small" offset={[-2, 2]}>
-                        <BellOutlined />
-                      </Badge>
+                      <Bell className="h-[18px] w-[18px]" />
+                      <NotificationBadge count={pendingEqCount + unseenNotifCount} />
                     </button>
-                    <Drawer
-                      title="Notifications"
-                      placement="bottom"
-                      size="large"
-                      open={adminNotifOpen}
-                      onClose={() => setAdminNotifOpen(false)}
-                    >
-                      {adminNotifBody}
-                    </Drawer>
+                    <Sheet open={adminNotifOpen} onOpenChange={setAdminNotifOpen}>
+                      <SheetContent side="bottom" className="bg-[var(--card-bg)] text-[var(--text-primary)]">
+                        <div className="shrink-0 border-b border-[var(--border)] px-4 py-3 text-sm font-semibold">Notifications</div>
+                        <div className="overflow-y-auto p-4">{adminNotifBody}</div>
+                      </SheetContent>
+                    </Sheet>
                   </>
                 ) : (
                   <Popover
-                    trigger="click"
-                    placement="bottomRight"
                     open={adminNotifOpen}
                     onOpenChange={(open) => {
                       setAdminNotifOpen(open);
                       if (open) { markPendingSeen(); markNotificationsSeen(); }
                     }}
-                    title="Notifications"
-                    content={
-                      <div style={{ width: 340, maxHeight: 360, overflowY: 'auto' }}>
-                        {adminNotifBody}
-                      </div>
-                    }
                   >
-                    <button
-                      type="button"
-                      className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
-                      aria-label="Notifications"
-                    >
-                      <Badge count={pendingEqCount + unseenNotifCount} size="small" offset={[-2, 2]}>
-                        <BellOutlined />
-                      </Badge>
-                    </button>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
+                        aria-label="Notifications"
+                      >
+                        <Bell className="h-[18px] w-[18px]" />
+                        <NotificationBadge count={pendingEqCount + unseenNotifCount} />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[340px] max-h-[360px] overflow-y-auto p-3 text-[var(--text-primary)]">
+                      <p className="mb-2 text-sm font-semibold">Notifications</p>
+                      {adminNotifBody}
+                    </PopoverContent>
                   </Popover>
                 )
               )}
@@ -712,85 +682,78 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                     <button
                       type="button"
                       onClick={() => { setNotifOpen(true); markResponsesSeen(); markNotificationsSeen(); }}
-                      className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
+                      className="relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
                       aria-label="Notifications"
                     >
-                      <Badge count={unseenResponseCount + unseenNotifCount} size="small" offset={[-2, 2]}>
-                        <BellOutlined />
-                      </Badge>
+                      <Bell className="h-[18px] w-[18px]" />
+                      <NotificationBadge count={unseenResponseCount + unseenNotifCount} />
                     </button>
-                    <Drawer
-                      title="Notifications"
-                      placement="bottom"
-                      size="large"
-                      open={notifOpen}
-                      onClose={() => setNotifOpen(false)}
-                    >
-                      {notifBody}
-                    </Drawer>
+                    <Sheet open={notifOpen} onOpenChange={setNotifOpen}>
+                      <SheetContent side="bottom" className="bg-[var(--card-bg)] text-[var(--text-primary)]">
+                        <div className="shrink-0 border-b border-[var(--border)] px-4 py-3 text-sm font-semibold">Notifications</div>
+                        <div className="overflow-y-auto p-4">{notifBody}</div>
+                      </SheetContent>
+                    </Sheet>
                   </>
                 ) : (
                   <Popover
-                    trigger="click"
-                    placement="bottomRight"
                     open={notifOpen}
                     onOpenChange={(open) => {
                       setNotifOpen(open);
-                      if (open) {
-                        markResponsesSeen();
-                        markNotificationsSeen();
-                      }
+                      if (open) { markResponsesSeen(); markNotificationsSeen(); }
                     }}
-                    title="Notifications"
-                    content={
-                      <div style={{ width: 340, maxHeight: 380, overflowY: 'auto' }}>
-                        {notifBody}
-                      </div>
-                    }
                   >
-                    <button
-                      type="button"
-                      className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
-                      aria-label="Notifications"
-                    >
-                      <Badge count={unseenResponseCount + unseenNotifCount} size="small" offset={[-2, 2]}>
-                        <BellOutlined />
-                      </Badge>
-                    </button>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
+                        aria-label="Notifications"
+                      >
+                        <Bell className="h-[18px] w-[18px]" />
+                        <NotificationBadge count={unseenResponseCount + unseenNotifCount} />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[340px] max-h-[380px] overflow-y-auto p-3 text-[var(--text-primary)]">
+                      <p className="mb-2 text-sm font-semibold">Notifications</p>
+                      {notifBody}
+                    </PopoverContent>
                   </Popover>
                 )
               )}
 
-            <Dropdown
-              menu={{
-                items: userMenuItems,
-                onClick: ({ key }) => {
-                  if (key === 'logout') handleLogout();
-                },
-              }}
-              placement="bottomRight"
-            >
-              <button
-                type="button"
-                className="flex cursor-pointer items-center rounded-full px-1 py-1 transition hover:opacity-85"
-                aria-label="Profile"
-              >
-                <Avatar
-                  className="bg-[#1677ff]!"
-                  icon={<UserOutlined />}
-                />
-              </button>
-            </Dropdown>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex cursor-pointer items-center rounded-full px-1 py-1 transition hover:opacity-85"
+                    aria-label="Profile"
+                  >
+                    <Avatar>
+                      <AvatarFallback>
+                        <User className="h-[18px] w-[18px]" />
+                      </AvatarFallback>
+                    </Avatar>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>{user?.name || 'User'} ({user?.role || ''})</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" onClick={handleLogout}>
+                    <LogOut className="h-4 w-4" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
-          </Header>
+          </header>
 
-          <Content className="bg-[var(--page-bg)] px-4 pt-4 sm:px-6 sm:pt-5">
+          <div className="bg-[var(--page-bg)] px-4 pt-4 sm:px-6 sm:pt-5">
             <div className="mx-auto w-full max-w-[1600px]" style={{ marginBottom: 80 }}>
               {children}
             </div>
-          </Content>
-        </Layout>
-      </Layout>
+          </div>
+        </div>
+      </div>
     </App>
-);
+  );
 }
