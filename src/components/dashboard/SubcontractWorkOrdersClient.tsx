@@ -323,7 +323,7 @@ export function SubcontractWorkOrdersClient({
       title: 'Project',
       key: 'project',
       width: 180,
-      render: (_, record) => record.project?.projectCode || record.project?.name || '-',
+      render: (_, record) => record.project?.projectCode || '-',
     },
     {
       title: 'Subcontractor',
@@ -393,7 +393,6 @@ export function SubcontractWorkOrdersClient({
       render: (_, record) =>
         record.workorderUrl ? (
           <Space>
-            {getFileIcon(record.workorderKey || '')}
             <Tooltip title="View">
               <Button
                 type="link"
@@ -575,7 +574,7 @@ export function SubcontractWorkOrdersClient({
               >
                 <Select
                   {...field}
-                  options={projects.map((p) => ({ label: p.name, value: p.id }))}
+                  options={projects.map((p) => ({ label: p.projectCode ? `${p.name} (${p.projectCode})` : p.name, value: p.id }))}
                   placeholder="Select Project"
                 />
               </Form.Item>
@@ -730,16 +729,6 @@ export function SubcontractWorkOrdersClient({
                   target="_blank"
                 >
                   View
-                </Button>
-                <Button
-                  type="link"
-                  size="small"
-                  icon={<DownloadOutlined />}
-                  href={uploadedFile.workorderUrl}
-                  target="_blank"
-                  download
-                >
-                  Download
                 </Button>
                 <Button
                   type="link"

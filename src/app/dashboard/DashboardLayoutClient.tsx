@@ -581,6 +581,11 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
               }`}
             >
               <img src="/logo.png" alt="Edwin Constructions" className="h-12 w-12 shrink-0 object-contain" />
+              {!effectiveCollapsed && (
+                <Text className="truncate text-sm font-semibold! text-white!">
+                  Edwin Constructions
+                </Text>
+              )}
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto py-4">
