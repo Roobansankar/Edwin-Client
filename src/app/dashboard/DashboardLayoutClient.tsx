@@ -580,14 +580,9 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                 effectiveCollapsed ? 'justify-center px-0' : 'gap-3 px-6'
               }`}
             >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-sky-400/30 bg-sky-400/10 text-sky-300">
-                <SafetyCertificateOutlined className="text-[22px]" />
-              </div>
+              <img src="/logo.png" alt="Edwin ERP" className="h-10 w-10 shrink-0 object-contain" />
               {!effectiveCollapsed && (
                 <div className="min-w-0">
-                  <Text strong className="block truncate text-[15px] leading-tight! text-[var(--sidebar-text)]!">
-                    Edwin ERP
-                  </Text>
                   <Text className="block truncate text-xs leading-tight! text-[var(--sidebar-text-muted)]!">
                     Construction Management
                   </Text>

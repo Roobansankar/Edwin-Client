@@ -3,10 +3,10 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Form, Input, Button, Card, Typography, Space, App } from 'antd';
-import { UserOutlined, LockOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
+import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useAuthStore } from '@/store/auth';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 function LoginForm() {
   const [loading, setLoading] = useState(false);
@@ -48,12 +48,7 @@ function LoginForm() {
     >
       <Space orientation="vertical" size="large" className="w-full text-center">
         <div>
-          <SafetyCertificateOutlined
-            className="mb-3 text-5xl text-blue-500"
-          />
-          <Title level={3} className="m-0! font-bold! text-[var(--text-primary)]!">
-            Edwin Constructions
-          </Title>
+          <img src="/logo.png" alt="Edwin Constructions" className="mx-auto mb-3 h-16 w-16 object-contain" />
           <Text className="text-sm text-[var(--text-muted)]!">ERP Management System</Text>
         </div>
 
