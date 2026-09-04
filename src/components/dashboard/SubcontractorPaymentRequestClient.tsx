@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import { Button, Card, Flex, Form, Input, InputNumber, Select, Table, Tag, Typography, App } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DollarOutlined, FileTextOutlined } from '@ant-design/icons';
@@ -45,6 +45,14 @@ export function SubcontractorPaymentRequestClient({ projects, workOrders, reques
   const [notes, setNotes] = useState('');
   const [isPending, startTransition] = useTransition();
   const { message } = App.useApp();
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   const woOptions = useMemo(() => approvedWorkOrders(workOrders), [workOrders]);
   const selectedWorkOrder = useMemo(
@@ -96,22 +104,22 @@ export function SubcontractorPaymentRequestClient({ projects, workOrders, reques
 
   const columns: ColumnsType<SubcontractorPaymentRequest> = [
     { title: '#', key: 'sno', width: 50, render: (_, __, i) => i + 1 },
-    { title: 'Subcontractor', key: 'subcontractor', render: (_, record) => record.subcontractor?.name || record.subcontractorId },
-    { title: 'Project', key: 'project', render: (_, record) => record.project?.name || '-' },
-    { title: 'WO Number', key: 'wo', render: (_, record) => record.subcontractWorkOrder?.woNumber || <Typography.Text type="secondary">-</Typography.Text> },
-    { title: 'Amount', dataIndex: 'amount', align: 'right', render: (value: number | string) => formatCurrency(value) },
-    { title: 'Work Order', key: 'workorder', render: (_, record) =>
+    { title: 'Subcontractor', key: 'subcontractor', width: 160, render: (_, record) => record.subcontractor?.name || record.subcontractorId },
+    { title: 'Project', key: 'project', width: 160, responsive: ['md'], render: (_, record) => record.project?.name || '-' },
+    { title: 'WO Number', key: 'wo', width: 130, responsive: ['md'], render: (_, record) => record.subcontractWorkOrder?.woNumber || <Typography.Text type="secondary">-</Typography.Text> },
+    { title: 'Amount', dataIndex: 'amount', align: 'right', width: 120, render: (value: number | string) => formatCurrency(value) },
+    { title: 'Work Order', key: 'workorder', width: 100, responsive: ['lg'], render: (_, record) =>
       record.subcontractWorkOrder?.workorderUrl ? (
         <Button type="link" size="small" icon={<FileTextOutlined />} href={record.subcontractWorkOrder.workorderUrl} target="_blank">View</Button>
       ) : <Typography.Text type="secondary">-</Typography.Text>,
     },
-    { title: 'Requested At', dataIndex: 'createdAt', render: formatDate },
-    { title: 'Status', key: 'status', render: (_, record) => <Tag color={STATUS_COLORS[record.status] || 'default'}>{STATUS_LABELS[record.status] || record.status.toUpperCase()}</Tag> },
+    { title: 'Requested At', dataIndex: 'createdAt', width: 120, responsive: ['md'], render: formatDate },
+    { title: 'Status', key: 'status', width: 140, render: (_, record) => <Tag color={STATUS_COLORS[record.status] || 'default'}>{STATUS_LABELS[record.status] || record.status.toUpperCase()}</Tag> },
   ];
 
   return (
     <div>
-      <Flex justify="space-between" align="center" className={pageHeaderClassName}>
+      <Flex justify="space-between" align="center" className={pageHeaderClassName} gap={16} wrap="wrap">
         <Typography.Title level={3} className={pageTitleClassName}>
           <DollarOutlined className={titleIconClassName} /> Subcontractor Payments
         </Typography.Title>
@@ -181,14 +189,39 @@ export function SubcontractorPaymentRequestClient({ projects, workOrders, reques
             <Input.TextArea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Reason for the payment (optional)" />
           </Form.Item>
 
-          <Button type="primary" loading={isPending} onClick={handleSubmit} disabled={!subcontractorId}>
+          <Button type="primary" loading={isPending} onClick={handleSubmit} disabled={!subcontractorId} block={isMobile}>
             Send Request
           </Button>
         </Form>
       </Card>
 
-      <Card className={cardClassName} styles={{ body: { padding: 0 } }}>
-        <Table dataSource={requests} columns={columns} rowKey="id" size="middle" pagination={{ pageSize: 10 }} locale={{ emptyText: 'No subcontractor payment requests yet' }} />
+      <Card className={cardClassName} styles={{ body: { padding: isMobile ? '0' : undefined } }}>
+        {isMobile ? (
+          <div className="flex flex-col">
+            {requests.length === 0 ? (
+              <div className="p-4 text-center text-gray-400">No subcontractor payment requests yet</div>
+            ) : (
+              requests.map((record) => (
+                <div key={record.id} className="border-b border-[var(--border)] p-3 last:border-b-0">
+                  <Flex justify="space-between" align="center" className="mb-1">
+                    <Typography.Text strong className="text-sm">{record.subcontractor?.name || record.subcontractorId}</Typography.Text>
+                    <Tag color={STATUS_COLORS[record.status] || 'default'} className="m-0!">{STATUS_LABELS[record.status] || record.status.toUpperCase()}</Tag>
+                  </Flex>
+                  <div className="flex flex-col gap-0.5 text-xs text-[var(--text-muted)]">
+                    {record.project?.name && <span>Project: {record.project.name}</span>}
+                    {record.subcontractWorkOrder?.woNumber && <span>WO: {record.subcontractWorkOrder.woNumber}</span>}
+                    <Flex justify="space-between" align="center" className="mt-1">
+                      <Typography.Text strong>{formatCurrency(record.amount)}</Typography.Text>
+                      <span>{record.createdAt ? formatDate(record.createdAt) : ''}</span>
+                    </Flex>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        ) : (
+          <Table dataSource={requests} columns={columns} rowKey="id" size="middle" pagination={{ pageSize: 10 }} locale={{ emptyText: 'No subcontractor payment requests yet' }} />
+        )}
       </Card>
     </div>
   );

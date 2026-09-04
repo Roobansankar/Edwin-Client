@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Button,
   Card,
+  Divider,
   Drawer,
   Flex,
   Form,
@@ -33,6 +34,7 @@ import {
   FileUnknownOutlined,
   UploadOutlined,
   HistoryOutlined,
+  CloseOutlined,
 } from '@ant-design/icons';
 import { PDFDownloadLink, PDFViewer } from '@react-pdf/renderer';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -45,6 +47,7 @@ import {
   updateSubcontractWorkOrderStatus,
   uploadWorkOrderFile,
 } from '@/actions/subcontract-work-orders';
+import { createWorkCategory, deleteWorkCategory } from '@/actions/work-categories';
 import { createPayment } from '@/actions/payments';
 import type { SubcontractWorkOrder, Project, Subcontractor, WorkCategory, Payment } from '@/types/erp';
 import { SubcontractWorkOrderPdf } from './SubcontractWorkOrderPdf';
@@ -106,6 +109,7 @@ export function SubcontractWorkOrdersClient({
   const { message } = App.useApp();
   const user = useAuthStore((s) => s.user);
   const isPurchaseTeam = user?.role === 'purchase_team';
+  const [localWorkCategories, setLocalWorkCategories] = useState<WorkCategory[]>(workCategories);
   const statusOptions = isPurchaseTeam
     ? STATUS_OPTIONS.filter((opt) => opt.value !== 'admin_approved')
     : STATUS_OPTIONS;
@@ -137,6 +141,38 @@ export function SubcontractWorkOrdersClient({
     });
   };
   const [isClient, setIsClient] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const inputRef = useRef<any>(null);
+
+  const onCategoryNameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setNewCategoryName(event.target.value);
+  };
+
+  const addCategory = async (e: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) return;
+    const name = newCategoryName.trim();
+    setNewCategoryName('');
+    try {
+      const created = await createWorkCategory({ name });
+      setLocalWorkCategories((prev) => [...prev, { id: created.id, name: created.name }].sort((a, b) => a.name.localeCompare(b.name)));
+      message.success('Category added');
+      setTimeout(() => { inputRef.current?.focus(); }, 0);
+    } catch (error) {
+      setNewCategoryName(name);
+      message.error(error instanceof Error ? error.message : 'Failed to add category');
+    }
+  };
+
+  const removeCategory = async (id: string) => {
+    try {
+      await deleteWorkCategory(id);
+      setLocalWorkCategories((prev) => prev.filter((c) => c.id !== id));
+      message.success('Category deleted');
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : 'Failed to delete category');
+    }
+  };
   const [uploadedFile, setUploadedFile] = useState<{
     workorderUrl: string;
     workorderKey: string;
@@ -614,8 +650,35 @@ export function SubcontractWorkOrdersClient({
                 >
                   <Select
                     {...field}
-                    options={workCategories.map((c) => ({ label: c.name, value: c.id }))}
+                    options={localWorkCategories.map((c) => ({ label: c.name, value: c.id }))}
                     placeholder="Select Category"
+                    optionRender={(option) => (
+                      <Flex justify="space-between" align="center">
+                        <span>{option.label}</span>
+                        <CloseOutlined
+                          className="text-red-500 cursor-pointer"
+                          onClick={(e) => { e.stopPropagation(); removeCategory(String(option.value)); }}
+                        />
+                      </Flex>
+                    )}
+                    dropdownRender={(menu) => (
+                      <>
+                        {menu}
+                        <Divider style={{ margin: '8px 0' }} />
+                        <Space style={{ padding: '0 8px 4px' }}>
+                          <Input
+                            placeholder="New category"
+                            ref={inputRef}
+                            value={newCategoryName}
+                            onChange={onCategoryNameChange}
+                            onKeyDown={(e) => e.stopPropagation()}
+                          />
+                          <Button type="text" icon={<PlusOutlined />} onClick={addCategory}>
+                            Add
+                          </Button>
+                        </Space>
+                      </>
+                    )}
                   />
                 </Form.Item>
               )}

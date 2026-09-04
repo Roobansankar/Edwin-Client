@@ -4,12 +4,12 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button, Card, Divider, Drawer, Flex, Form, Input, Popconfirm, Space, Table, Typography, App, Select } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined, TeamOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined, TeamOutlined, CloseOutlined } from '@ant-design/icons';
 import { Controller, useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { createSubcontractor, deleteSubcontractor, updateSubcontractor } from '@/actions/subcontractors';
-import { createWorkCategory } from '@/actions/work-categories';
+import { createWorkCategory, deleteWorkCategory } from '@/actions/work-categories';
 import type { Subcontractor, WorkCategory } from '@/types/erp';
 import {
   formatDate,
@@ -46,27 +46,36 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
   // For adding new category
   const [newCategoryName, setNewCategoryName] = useState('');
   const inputRef = useRef<any>(null);
+  const [localWorkCategories, setLocalWorkCategories] = useState<WorkCategory[]>(workCategories);
 
   const onNameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setNewCategoryName(event.target.value);
   };
 
-  const addItem = (e: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>) => {
+  const addItem = async (e: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>) => {
     e.preventDefault();
     if (!newCategoryName.trim()) return;
+    const name = newCategoryName.trim();
+    setNewCategoryName('');
+    try {
+      const created = await createWorkCategory({ name });
+      setLocalWorkCategories((prev) => [...prev, { id: created.id, name: created.name }].sort((a, b) => a.name.localeCompare(b.name)));
+      message.success('Category added');
+      setTimeout(() => { inputRef.current?.focus(); }, 0);
+    } catch (error) {
+      setNewCategoryName(name);
+      message.error(error instanceof Error ? error.message : 'Failed to add category');
+    }
+  };
 
-    startTransition(async () => {
-      try {
-        await createWorkCategory({ name: newCategoryName });
-        setNewCategoryName('');
-        message.success('Category added');
-        setTimeout(() => {
-          inputRef.current?.focus();
-        }, 0);
-      } catch (error) {
-        message.error(error instanceof Error ? error.message : 'Failed to add category');
-      }
-    });
+  const removeCategory = async (id: string) => {
+    try {
+      await deleteWorkCategory(id);
+      setLocalWorkCategories((prev) => prev.filter((c) => c.id !== id));
+      message.success('Category deleted');
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : 'Failed to delete category');
+    }
   };
 
   const {
@@ -328,7 +337,16 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
                         </Space>
                       </>
                     )}
-                    options={workCategories.map(c => ({ label: c.name, value: c.id }))}
+                    optionRender={(option) => (
+                      <Flex justify="space-between" align="center">
+                        <span>{option.label}</span>
+                        <CloseOutlined
+                          className="text-red-500 cursor-pointer"
+                          onClick={(e) => { e.stopPropagation(); removeCategory(String(option.value)); }}
+                        />
+                      </Flex>
+                    )}
+                    options={localWorkCategories.map(c => ({ label: c.name, value: c.id }))}
                   />
                 </Form.Item>
               )}

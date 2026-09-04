@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { App, Button, Card, Col, Flex, Popconfirm, Row, Select, Statistic, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { CheckOutlined, CloseOutlined, DollarOutlined, FileTextOutlined } from '@ant-design/icons';
@@ -38,6 +38,14 @@ export function SubcontractorPaymentRequestsClient({ requests }: Props) {
   const { message } = App.useApp();
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.role === 'admin';
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   const filtered = useMemo(
     () => (statusFilter ? requests.filter((r) => r.status === statusFilter) : requests),
@@ -179,23 +187,23 @@ export function SubcontractorPaymentRequestsClient({ requests }: Props) {
       </Flex>
 
       <Card className={cardClassName}>
-        <Row gutter={16} className="mb-4">
-          <Col xs={12} sm={6} md={4}>
+        <Row gutter={[16, 16]} className="mb-4">
+          <Col xs={12} sm={6}>
             <Card size="small" className="border! border-amber-500/20! bg-amber-500/5!">
               <Statistic title={<Tag color="warning">Pending</Tag>} value={counts.pending} />
             </Card>
           </Col>
-          <Col xs={12} sm={6} md={4}>
+          <Col xs={12} sm={6}>
             <Card size="small" className="border! border-blue-500/20! bg-blue-500/5!">
               <Statistic title={<Tag color="blue">Accepted</Tag>} value={counts.accepted} />
             </Card>
           </Col>
-          <Col xs={12} sm={6} md={4}>
+          <Col xs={12} sm={6}>
             <Card size="small" className="border! border-emerald-500/20! bg-emerald-500/5!">
               <Statistic title={<Tag color="success">Admin Approved</Tag>} value={counts.adminApproved} />
             </Card>
           </Col>
-          <Col xs={12} sm={6} md={4}>
+          <Col xs={12} sm={6}>
             <Card size="small" className="border! border-red-500/20! bg-red-500/5!">
               <Statistic title={<Tag color="error">Rejected</Tag>} value={counts.rejected} />
             </Card>
@@ -206,21 +214,101 @@ export function SubcontractorPaymentRequestsClient({ requests }: Props) {
           <Select
             allowClear
             placeholder="Filter by status"
-            style={{ width: 200 }}
+            style={{ width: isMobile ? '100%' : 200 }}
             value={statusFilter || undefined}
             onChange={(val) => setStatusFilter(val || '')}
             options={STATUS_OPTIONS}
           />
         </Flex>
 
-        <Table
-          dataSource={filtered}
-          columns={columns}
-          rowKey="id"
-          pagination={{ pageSize: 10 }}
-          scroll={{ x: 1300 }}
-          locale={{ emptyText: 'No subcontractor payment requests from purchase team' }}
-        />
+        {isMobile ? (
+          <div className="flex flex-col">
+            {filtered.length === 0 ? (
+              <div className="p-4 text-center text-gray-400">No subcontractor payment requests from purchase team</div>
+            ) : (
+              filtered.map((record) => {
+                const pendingActions = record.status === 'pending';
+                const acceptedActions = record.status === 'accepted' && isAdmin;
+                return (
+                  <div key={record.id} className="border-b border-[var(--border)] p-3 last:border-b-0">
+                    <Flex justify="space-between" align="center" className="mb-1">
+                      <Typography.Text strong className="text-sm">{record.subcontractor?.name || record.subcontractorId}</Typography.Text>
+                      <Tag color={STATUS_COLORS[record.status] || 'default'} className="m-0!">
+                        {STATUS_LABELS[record.status] || record.status.toUpperCase()}
+                      </Tag>
+                    </Flex>
+                    <div className="flex flex-col gap-0.5 text-xs text-[var(--text-muted)]">
+                      {record.project?.name && <span>Project: {record.project.name}</span>}
+                      {record.subcontractWorkOrder?.woNumber && <span>WO: {record.subcontractWorkOrder.woNumber}</span>}
+                      <Flex justify="space-between" align="center" className="mt-1">
+                        <Typography.Text strong>{formatCurrency(record.amount)}</Typography.Text>
+                        <span>{record.createdAt ? formatDate(record.createdAt) : ''}</span>
+                      </Flex>
+                    </div>
+                    {(pendingActions || acceptedActions) && (
+                      <Flex gap={8} className="mt-2">
+                        {pendingActions && (
+                          <>
+                            <Popconfirm
+                              title="Accept payment request?"
+                              onConfirm={() => handleRespond(record.id, 'accepted')}
+                              okText="Yes, accept"
+                              cancelText="No"
+                            >
+                              <Button size="small" type="primary" ghost icon={<CheckOutlined />} loading={isPending}>Accept</Button>
+                            </Popconfirm>
+                            <Popconfirm
+                              title="Reject this request?"
+                              onConfirm={() => handleRespond(record.id, 'rejected')}
+                              okText="Yes"
+                              cancelText="No"
+                              okButtonProps={{ danger: true }}
+                            >
+                              <Button size="small" danger icon={<CloseOutlined />} loading={isPending}>Reject</Button>
+                            </Popconfirm>
+                          </>
+                        )}
+                        {acceptedActions && (
+                          <>
+                            <Popconfirm
+                              title="Give final approval?"
+                              onConfirm={() => handleRespond(record.id, 'admin_approved')}
+                              okText="Yes, approve"
+                              cancelText="No"
+                            >
+                              <Button size="small" type="primary" ghost icon={<CheckOutlined />} loading={isPending}>Final Approve</Button>
+                            </Popconfirm>
+                            <Popconfirm
+                              title="Reject this request?"
+                              onConfirm={() => handleRespond(record.id, 'rejected')}
+                              okText="Yes"
+                              cancelText="No"
+                              okButtonProps={{ danger: true }}
+                            >
+                              <Button size="small" danger icon={<CloseOutlined />} loading={isPending}>Reject</Button>
+                            </Popconfirm>
+                          </>
+                        )}
+                      </Flex>
+                    )}
+                    {record.status === 'accepted' && !isAdmin && (
+                      <Typography.Text type="secondary" className="text-xs mt-2 block">Awaiting admin approval</Typography.Text>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        ) : (
+          <Table
+            dataSource={filtered}
+            columns={columns}
+            rowKey="id"
+            pagination={{ pageSize: 10 }}
+            scroll={{ x: 1300 }}
+            locale={{ emptyText: 'No subcontractor payment requests from purchase team' }}
+          />
+        )}
       </Card>
     </div>
   );
