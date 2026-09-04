@@ -31,25 +31,6 @@ const STANDARD_WEEKLY_HOURS = STANDARD_DAILY_HOURS * STANDARD_WORKING_DAYS;
 
 const ALL_PROJECTS_VALUE = '__ALL__';
 
-function clampDayTotals(rows: GridRow[]): { rows: GridRow[]; clamped: boolean } {
-  const working = rows.map((r) => ({ ...r, hours: [...r.hours] }));
-  let clamped = false;
-  for (let d = 0; d < DAYS.length; d++) {
-    const total = working.reduce((s, r) => s + (r.hours[d] || 0), 0);
-    if (total <= DAY_LIMIT_HOURS) continue;
-    let excess = total - DAY_LIMIT_HOURS;
-    clamped = true;
-    for (let i = working.length - 1; i >= 0 && excess > 0.001; i--) {
-      const cur = working[i].hours[d] || 0;
-      if (cur <= 0) continue;
-      const cut = Math.min(cur, excess);
-      working[i].hours[d] = Math.round((cur - cut) * 100) / 100;
-      excess = Math.round((excess - cut) * 100) / 100;
-    }
-  }
-  return { rows: working, clamped };
-}
-
 type FixedKind = (typeof FIXED_CATEGORIES)[number]['kind'];
 
 type GridRow = {
@@ -159,7 +140,7 @@ function HoursCell({
 }) {
   const [draft, setDraft] = useState<string>(String(value || 0));
 
-  const clamp = (n: number) => Math.min(DAY_LIMIT_HOURS, Math.max(0, n));
+  const clamp = (n: number) => Math.max(0, n);
 
   return (
     <Input
@@ -451,12 +432,7 @@ export function TimesheetAttendanceClient({ projects }: Props) {
           message.error('Select a project for every row that has hours');
           return;
         }
-        const { rows: cappedRows, clamped } = clampDayTotals(rows);
-        if (clamped) {
-          setRows(cappedRows);
-          message.warning('Max 8 hrs per day — extra hours removed. Please enter within 8 hrs only.');
-        }
-        const payloadRows = rowsToPayload(cappedRows);
+        const payloadRows = rowsToPayload(rows);
         if (payloadRows.length === 0) {
           message.error('Enter hours for at least one day before submitting');
           return;
@@ -722,7 +698,7 @@ export function TimesheetAttendanceClient({ projects }: Props) {
                       key={i}
                       className={`border border-[var(--border)] px-2 py-2 text-center font-semibold ${t > DAY_LIMIT_HOURS ? 'text-red-400' : 'text-[var(--text-secondary)]'}`}
                     >
-                      {Math.min(t, DAY_LIMIT_HOURS).toFixed(1)}
+                      {t.toFixed(1)}
                     </td>
                   ))}
                   <td className="border border-[var(--border)]" />
