@@ -670,7 +670,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                     <Drawer
                       title="Notifications"
                       placement="bottom"
-                      height="70vh"
+                      size="large"
                       open={adminNotifOpen}
                       onClose={() => setAdminNotifOpen(false)}
                     >
@@ -722,7 +722,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                     <Drawer
                       title="Notifications"
                       placement="bottom"
-                      height="70vh"
+                      size="large"
                       open={notifOpen}
                       onClose={() => setNotifOpen(false)}
                     >

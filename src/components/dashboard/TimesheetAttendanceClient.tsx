@@ -133,10 +133,12 @@ function HoursCell({
   value,
   onChange,
   disabled,
+  commitOnBlur = false,
 }: {
   value: number;
   onChange: (v: number) => void;
   disabled: boolean;
+  commitOnBlur?: boolean;
 }) {
   const [draft, setDraft] = useState<string>(String(value || 0));
 
@@ -153,7 +155,7 @@ function HoursCell({
       onChange={(e) => {
         const sanitized = e.target.value.replace(/[^0-9.]/g, '');
         setDraft(sanitized);
-        if (sanitized !== '' && sanitized !== '.') {
+        if (!commitOnBlur && sanitized !== '' && sanitized !== '.') {
           const n = Number(sanitized);
           if (Number.isFinite(n)) onChange(clamp(n));
         }
@@ -186,6 +188,7 @@ export function TimesheetAttendanceClient({ projects }: Props) {
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.role === 'admin';
   const canSeeFullWeek = isAdmin || ['accounts_manager', 'purchase_team', 'site_engineer'].includes(user?.role || '');
+  const canSplitAllProjects = isAdmin || user?.role === 'purchase_team' || user?.role === 'accounts_manager';
 
   const isDayVisible = (dayIdx: number, weekStartDate: Date) => {
     if (canSeeFullWeek) return true;
@@ -381,13 +384,13 @@ export function TimesheetAttendanceClient({ projects }: Props) {
     }
 
     // "All Projects" row: expand into one real row per active project,
-    // evenly splitting the entered hours across them.
+    // dividing the entered hours equally across all projects.
     if (target?.projectId === ALL_PROJECTS_VALUE) {
       if (projects.length === 0) {
         message.error('No active projects to split across');
         return;
       }
-      const perProject = Math.round((value / projects.length) * 100) / 100;
+      const perProject = Math.round((value / projects.length) * 10) / 10;
       setRows((prev) => {
         const others = prev.filter((r) => r.key !== key);
         const existingByProject = new Map(
@@ -406,7 +409,7 @@ export function TimesheetAttendanceClient({ projects }: Props) {
         );
         return [...expanded, ...untouchedRows];
       });
-      message.success(`Split ${value} hrs across ${projects.length} projects`);
+      message.success(`${value} hrs split across ${projects.length} projects (${perProject} each)`);
       return;
     }
 
@@ -572,7 +575,7 @@ export function TimesheetAttendanceClient({ projects }: Props) {
                       value={row.projectId || undefined}
                       onChange={(val) => setProjectId(row.key, val || null)}
                       options={[
-                        ...(isAdmin ? [{ label: 'All Projects', value: ALL_PROJECTS_VALUE }] : []),
+                        ...(canSplitAllProjects ? [{ label: 'All Projects', value: ALL_PROJECTS_VALUE }] : []),
                         ...projects.map((p) => ({ label: p.name, value: p.id })),
                       ]}
                       size="small"
@@ -593,6 +596,7 @@ export function TimesheetAttendanceClient({ projects }: Props) {
                           value={row.hours[dayIdx] || 0}
                           onChange={(v) => setHour(row.key, dayIdx, v)}
                           disabled={disabled}
+                          commitOnBlur={row.projectId === ALL_PROJECTS_VALUE}
                         />
                       </td>
                     );

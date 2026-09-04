@@ -8,7 +8,7 @@ import { ArrowLeftOutlined, EyeOutlined, UserOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs';
 import { clientApiFetch } from '@/lib/client-api';
 import type { WeeklyTimesheet, PagedResponse } from '@/types/erp';
-import { verifyTimesheet, approveTimesheet, rejectTimesheet } from '@/actions/timesheet-approval';
+import { verifyTimesheet, approveTimesheet, rejectTimesheet, resetTimesheetStatus } from '@/actions/timesheet-approval';
 import { cardClassName, formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName } from './ui';
 
 const STATUS_OPTIONS = [
@@ -87,6 +87,13 @@ export function EmployeeAttendanceDetailClient() {
     });
   };
 
+  const handleResetStatus = (id: string) => {
+    startTransition(async () => {
+      try { await resetTimesheetStatus(id); message.success('Status reset to pending'); setTimesheets((prev) => prev.map((t) => t.id === id ? { ...t, status: 'pending' } : t)); }
+      catch (e) { message.error(e instanceof Error ? e.message : 'Failed'); }
+    });
+  };
+
   const columns: ColumnsType<WeeklyTimesheet> = [
     {
       title: 'Week', key: 'week',
@@ -115,6 +122,7 @@ export function EmployeeAttendanceDetailClient() {
             if (newStatus === record.status) return;
             if (newStatus === 'approved') handleApprove(record.id);
             else if (newStatus === 'rejected') handleReject(record.id);
+            else if (newStatus === 'pending') handleResetStatus(record.id);
           }}
           options={STATUS_OPTIONS}
           popupMatchSelectWidth={false}

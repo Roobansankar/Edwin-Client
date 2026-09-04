@@ -4,10 +4,10 @@ import { useEffect, useState, useTransition } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { App, Avatar, Button, Card, Col, Flex, Popconfirm, Row, Spin, Statistic, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { ArrowLeftOutlined, CheckCircleOutlined, CloseCircleOutlined, SafetyCertificateOutlined, UserOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, CheckCircleOutlined, CloseCircleOutlined, SafetyCertificateOutlined, UndoOutlined, UserOutlined } from '@ant-design/icons';
 import { clientApiFetch } from '@/lib/client-api';
 import type { WeeklyTimesheet, TimesheetRow, Project } from '@/types/erp';
-import { verifyTimesheet, approveTimesheet, rejectTimesheet } from '@/actions/timesheet-approval';
+import { verifyTimesheet, approveTimesheet, rejectTimesheet, resetTimesheetStatus } from '@/actions/timesheet-approval';
 import { StatusTag, cardClassName, formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName } from './ui';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -59,6 +59,13 @@ export function TimesheetWeekDetailClient() {
   const handleReject = () => {
     startTransition(async () => {
       try { await rejectTimesheet(timesheetId); message.success('Timesheet rejected'); setTimesheet((t) => t ? { ...t, status: 'rejected' } : t); }
+      catch (e) { message.error(e instanceof Error ? e.message : 'Failed'); }
+    });
+  };
+
+  const handleResetStatus = () => {
+    startTransition(async () => {
+      try { await resetTimesheetStatus(timesheetId); message.success('Status reset to pending'); setTimesheet((t) => t ? { ...t, status: 'pending' } : t); }
       catch (e) { message.error(e instanceof Error ? e.message : 'Failed'); }
     });
   };
@@ -163,6 +170,11 @@ export function TimesheetWeekDetailClient() {
         <Popconfirm title="Reject this timesheet?" onConfirm={handleReject} disabled={timesheet.status === 'approved' || timesheet.status === 'rejected'}>
           <Button danger icon={<CloseCircleOutlined />} loading={isPending} disabled={timesheet.status === 'approved' || timesheet.status === 'rejected'}>
             Reject
+          </Button>
+        </Popconfirm>
+        <Popconfirm title="Reset status to pending?" onConfirm={handleResetStatus} disabled={timesheet.status === 'pending'}>
+          <Button icon={<UndoOutlined />} loading={isPending} disabled={timesheet.status === 'pending'}>
+            Reset to Pending
           </Button>
         </Popconfirm>
       </Flex>

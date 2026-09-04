@@ -51,6 +51,25 @@ export async function approveTimesheet(id: string) {
   }
 }
 
+export async function resetTimesheetStatus(id: string) {
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/timesheet-attendance/${id}/reset-status`, {
+      method: 'PATCH',
+      headers,
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to reset status' }));
+      throw new Error(error.message || 'Failed to reset status');
+    }
+    revalidatePath('/dashboard/approvals');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
+  }
+}
+
 export async function rejectTimesheet(id: string) {
   try {
     const headers = await getAuthHeaders();
