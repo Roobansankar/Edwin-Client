@@ -201,17 +201,17 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
   };
 
   const columns: ColumnsType<PurchaseEnquiry> = [
-    { title: 'S.No', key: 'sno', width: 80, render: (_, __, i) => i + 1 },
-    { title: 'Enquiry No', dataIndex: 'enquiryNo', key: 'enquiryNo', width: 150 },
+    { title: 'S.No', key: 'sno', width: 60, render: (_, __, i) => i + 1 },
+    { title: 'Enquiry No', dataIndex: 'enquiryNo', key: 'enquiryNo', width: 140 },
 
-    { title: 'Project', key: 'project', width: 180, render: (_, r) => r.project?.name || r.projectId },
+    { title: 'Project', key: 'project', width: 160, render: (_, r) => r.project?.name || r.projectId },
     ...(!isSiteEngineer
-      ? [{ title: 'Site Engineer', key: 'creator', width: 160, render: (_: unknown, r: PurchaseEnquiry) => r.creator?.name || r.createdBy || '-' }]
+      ? [{ title: 'Site Engineer', key: 'creator', width: 140, render: (_: unknown, r: PurchaseEnquiry) => r.creator?.name || r.createdBy || '-' }]
       : []),
     {
       title: 'Items',
       key: 'items',
-      width: 250,
+      width: 200,
       render: (_, r) => (
         <Flex vertical>
           {r.items?.map((item, i) => (
@@ -279,7 +279,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
       title: 'Created',
       dataIndex: 'createdAt',
       key: 'createdAt',
-      width: 120,
+      width: 110,
       render: (v: string) => formatDate(v),
     },
     {
@@ -359,7 +359,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
 
       <Card
         className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
-        styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
+        styles={{ body: { padding: '8px 0' } }}
       >
         <Table
           className="mantis-table"
@@ -369,7 +369,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
           loading={isPending}
           size="middle"
           pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (total) => `${total} enquiries` }}
-          scroll={{ x: 1300 }}
+          scroll={{ x: 1200 }}
           locale={{ emptyText: isSiteEngineer ? 'No material requirements yet. Create one!' : 'No material requirement requests yet.' }}
         />
       </Card>

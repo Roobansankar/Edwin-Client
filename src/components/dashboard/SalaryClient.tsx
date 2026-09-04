@@ -136,6 +136,7 @@ export function SalaryClient({ salaries }: SalaryClientProps) {
       title: 'Exp in Years',
       dataIndex: 'expInYears',
       width: 120,
+      responsive: ['md'],
       sorter: (a, b) => a.expInYears.localeCompare(b.expInYears),
       render: (value) => <Typography.Text code>{value} yrs</Typography.Text>,
     },
@@ -150,6 +151,7 @@ export function SalaryClient({ salaries }: SalaryClientProps) {
       title: 'Avg Cost / Hr',
       dataIndex: 'avgCostPerHr',
       width: 140,
+      responsive: ['md'],
       sorter: (a, b) => Number(a.avgCostPerHr) - Number(b.avgCostPerHr),
       render: (value) => formatCurrency(value),
     },
@@ -157,6 +159,7 @@ export function SalaryClient({ salaries }: SalaryClientProps) {
       title: 'Booking Cost',
       dataIndex: 'bookingCost',
       width: 140,
+      responsive: ['lg'],
       sorter: (a, b) => Number(a.bookingCost) - Number(b.bookingCost),
       render: (value) => formatCurrency(value),
     },
@@ -170,8 +173,8 @@ export function SalaryClient({ salaries }: SalaryClientProps) {
     {
       title: 'Actions',
       key: 'actions',
-      fixed: 'right',
       width: 100,
+      responsive: ['md'],
       render: (_, record) => (
         <Space>
           <Button
@@ -238,7 +241,7 @@ export function SalaryClient({ salaries }: SalaryClientProps) {
           columns={columns}
           rowKey="id"
           size="middle"
-          scroll={{ x: 1200 }}
+          scroll={{ x: 'max-content' }}
           pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} salary records` }}
         />
       </Card>
