@@ -48,7 +48,7 @@ function LoginForm() {
     >
       <Space orientation="vertical" size="large" className="w-full text-center">
         <div>
-          <img src="/logo.png" alt="Edwin Constructions" className="mx-auto mb-3 h-16 w-16 object-contain" />
+          <img src="/logo.png" alt="Edwin Constructions" className="mx-auto mb-3 h-24 w-24 object-contain" />
           <Text className="text-sm text-[var(--text-muted)]!">ERP Management System</Text>
         </div>
 
