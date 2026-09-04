@@ -728,6 +728,9 @@ export type VendorQuotation = {
   materialRequirement?: { id: string; enquiryNo: string; project?: Project; items?: { description: string; quantity: number }[] };
   items: { description: string; quantity: number }[];
   totalAmount?: number | null;
+  gstPercent?: number | null;
+  gstAmount?: number | null;
+  totalWithGst?: number | null;
   quotationUrl?: string | null;
   quotationKey?: string | null;
   status: string;
