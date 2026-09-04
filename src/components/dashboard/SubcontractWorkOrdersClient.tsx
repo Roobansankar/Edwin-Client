@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Button,
@@ -109,6 +109,22 @@ export function SubcontractWorkOrdersClient({
   const statusOptions = isPurchaseTeam
     ? STATUS_OPTIONS.filter((opt) => opt.value !== 'admin_approved')
     : STATUS_OPTIONS;
+
+  // Preview of the number the backend will actually assign on save - mirrors
+  // generateWoNumber() in subcontract-work-orders.service.ts (same prefix,
+  // same year-scoped sequence). The server has the final say at save time;
+  // this is just so the form doesn't show a placeholder in the meantime.
+  const nextWoNumber = useMemo(() => {
+    const year = new Date().getFullYear();
+    const prefix = `SWO-${year}-`;
+    let maxSeq = 0;
+    for (const wo of workOrders) {
+      if (!wo.woNumber?.startsWith(prefix)) continue;
+      const seq = parseInt(wo.woNumber.slice(prefix.length), 10);
+      if (!isNaN(seq) && seq > maxSeq) maxSeq = seq;
+    }
+    return `${prefix}${String(maxSeq + 1).padStart(3, '0')}`;
+  }, [workOrders]);
 
   const handleStatusChange = (id: string, status: string) => {
     startTransition(async () => {
@@ -305,9 +321,9 @@ export function SubcontractWorkOrdersClient({
     },
     {
       title: 'Project',
-      dataIndex: ['project', 'name'],
       key: 'project',
       width: 180,
+      render: (_, record) => record.project?.projectCode || record.project?.name || '-',
     },
     {
       title: 'Subcontractor',
@@ -542,7 +558,7 @@ export function SubcontractWorkOrdersClient({
         <Form layout="vertical">
           <Form.Item label="WO Number">
             <Input
-              value={editingSwo ? editingSwo.woNumber : 'Auto-generated on save'}
+              value={editingSwo ? editingSwo.woNumber : nextWoNumber}
               disabled
             />
           </Form.Item>
