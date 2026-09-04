@@ -251,7 +251,7 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
 
       <Card
         className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
-        styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
+        styles={{ body: { padding: '8px 0' } }}
       >
         <Table
           className="mantis-table"
@@ -295,7 +295,7 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
             )}
           />
 
-          <Flex gap={16}>
+          <div className="flex flex-col gap-4 sm:flex-row sm:gap-4">
             <Controller
               control={control}
               name="workCategoryId"
@@ -342,7 +342,7 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
                 </Form.Item>
               )}
             />
-          </Flex>
+          </div>
 
           <Controller
             control={control}
@@ -364,7 +364,7 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
             )}
           />
 
-          <Flex gap={16}>
+          <div className="flex flex-col gap-4 sm:flex-row sm:gap-4">
             <Controller
               control={control}
               name="email"
@@ -388,7 +388,7 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
                 </Form.Item>
               )}
             />
-          </Flex>
+          </div>
 
           <Controller
             control={control}

@@ -199,7 +199,7 @@ export function VendorsClient({ vendors }: VendorsClientProps) {
 
       <Card
         className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
-        styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
+        styles={{ body: { padding: '8px 0' } }}
       >
         <Table
           className="mantis-table"
