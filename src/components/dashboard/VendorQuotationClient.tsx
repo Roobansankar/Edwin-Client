@@ -7,7 +7,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, UploadOutlined, DeleteOutlined, EyeOutlined, FileTextOutlined, EditOutlined } from '@ant-design/icons';
 import type { Project, Vendor, VendorQuotation, PurchaseEnquiry } from '@/types/erp';
-import { cardClassName, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
+import { cardClassName, formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
 import { clientApiFetch } from '@/lib/client-api';
 
 type Props = {
@@ -344,6 +344,14 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
             <Typography.Text key={idx} className="text-xs ml-2">{i.description} — Qty: {i.quantity}</Typography.Text>
           ))}
         </Flex>
+      ),
+    },
+    {
+      title: 'Total Amount', key: 'totalAmount', width: 130, align: 'right',
+      render: (_, r) => r.totalAmount ? (
+        <Typography.Text strong>{formatCurrency(r.totalAmount)}</Typography.Text>
+      ) : (
+        <Typography.Text type="secondary">-</Typography.Text>
       ),
     },
     {
