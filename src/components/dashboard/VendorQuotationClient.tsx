@@ -105,6 +105,23 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
   const [editFile, setEditFile] = useState<File | null>(null);
   const [editSaving, setEditSaving] = useState(false);
 
+  // Add-another-vendor-to-an-existing-enquiry-group flow: reuses the same
+  // POST /vendor-quotations endpoint the multi-vendor "New Enquiry" form
+  // uses, just passing the existing group's groupId so it joins that group
+  // instead of starting a new one.
+  const [addVendorOpen, setAddVendorOpen] = useState(false);
+  const [addVendorGroup, setAddVendorGroup] = useState<{
+    groupId: string;
+    materialRequirementId?: string | null;
+    projectId: string;
+    items: QuotationItem[];
+  } | null>(null);
+  const [addVendorId, setAddVendorId] = useState('');
+  const [addVendorItemIndices, setAddVendorItemIndices] = useState<number[]>([]);
+  const [addVendorTotalAmount, setAddVendorTotalAmount] = useState<number | null>(null);
+  const [addVendorFile, setAddVendorFile] = useState<File | null>(null);
+  const [addVendorSaving, setAddVendorSaving] = useState(false);
+
   const quotedMrIds = useMemo(
     () => new Set(data.filter((q) => q.materialRequirementId).map((q) => q.materialRequirementId as string)),
     [data],
@@ -290,6 +307,75 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
     }
   };
 
+  const openAddVendor = (r: VendorQuotation) => {
+    const items = r.materialRequirement?.items?.length ? r.materialRequirement.items : r.items;
+    setAddVendorGroup({ groupId: r.groupId, materialRequirementId: r.materialRequirementId, projectId: r.projectId, items });
+    setAddVendorId('');
+    setAddVendorItemIndices([]);
+    setAddVendorTotalAmount(null);
+    setAddVendorFile(null);
+    setAddVendorOpen(true);
+  };
+
+  const closeAddVendor = () => {
+    setAddVendorOpen(false);
+    setAddVendorGroup(null);
+    setAddVendorId('');
+    setAddVendorItemIndices([]);
+    setAddVendorTotalAmount(null);
+    setAddVendorFile(null);
+  };
+
+  const toggleAddVendorItem = (idx: number) => {
+    setAddVendorItemIndices((prev) => {
+      const set = new Set(prev);
+      if (set.has(idx)) set.delete(idx); else set.add(idx);
+      return [...set].sort();
+    });
+  };
+
+  const submitAddVendor = async () => {
+    if (!addVendorGroup) return;
+    if (!addVendorId) { message.error('Select a vendor'); return; }
+    if (!addVendorItemIndices.length) { message.error('Select at least one item'); return; }
+
+    setAddVendorSaving(true);
+    try {
+      const items = addVendorItemIndices.map((idx) => ({
+        description: addVendorGroup.items[idx].description,
+        quantity: Number(addVendorGroup.items[idx].quantity),
+      }));
+
+      const quotation = await apiPost('/vendor-quotations', {
+        projectId: addVendorGroup.projectId,
+        vendorId: addVendorId,
+        items,
+        totalAmount: addVendorTotalAmount || undefined,
+        materialRequirementId: addVendorGroup.materialRequirementId || undefined,
+        groupId: addVendorGroup.groupId,
+      });
+
+      if (addVendorFile) {
+        const fd = new FormData();
+        fd.append('quotation', addVendorFile);
+        const res = await fetch(`/api/backend/vendor-quotations/${quotation.id}/upload`, {
+          method: 'POST',
+          credentials: 'same-origin',
+          body: fd,
+        });
+        if (!res.ok) throw new Error(`Upload failed (${res.status})`);
+      }
+
+      message.success('Vendor added to enquiry');
+      closeAddVendor();
+      fetchData();
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : 'Failed to add vendor');
+    } finally {
+      setAddVendorSaving(false);
+    }
+  };
+
   const flatData = data.reduce<Array<VendorQuotation & { _groupSize: number; _isFirst: boolean }>>((acc, r, idx) => {
     const prev = data[idx - 1];
     const isNewGroup = !prev || prev.groupId !== r.groupId;
@@ -310,6 +396,15 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
         const sno = flatData.slice(0, idx + 1).filter((x) => x._isFirst).length;
         return sno;
       },
+    },
+    {
+      title: '', key: 'addVendor', width: 90,
+      onCell: (r) => ({ rowSpan: r._isFirst ? r._groupSize : 0 }),
+      render: (_, r) => r._isFirst ? (
+        <Button type="dashed" size="small" icon={<PlusOutlined />} onClick={() => openAddVendor(r)}>
+          Vendor
+        </Button>
+      ) : null,
     },
     {
       title: 'MR Ref', key: 'mr', width: 130,
@@ -678,6 +773,74 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
               </Button>
             </Upload>
           </Form.Item>
+        </Flex>
+      </Drawer>
+
+      <Drawer
+        title="Add Vendor to Enquiry"
+        open={addVendorOpen}
+        onClose={closeAddVendor}
+        destroyOnClose
+        extra={
+          <Space>
+            <Button onClick={closeAddVendor}>Cancel</Button>
+            <Button type="primary" loading={addVendorSaving} onClick={submitAddVendor}>Add Vendor</Button>
+          </Space>
+        }
+      >
+        <Flex vertical gap={16}>
+          <Form.Item label="Vendor" required>
+            <Select
+              placeholder="Select vendor"
+              showSearch
+              optionFilterProp="label"
+              value={addVendorId || undefined}
+              onChange={setAddVendorId}
+              options={vendors.map((v) => ({ value: v.id, label: v.name }))}
+              style={{ width: '100%' }}
+            />
+          </Form.Item>
+
+          <div>
+            <Typography.Text strong className="text-sm">Assign Items to this Vendor</Typography.Text>
+            {!addVendorGroup?.items.length ? (
+              <Typography.Text type="secondary" className="block mt-1">No items available</Typography.Text>
+            ) : (
+              <Checkbox.Group value={addVendorItemIndices} className="mt-2 block">
+                <Flex vertical gap={4}>
+                  {addVendorGroup.items.map((item, idx) => (
+                    <Checkbox key={idx} value={idx} onChange={() => toggleAddVendorItem(idx)}>
+                      {item.description} — Qty: {item.quantity}
+                    </Checkbox>
+                  ))}
+                </Flex>
+              </Checkbox.Group>
+            )}
+          </div>
+
+          <Form.Item label="Total Amount" className="mb-0">
+            <InputNumber
+              className="w-full"
+              min={0}
+              placeholder="Enter quoted total amount"
+              value={addVendorTotalAmount}
+              onChange={setAddVendorTotalAmount}
+            />
+          </Form.Item>
+
+          <Upload
+            accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx"
+            beforeUpload={async (file) => {
+              const compressed = await compressImage(file, 1920, 0.7);
+              setAddVendorFile(compressed);
+              return false;
+            }}
+            onRemove={() => setAddVendorFile(null)}
+            maxCount={1}
+            fileList={addVendorFile ? [{ uid: '-1', name: addVendorFile.name, status: 'done' }] : []}
+          >
+            <Button icon={<UploadOutlined />}>Upload Quotation Bill</Button>
+          </Upload>
         </Flex>
       </Drawer>
 
