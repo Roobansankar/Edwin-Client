@@ -64,9 +64,17 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
 
   const [previewPo, setPreviewPo] = useState<PurchaseOrder | null>(null);
   const [isClient, setIsClient] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
   }, []);
 
   const vendorQuotations = useMemo(() => vendorQuotationsProp || [], [vendorQuotationsProp]);
@@ -289,9 +297,9 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
   const columns: ColumnsType<PurchaseOrder> = [
     { title: 'S.No', key: 'sno', width: 60, render: (_text, _record, index) => index + 1 },
     { title: 'PO Number', dataIndex: 'poNumber', sorter: (a, b) => a.poNumber.localeCompare(b.poNumber), render: (value: string) => <Typography.Text strong>{value}</Typography.Text> },
-    { title: 'MR Ref', dataIndex: 'materialRequirementNo', responsive: ['md'], sorter: (a, b) => (a.materialRequirementNo || '').localeCompare(b.materialRequirementNo || ''), render: (value?: string | null) => value || <Typography.Text type="secondary">-</Typography.Text> },
+    { title: 'MR Ref', dataIndex: 'materialRequirementNo', sorter: (a, b) => (a.materialRequirementNo || '').localeCompare(b.materialRequirementNo || ''), render: (value?: string | null) => value || <Typography.Text type="secondary">-</Typography.Text> },
     { title: 'Vendor', dataIndex: ['vendor', 'name'], sorter: (a, b) => (a.vendor?.name || '').localeCompare(b.vendor?.name || ''), render: (_value, record) => record.vendor?.name || '-' },
-    { title: 'Project', key: 'project', responsive: ['md'], sorter: (a, b) => (a.project?.name || '').localeCompare(b.project?.name || ''), render: (_value, record) => record.project ? `${record.project.name} (${record.project.projectCode || 'No Code'})` : '-' },
+    { title: 'Project', key: 'project', sorter: (a, b) => (a.project?.name || '').localeCompare(b.project?.name || ''), render: (_value, record) => record.project ? `${record.project.name} (${record.project.projectCode || 'No Code'})` : '-' },
     { title: 'Status', dataIndex: 'status', width: 150, filters: STATUS_OPTIONS.map((opt) => ({ text: opt.label, value: opt.value })), onFilter: (value, record) => record.status === value, render: (value: string, record) =>
       canUpdateStatus ? (
         <Select defaultValue={value} size="small" variant="borderless" className="w-full" onChange={(newStatus) => handleStatusChange(record.id, newStatus)} options={statusOptions} popupMatchSelectWidth={false} styles={{ popup: { root: { minWidth: 140 } } }} disabled={isPending} />
@@ -299,17 +307,17 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
         <Typography.Text>{value.charAt(0).toUpperCase() + value.slice(1)}</Typography.Text>
       ),
     },
-    { title: 'GST', key: 'gst', align: 'right', width: 100, responsive: ['xl'], render: (_, r) => (r.gstPercent ? `${Number(r.gstPercent)}%` : '-') },
-    { title: 'Total w/ GST', key: 'totalWithGst', align: 'right', width: 130, responsive: ['lg'], sorter: (a, b) => Number(a.totalWithGst || 0) - Number(b.totalWithGst || 0), render: (_, r) => formatCurrency(r.totalWithGst || r.totalAmount) },
-    { title: 'Paid Amount', key: 'advanceAmount', align: 'right', width: 120, responsive: ['lg'], sorter: (a, b) => Number(a.advanceAmount || 0) - Number(b.advanceAmount || 0), render: (_, r) => r.advanceAmount ? formatCurrency(r.advanceAmount) : <Typography.Text type="secondary">-</Typography.Text> },
-    { title: 'Balance Total', key: 'balanceTotal', align: 'right', width: 130, responsive: ['lg'], sorter: (a, b) => (Number(a.totalWithGst || a.totalAmount) - Number(a.paidAmount || 0)) - (Number(b.totalWithGst || b.totalAmount) - Number(b.paidAmount || 0)), render: (_, r) => {
+    { title: 'GST', key: 'gst', align: 'right', width: 100, render: (_, r) => (r.gstPercent ? `${Number(r.gstPercent)}%` : '-') },
+    { title: 'Total w/ GST', key: 'totalWithGst', align: 'right', width: 130, sorter: (a, b) => Number(a.totalWithGst || 0) - Number(b.totalWithGst || 0), render: (_, r) => formatCurrency(r.totalWithGst || r.totalAmount) },
+    { title: 'Paid Amount', key: 'advanceAmount', align: 'right', width: 120, sorter: (a, b) => Number(a.advanceAmount || 0) - Number(b.advanceAmount || 0), render: (_, r) => r.advanceAmount ? formatCurrency(r.advanceAmount) : <Typography.Text type="secondary">-</Typography.Text> },
+    { title: 'Balance Total', key: 'balanceTotal', align: 'right', width: 130, sorter: (a, b) => (Number(a.totalWithGst || a.totalAmount) - Number(a.paidAmount || 0)) - (Number(b.totalWithGst || b.totalAmount) - Number(b.paidAmount || 0)), render: (_, r) => {
       const balance = Number(r.totalWithGst || r.totalAmount) - Number(r.paidAmount || 0);
       return <Typography.Text strong={balance > 0}>{formatCurrency(balance)}</Typography.Text>;
     } },
     { title: 'History', key: 'history', width: 90, render: (_, record) => (
       <Button size="small" icon={<HistoryOutlined />} onClick={() => openHistory(record)}>History</Button>
     ) },
-    { title: 'PO', key: 'billFile', width: 120, responsive: ['lg'], render: (_, record) =>
+    { title: 'PO', key: 'billFile', width: 120, render: (_, record) =>
       record.billFileUrl ? <Button type="link" size="small" icon={<FilePdfOutlined />} href={record.billFileUrl} target="_blank">View PO</Button> : <Typography.Text type="secondary">—</Typography.Text>,
     },
     { title: 'PO PDF', key: 'poPdf', width: 130, render: (_, record) =>
@@ -317,7 +325,7 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
         <Button size="small" icon={<EyeOutlined />} onClick={() => setPreviewPo(record)}>Preview</Button>
       ) : null,
     },
-    { title: 'Created', dataIndex: 'createdAt', responsive: ['lg'], sorter: (a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime(), render: formatDate },
+    { title: 'Created', dataIndex: 'createdAt', sorter: (a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime(), render: formatDate },
     ...(canManagePo ? [{ title: 'Actions', key: 'actions', width: 100, render: (_: unknown, record: PurchaseOrder) => (
       <Space>
         <Button type="text" icon={<EditOutlined className="text-blue-500" />} title="Edit" onClick={() => handleEdit(record)} />
@@ -342,7 +350,54 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
       </Flex>
 
       <Card className={cardClassName} styles={{ body: { padding: 0 } }}>
-        <Table dataSource={purchaseOrders} columns={columns} rowKey="id" size="middle" scroll={{ x: 'max-content' }} pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} POs` }} />
+        {isMobile ? (
+          <div className="flex flex-col">
+            {purchaseOrders.length === 0 ? (
+              <div className="p-4 text-center text-gray-400">No purchase orders</div>
+            ) : (
+              purchaseOrders.map((record) => (
+                <div key={record.id} className="border-b border-[var(--border)] p-3 last:border-b-0">
+                  <Flex justify="space-between" align="center" className="mb-1">
+                    <Typography.Text strong className="text-sm">{record.poNumber}</Typography.Text>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full ${
+                        record.status === 'approved' ? 'bg-green-100 text-green-700' :
+                        record.status === 'admin_approved' ? 'bg-blue-100 text-blue-700' :
+                        record.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                        'bg-yellow-100 text-yellow-700'
+                      }`}
+                    >
+                      {record.status?.charAt(0).toUpperCase() + record.status?.slice(1)}
+                    </span>
+                  </Flex>
+                  <div className="flex flex-col gap-0.5 text-xs text-[var(--text-muted)]">
+                    <span>Vendor: {record.vendor?.name || '-'}</span>
+                    {record.project && <span>Project: {record.project.name} ({record.project.projectCode || 'No Code'})</span>}
+                    {record.materialRequirementNo && <span>MR Ref: {record.materialRequirementNo}</span>}
+                    <Flex justify="space-between" align="center" className="mt-1">
+                      <Typography.Text strong>{formatCurrency(record.totalWithGst || record.totalAmount)}</Typography.Text>
+                      <span>{record.createdAt ? formatDate(record.createdAt) : ''}</span>
+                    </Flex>
+                    {record.advanceAmount ? (
+                      <span className="text-green-600">Paid: {formatCurrency(record.advanceAmount)}</span>
+                    ) : null}
+                    <Flex gap={8} className="mt-2">
+                      {record.billFileUrl && (
+                        <Button type="link" size="small" icon={<FilePdfOutlined />} href={record.billFileUrl} target="_blank">View PO</Button>
+                      )}
+                      {isClient && (
+                        <Button size="small" icon={<EyeOutlined />} onClick={() => setPreviewPo(record)}>Preview</Button>
+                      )}
+                      <Button size="small" icon={<HistoryOutlined />} onClick={() => openHistory(record)}>History</Button>
+                    </Flex>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        ) : (
+          <Table dataSource={purchaseOrders} columns={columns} rowKey="id" size="middle" scroll={{ x: 'max-content' }} pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} POs` }} />
+        )}
       </Card>
 
       <Drawer
