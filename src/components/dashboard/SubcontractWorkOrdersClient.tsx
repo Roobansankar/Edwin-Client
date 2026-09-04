@@ -49,7 +49,6 @@ import { createPayment } from '@/actions/payments';
 import type { SubcontractWorkOrder, Project, Subcontractor, WorkCategory, Payment } from '@/types/erp';
 import { SubcontractWorkOrderPdf } from './SubcontractWorkOrderPdf';
 import {
-  cardClassName,
   formatCurrency,
   formatDate,
   pageHeaderClassName,
@@ -301,28 +300,33 @@ export function SubcontractWorkOrdersClient({
       title: 'WO Number',
       dataIndex: 'woNumber',
       key: 'woNumber',
+      width: 140,
       render: (text) => <Typography.Text strong>{text}</Typography.Text>,
     },
     {
       title: 'Project',
       dataIndex: ['project', 'name'],
       key: 'project',
+      width: 180,
     },
     {
       title: 'Subcontractor',
       dataIndex: ['subcontractor', 'name'],
       key: 'subcontractor',
+      width: 150,
     },
     {
       title: 'Category',
       dataIndex: ['workCategory', 'name'],
       key: 'category',
+      width: 130,
     },
     {
       title: 'Amount',
       dataIndex: 'amount',
       key: 'amount',
       align: 'right',
+      width: 110,
       render: (value: number | string) => formatCurrency(value),
     },
     {
@@ -330,18 +334,21 @@ export function SubcontractWorkOrdersClient({
       dataIndex: 'totalAmount',
       key: 'totalAmount',
       align: 'right',
+      width: 130,
       render: (value: number | string) => <Typography.Text strong>{formatCurrency(value)}</Typography.Text>,
     },
     {
       title: 'Paid',
       key: 'paidAmount',
       align: 'right',
+      width: 110,
       render: (_, record) => record.paidAmount ? formatCurrency(record.paidAmount) : <Typography.Text type="secondary">-</Typography.Text>,
     },
     {
       title: 'Balance',
       key: 'balance',
       align: 'right',
+      width: 110,
       render: (_, record) => {
         const balance = Number(record.totalAmount) - Number(record.paidAmount || 0);
         return <Typography.Text strong={balance > 0}>{formatCurrency(balance)}</Typography.Text>;
@@ -359,6 +366,7 @@ export function SubcontractWorkOrdersClient({
       title: 'Description',
       dataIndex: 'description',
       key: 'description',
+      width: 160,
       ellipsis: true,
       render: (val) => val || '-',
     },
@@ -417,6 +425,7 @@ export function SubcontractWorkOrdersClient({
     {
       title: 'Date Range',
       key: 'dates',
+      width: 160,
       render: (_, record) => (
         <Typography.Text className="text-xs">
           {record.startDate ? dayjs(record.startDate).format('DD/MM/YY') : '-'} to{' '}
@@ -499,28 +508,33 @@ export function SubcontractWorkOrdersClient({
         </Button>
       </Flex>
 
-      <Card className={cardClassName}>
+      <Card
+        className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
+        styles={{ body: { padding: '8px 0' } }}
+      >
         <Table
+          className="mantis-table"
           dataSource={workOrders}
           columns={columns}
           rowKey="id"
           size="middle"
-          scroll={{ x: 1400 }}
-          pagination={{ pageSize: 10 }}
+          scroll={{ x: 1900 }}
+          pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} work orders` }}
         />
       </Card>
 
       <Drawer
-        title={editingSwo ? `Edit Subcontract WO — ${editingSwo.woNumber}` : 'New Subcontract WO'}
+        title={editingSwo ? 'Edit Subcontract WO' : 'New Subcontract WO'}
         size="large"
         open={open}
         onClose={() => setOpen(false)}
         destroyOnClose
+        styles={{ header: { flexWrap: 'wrap', rowGap: 8 } }}
         extra={
           <Space>
             <Button onClick={() => setOpen(false)}>Cancel</Button>
             <Button type="primary" loading={isPending} onClick={handleSubmit(submit)}>
-              Save Work Order
+              Save
             </Button>
           </Space>
         }
