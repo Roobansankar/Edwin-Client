@@ -181,7 +181,6 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
     {
       title: 'Actions',
       key: 'actions',
-      fixed: 'right',
       width: 140,
       render: (_, record) => (
         <Space>
