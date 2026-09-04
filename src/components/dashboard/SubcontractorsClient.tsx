@@ -264,16 +264,17 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
       </Card>
 
       <Drawer
-        title={editingSubcontractor ? 'Edit Subcontractor' : 'Add New Subcontractor'}
+        title={editingSubcontractor ? 'Edit Subcontractor' : 'Add Subcontractor'}
         size="large"
         open={open}
         onClose={handleClose}
         destroyOnClose
+        styles={{ header: { flexWrap: 'wrap', rowGap: 8 } }}
         extra={
           <Space>
             <Button onClick={handleClose}>Cancel</Button>
             <Button type="primary" loading={isPending} onClick={handleSubmit(submit)}>
-              {editingSubcontractor ? 'Update Subcontractor' : 'Save Subcontractor'}
+              {editingSubcontractor ? 'Update' : 'Save'}
             </Button>
           </Space>
         }
