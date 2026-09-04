@@ -336,7 +336,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
       },
     },
     {
-      title: 'Vendor — Items', key: 'vendorItems', width: 280,
+      title: 'Vendor — Items', key: 'vendorItems', width: 200,
       render: (_, r) => (
         <Flex vertical>
           <Typography.Text strong className="text-xs">{r.vendor?.name || r.vendorId}:</Typography.Text>
