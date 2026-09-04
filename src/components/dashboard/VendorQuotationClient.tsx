@@ -312,7 +312,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
       },
     },
     {
-      title: 'MR Ref', key: 'mr', width: 130, responsive: ['md'],
+      title: 'MR Ref', key: 'mr', width: 130,
       onCell: (r) => ({ rowSpan: r._isFirst ? r._groupSize : 0 }),
       render: (_, r) => r.materialRequirement?.enquiryNo || '-',
     },
@@ -322,7 +322,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
       render: (_, r) => r.project?.name || r.projectId,
     },
     {
-      title: 'MR Items', key: 'mrItems', width: 200, responsive: ['lg'],
+      title: 'MR Items', key: 'mrItems', width: 200,
       onCell: (r) => ({ rowSpan: r._isFirst ? r._groupSize : 0 }),
       render: (_, r) => {
         const items = r.materialRequirement?.items?.length ? r.materialRequirement.items : r.items;
@@ -347,7 +347,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
       ),
     },
     {
-      title: 'Quotation', key: 'quotation', width: 120, responsive: ['lg'],
+      title: 'Quotation', key: 'quotation', width: 120,
       render: (_, r) =>
         r.quotationUrl ? (
           <Button type="link" size="small" icon={<EyeOutlined />} onClick={() => setPreviewUrl(r.quotationUrl!)}>
@@ -381,7 +381,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
       />
     )},
     {
-      title: 'Date', key: 'createdAt', width: 110, responsive: ['lg'],
+      title: 'Date', key: 'createdAt', width: 110,
       onCell: (r) => ({ rowSpan: r._isFirst ? r._groupSize : 0 }),
       render: (_, r) => r.createdAt ? formatDate(r.createdAt) : '-',
     },
