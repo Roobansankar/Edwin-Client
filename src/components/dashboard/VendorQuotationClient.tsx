@@ -663,7 +663,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
                   )}
                 </div>
 
-                <Flex gap={16}>
+                <div className="flex flex-col gap-4 sm:flex-row">
                   <Form.Item label="Basic Amount" className="mb-0 flex-1">
                     <InputNumber
                       className="w-full"
@@ -674,9 +674,9 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
                     />
                   </Form.Item>
                   <Form.Item label="GST %" className="mb-0">
-                    <InputNumber min={0} max={100} addonAfter="%" value={section.gstPercent ?? undefined} onChange={(v) => setSectionGstPercent(sIdx, v ?? null)} />
+                    <InputNumber className="w-full sm:w-auto" min={0} max={100} addonAfter="%" value={section.gstPercent ?? undefined} onChange={(v) => setSectionGstPercent(sIdx, v ?? null)} />
                   </Form.Item>
-                </Flex>
+                </div>
 
                 {(() => {
                   const { basicAmount, gstAmount, total } = calcGst(section.totalAmount, section.gstPercent);
@@ -784,7 +784,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
             </Button>
           </div>
 
-          <Flex gap={16}>
+          <div className="flex flex-col gap-4 sm:flex-row">
             <Form.Item label="Basic Amount" className="flex-1">
               <InputNumber
                 className="w-full"
@@ -795,9 +795,9 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
               />
             </Form.Item>
             <Form.Item label="GST %">
-              <InputNumber min={0} max={100} addonAfter="%" value={editGstPercent ?? undefined} onChange={(v) => setEditGstPercent(v ?? null)} />
+              <InputNumber className="w-full sm:w-auto" min={0} max={100} addonAfter="%" value={editGstPercent ?? undefined} onChange={(v) => setEditGstPercent(v ?? null)} />
             </Form.Item>
-          </Flex>
+          </div>
 
           {(() => {
             const { basicAmount, gstAmount, total } = calcGst(editTotalAmount, editGstPercent);
@@ -839,6 +839,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
 
       <Drawer
         title="Add Vendor to Enquiry"
+        size="large"
         open={addVendorOpen}
         onClose={closeAddVendor}
         destroyOnClose
@@ -879,7 +880,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
             )}
           </div>
 
-          <Flex gap={16}>
+          <div className="flex flex-col gap-4 sm:flex-row">
             <Form.Item label="Basic Amount" className="mb-0 flex-1">
               <InputNumber
                 className="w-full"
@@ -890,9 +891,9 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
               />
             </Form.Item>
             <Form.Item label="GST %" className="mb-0">
-              <InputNumber min={0} max={100} addonAfter="%" value={addVendorGstPercent ?? undefined} onChange={(v) => setAddVendorGstPercent(v ?? null)} />
+              <InputNumber className="w-full sm:w-auto" min={0} max={100} addonAfter="%" value={addVendorGstPercent ?? undefined} onChange={(v) => setAddVendorGstPercent(v ?? null)} />
             </Form.Item>
-          </Flex>
+          </div>
 
           {(() => {
             const { basicAmount, gstAmount, total } = calcGst(addVendorTotalAmount, addVendorGstPercent);
