@@ -102,9 +102,9 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
       description: i.description,
       quantity: Number(i.quantity),
       unit: 'nos',
-      rate: 0,
+      rate: Number(i.rate) || 0,
     })),
-    gstPercent: 0,
+    gstPercent: Number(q.gstPercent) || 0,
   });
 
   const handleEnquirySelect = useCallback((value: string) => {
@@ -448,9 +448,9 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
             <Form.Item label="Quotation Reference" className="mb-6">
               <Flex align="center" gap={16} wrap="wrap">
                 <Typography.Text>
-                  Quoted Total:{' '}
+                  Quoted Total (incl. GST):{' '}
                   <Typography.Text strong>
-                    {selectedQuotation.totalAmount ? formatCurrency(selectedQuotation.totalAmount) : 'Not entered'}
+                    {selectedQuotation.totalAmount ? formatCurrency(selectedQuotation.totalWithGst || selectedQuotation.totalAmount) : 'Not entered'}
                   </Typography.Text>
                 </Typography.Text>
                 {selectedQuotation.quotationUrl && (

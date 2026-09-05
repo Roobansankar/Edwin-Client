@@ -15,14 +15,22 @@ type Props = {
   projects: Project[];
 };
 
-type QuotationItem = { description: string; quantity: number };
-type VendorSection = { vendorId: string; itemIndices: number[]; file: File | null; totalAmount: number | null; gstPercent: number | null };
+type QuotationItem = { description: string; quantity: number; rate?: number };
+type VendorSection = { vendorId: string; itemIndices: number[]; itemRates: Record<number, number>; file: File | null; gstPercent: number | null };
 
 function calcGst(basicAmount: number | null, gstPercent: number | null) {
   const basic = basicAmount || 0;
   const percent = gstPercent || 0;
   const gstAmount = Number(((basic * percent) / 100).toFixed(2));
   return { basicAmount: basic, gstAmount, total: Number((basic + gstAmount).toFixed(2)) };
+}
+
+// Basic amount for a vendor section is the sum of qty x rate across whichever
+// MR items that vendor was assigned (same "computed, not typed" model as
+// Purchase Orders) - lets a per-unit rate entered here carry straight into a
+// Purchase Order later instead of starting from zero.
+function calcSectionBasic(itemIndices: number[], itemRates: Record<number, number>, items: QuotationItem[]) {
+  return itemIndices.reduce((sum, idx) => sum + Number(items[idx]?.quantity || 0) * Number(itemRates[idx] || 0), 0);
 }
 
 const apiPost = async (path: string, data: unknown) => {
@@ -100,7 +108,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
   const [materialRequirements, setMaterialRequirements] = useState<PurchaseEnquiry[]>([]);
   const [mrItems, setMrItems] = useState<QuotationItem[]>([]);
   const [vendorSections, setVendorSections] = useState<VendorSection[]>([
-    { vendorId: '', itemIndices: [], file: null, totalAmount: null, gstPercent: null },
+    { vendorId: '', itemIndices: [], itemRates: {}, file: null, gstPercent: null },
   ]);
 
   const [editOpen, setEditOpen] = useState(false);
@@ -108,7 +116,6 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
   const [editProjectId, setEditProjectId] = useState('');
   const [editVendorId, setEditVendorId] = useState('');
   const [editItems, setEditItems] = useState<QuotationItem[]>([]);
-  const [editTotalAmount, setEditTotalAmount] = useState<number | null>(null);
   const [editGstPercent, setEditGstPercent] = useState<number | null>(null);
   const [editFile, setEditFile] = useState<File | null>(null);
   const [editSaving, setEditSaving] = useState(false);
@@ -126,7 +133,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
   } | null>(null);
   const [addVendorId, setAddVendorId] = useState('');
   const [addVendorItemIndices, setAddVendorItemIndices] = useState<number[]>([]);
-  const [addVendorTotalAmount, setAddVendorTotalAmount] = useState<number | null>(null);
+  const [addVendorItemRates, setAddVendorItemRates] = useState<Record<number, number>>({});
   const [addVendorGstPercent, setAddVendorGstPercent] = useState<number | null>(null);
   const [addVendorFile, setAddVendorFile] = useState<File | null>(null);
   const [addVendorSaving, setAddVendorSaving] = useState(false);
@@ -160,13 +167,13 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
     setProjectId('');
     setSelectedMR(null);
     setMrItems([]);
-    setVendorSections([{ vendorId: '', itemIndices: [], file: null, totalAmount: null, gstPercent: null }]);
+    setVendorSections([{ vendorId: '', itemIndices: [], itemRates: {}, file: null, gstPercent: null }]);
   };
 
   useEffect(() => { fetchData(); }, []);
 
   const addVendorSection = () => {
-    setVendorSections([...vendorSections, { vendorId: '', itemIndices: [], file: null, totalAmount: null, gstPercent: null }]);
+    setVendorSections([...vendorSections, { vendorId: '', itemIndices: [], itemRates: {}, file: null, gstPercent: null }]);
   };
 
   const removeVendorSection = (idx: number) => {
@@ -193,9 +200,9 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
     setVendorSections(copy);
   };
 
-  const setSectionTotalAmount = (sectionIdx: number, totalAmount: number | null) => {
+  const setSectionItemRate = (sectionIdx: number, itemIdx: number, rate: number) => {
     const copy = [...vendorSections];
-    copy[sectionIdx].totalAmount = totalAmount;
+    copy[sectionIdx].itemRates = { ...copy[sectionIdx].itemRates, [itemIdx]: rate };
     setVendorSections(copy);
   };
 
@@ -219,13 +226,14 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
           const items = section.itemIndices.map((idx) => ({
             description: mrItems[idx].description,
             quantity: Number(mrItems[idx].quantity),
+            rate: Number(section.itemRates[idx] || 0) || undefined,
           }));
 
           const body: Record<string, unknown> = {
             projectId,
             vendorId: section.vendorId,
             items,
-            totalAmount: section.totalAmount || undefined,
+            totalAmount: calcSectionBasic(section.itemIndices, section.itemRates, mrItems) || undefined,
             gstPercent: section.gstPercent || undefined,
             materialRequirementId: selectedMR || undefined,
           };
@@ -259,8 +267,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
     setEditRecord(record);
     setEditProjectId(record.projectId);
     setEditVendorId(record.vendorId);
-    setEditItems(record.items.map((i) => ({ description: i.description, quantity: i.quantity })));
-    setEditTotalAmount(record.totalAmount ? Number(record.totalAmount) : null);
+    setEditItems(record.items.map((i) => ({ description: i.description, quantity: i.quantity, rate: i.rate ? Number(i.rate) : undefined })));
     setEditGstPercent(record.gstPercent ? Number(record.gstPercent) : null);
     setEditFile(null);
     setEditOpen(true);
@@ -272,12 +279,11 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
     setEditProjectId('');
     setEditVendorId('');
     setEditItems([]);
-    setEditTotalAmount(null);
     setEditGstPercent(null);
     setEditFile(null);
   };
 
-  const updateEditItem = (idx: number, field: 'description' | 'quantity', value: string | number) => {
+  const updateEditItem = (idx: number, field: 'description' | 'quantity' | 'rate', value: string | number) => {
     const copy = [...editItems];
     copy[idx] = { ...copy[idx], [field]: value } as QuotationItem;
     setEditItems(copy);
@@ -297,11 +303,12 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
 
     setEditSaving(true);
     try {
+      const editBasicAmount = editItems.reduce((sum, i) => sum + Number(i.quantity || 0) * Number(i.rate || 0), 0);
       await apiPatch(`/vendor-quotations/${editRecord.id}`, {
         projectId: editProjectId,
         vendorId: editVendorId,
-        items: editItems.map((i) => ({ description: i.description, quantity: Number(i.quantity) })),
-        totalAmount: editTotalAmount || undefined,
+        items: editItems.map((i) => ({ description: i.description, quantity: Number(i.quantity), rate: Number(i.rate || 0) || undefined })),
+        totalAmount: editBasicAmount || undefined,
         gstPercent: editGstPercent || undefined,
       });
 
@@ -331,7 +338,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
     setAddVendorGroup({ groupId: r.groupId, materialRequirementId: r.materialRequirementId, projectId: r.projectId, items });
     setAddVendorId('');
     setAddVendorItemIndices([]);
-    setAddVendorTotalAmount(null);
+    setAddVendorItemRates({});
     setAddVendorGstPercent(null);
     setAddVendorFile(null);
     setAddVendorOpen(true);
@@ -342,7 +349,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
     setAddVendorGroup(null);
     setAddVendorId('');
     setAddVendorItemIndices([]);
-    setAddVendorTotalAmount(null);
+    setAddVendorItemRates({});
     setAddVendorGstPercent(null);
     setAddVendorFile(null);
   };
@@ -355,6 +362,10 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
     });
   };
 
+  const setAddVendorItemRate = (idx: number, rate: number) => {
+    setAddVendorItemRates((prev) => ({ ...prev, [idx]: rate }));
+  };
+
   const submitAddVendor = async () => {
     if (!addVendorGroup) return;
     if (!addVendorId) { message.error('Select a vendor'); return; }
@@ -365,13 +376,14 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
       const items = addVendorItemIndices.map((idx) => ({
         description: addVendorGroup.items[idx].description,
         quantity: Number(addVendorGroup.items[idx].quantity),
+        rate: Number(addVendorItemRates[idx] || 0) || undefined,
       }));
 
       const quotation = await apiPost('/vendor-quotations', {
         projectId: addVendorGroup.projectId,
         vendorId: addVendorId,
         items,
-        totalAmount: addVendorTotalAmount || undefined,
+        totalAmount: calcSectionBasic(addVendorItemIndices, addVendorItemRates, addVendorGroup.items) || undefined,
         gstPercent: addVendorGstPercent || undefined,
         materialRequirementId: addVendorGroup.materialRequirementId || undefined,
         groupId: addVendorGroup.groupId,
@@ -588,11 +600,11 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
                 if (mr) {
                   setProjectId(mr.projectId);
                   setMrItems(mr.items.map((i) => ({ description: i.description, quantity: i.quantity })));
-                  setVendorSections([{ vendorId: '', itemIndices: [], file: null, totalAmount: null, gstPercent: null }]);
+                  setVendorSections([{ vendorId: '', itemIndices: [], itemRates: {}, file: null, gstPercent: null }]);
                 } else {
                   setMrItems([]);
                   setProjectId('');
-                  setVendorSections([{ vendorId: '', itemIndices: [], file: null, totalAmount: null, gstPercent: null }]);
+                  setVendorSections([{ vendorId: '', itemIndices: [], itemRates: {}, file: null, gstPercent: null }]);
                 }
               }}
               options={availableMrs.map((m) => ({
@@ -651,35 +663,38 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
                   {mrItems.length === 0 ? (
                     <Typography.Text type="secondary" className="block mt-1">Select an MR first</Typography.Text>
                   ) : (
-                    <Checkbox.Group value={section.itemIndices} className="mt-2 block">
-                      <Flex vertical gap={4}>
+                    <Checkbox.Group value={section.itemIndices} className="mt-2 block w-full">
+                      <Flex vertical gap={8} className="w-full">
                         {mrItems.map((item, idx) => (
-                          <Checkbox key={idx} value={idx} onChange={() => toggleItem(sIdx, idx)}>
-                            {item.description} — Qty: {item.quantity}
-                          </Checkbox>
+                          <Flex key={idx} align="center" gap={8} wrap="wrap">
+                            <Checkbox value={idx} onChange={() => toggleItem(sIdx, idx)}>
+                              {item.description} — Qty: {item.quantity}
+                            </Checkbox>
+                            {section.itemIndices.includes(idx) && (
+                              <InputNumber
+                                size="small"
+                                min={0}
+                                placeholder="Rate/unit"
+                                prefix="₹"
+                                style={{ width: 130 }}
+                                value={section.itemRates[idx]}
+                                onChange={(v) => setSectionItemRate(sIdx, idx, v ?? 0)}
+                              />
+                            )}
+                          </Flex>
                         ))}
                       </Flex>
                     </Checkbox.Group>
                   )}
                 </div>
 
-                <div className="flex flex-col gap-4 sm:flex-row">
-                  <Form.Item label="Basic Amount" className="mb-0 flex-1">
-                    <InputNumber
-                      className="w-full"
-                      min={0}
-                      placeholder="Enter quoted basic amount"
-                      value={section.totalAmount}
-                      onChange={(v) => setSectionTotalAmount(sIdx, v)}
-                    />
-                  </Form.Item>
-                  <Form.Item label="GST %" className="mb-0">
-                    <InputNumber className="w-full sm:w-auto" min={0} max={100} addonAfter="%" value={section.gstPercent ?? undefined} onChange={(v) => setSectionGstPercent(sIdx, v ?? null)} />
-                  </Form.Item>
-                </div>
+                <Form.Item label="GST %" className="mb-0">
+                  <InputNumber className="w-full sm:w-auto" min={0} max={100} addonAfter="%" value={section.gstPercent ?? undefined} onChange={(v) => setSectionGstPercent(sIdx, v ?? null)} />
+                </Form.Item>
 
                 {(() => {
-                  const { basicAmount, gstAmount, total } = calcGst(section.totalAmount, section.gstPercent);
+                  const basic = calcSectionBasic(section.itemIndices, section.itemRates, mrItems);
+                  const { basicAmount, gstAmount, total } = calcGst(basic, section.gstPercent);
                   return (
                     <Flex gap={16} align="center">
                       <Form.Item label="Basic" className="mb-0"><Typography.Text strong>{formatCurrency(basicAmount)}</Typography.Text></Form.Item>
@@ -754,19 +769,27 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
             <Typography.Text strong className="text-sm">Items</Typography.Text>
             <Flex vertical gap={8} className="mt-2!">
               {editItems.map((item, idx) => (
-                <Flex key={idx} gap={8} align="center">
+                <Flex key={idx} gap={8} align="center" wrap="wrap">
                   <Input
                     placeholder="Description"
                     value={item.description}
                     onChange={(e) => updateEditItem(idx, 'description', e.target.value)}
-                    style={{ flex: 1 }}
+                    style={{ flex: 1, minWidth: 140 }}
                   />
                   <InputNumber
                     placeholder="Qty"
                     min={1}
                     value={item.quantity}
                     onChange={(v) => updateEditItem(idx, 'quantity', v ?? 1)}
-                    style={{ width: 100 }}
+                    style={{ width: 90 }}
+                  />
+                  <InputNumber
+                    placeholder="Rate/unit"
+                    min={0}
+                    prefix="₹"
+                    value={item.rate}
+                    onChange={(v) => updateEditItem(idx, 'rate', v ?? 0)}
+                    style={{ width: 130 }}
                   />
                   <Button
                     type="link"
@@ -784,23 +807,13 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
             </Button>
           </div>
 
-          <div className="flex flex-col gap-4 sm:flex-row">
-            <Form.Item label="Basic Amount" className="flex-1">
-              <InputNumber
-                className="w-full"
-                min={0}
-                placeholder="Enter quoted basic amount"
-                value={editTotalAmount}
-                onChange={setEditTotalAmount}
-              />
-            </Form.Item>
-            <Form.Item label="GST %">
-              <InputNumber className="w-full sm:w-auto" min={0} max={100} addonAfter="%" value={editGstPercent ?? undefined} onChange={(v) => setEditGstPercent(v ?? null)} />
-            </Form.Item>
-          </div>
+          <Form.Item label="GST %">
+            <InputNumber className="w-full sm:w-auto" min={0} max={100} addonAfter="%" value={editGstPercent ?? undefined} onChange={(v) => setEditGstPercent(v ?? null)} />
+          </Form.Item>
 
           {(() => {
-            const { basicAmount, gstAmount, total } = calcGst(editTotalAmount, editGstPercent);
+            const editBasic = editItems.reduce((sum, i) => sum + Number(i.quantity || 0) * Number(i.rate || 0), 0);
+            const { basicAmount, gstAmount, total } = calcGst(editBasic, editGstPercent);
             return (
               <Flex gap={16} align="center">
                 <Form.Item label="Basic" className="mb-0"><Typography.Text strong>{formatCurrency(basicAmount)}</Typography.Text></Form.Item>
@@ -868,35 +881,38 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
             {!addVendorGroup?.items.length ? (
               <Typography.Text type="secondary" className="block mt-1">No items available</Typography.Text>
             ) : (
-              <Checkbox.Group value={addVendorItemIndices} className="mt-2 block">
-                <Flex vertical gap={4}>
+              <Checkbox.Group value={addVendorItemIndices} className="mt-2 block w-full">
+                <Flex vertical gap={8} className="w-full">
                   {addVendorGroup.items.map((item, idx) => (
-                    <Checkbox key={idx} value={idx} onChange={() => toggleAddVendorItem(idx)}>
-                      {item.description} — Qty: {item.quantity}
-                    </Checkbox>
+                    <Flex key={idx} align="center" gap={8} wrap="wrap">
+                      <Checkbox value={idx} onChange={() => toggleAddVendorItem(idx)}>
+                        {item.description} — Qty: {item.quantity}
+                      </Checkbox>
+                      {addVendorItemIndices.includes(idx) && (
+                        <InputNumber
+                          size="small"
+                          min={0}
+                          placeholder="Rate/unit"
+                          prefix="₹"
+                          style={{ width: 130 }}
+                          value={addVendorItemRates[idx]}
+                          onChange={(v) => setAddVendorItemRate(idx, v ?? 0)}
+                        />
+                      )}
+                    </Flex>
                   ))}
                 </Flex>
               </Checkbox.Group>
             )}
           </div>
 
-          <div className="flex flex-col gap-4 sm:flex-row">
-            <Form.Item label="Basic Amount" className="mb-0 flex-1">
-              <InputNumber
-                className="w-full"
-                min={0}
-                placeholder="Enter quoted basic amount"
-                value={addVendorTotalAmount}
-                onChange={setAddVendorTotalAmount}
-              />
-            </Form.Item>
-            <Form.Item label="GST %" className="mb-0">
-              <InputNumber className="w-full sm:w-auto" min={0} max={100} addonAfter="%" value={addVendorGstPercent ?? undefined} onChange={(v) => setAddVendorGstPercent(v ?? null)} />
-            </Form.Item>
-          </div>
+          <Form.Item label="GST %" className="mb-0">
+            <InputNumber className="w-full sm:w-auto" min={0} max={100} addonAfter="%" value={addVendorGstPercent ?? undefined} onChange={(v) => setAddVendorGstPercent(v ?? null)} />
+          </Form.Item>
 
           {(() => {
-            const { basicAmount, gstAmount, total } = calcGst(addVendorTotalAmount, addVendorGstPercent);
+            const addVendorBasic = addVendorGroup ? calcSectionBasic(addVendorItemIndices, addVendorItemRates, addVendorGroup.items) : 0;
+            const { basicAmount, gstAmount, total } = calcGst(addVendorBasic, addVendorGstPercent);
             return (
               <Flex gap={16} align="center">
                 <Form.Item label="Basic" className="mb-0"><Typography.Text strong>{formatCurrency(basicAmount)}</Typography.Text></Form.Item>
