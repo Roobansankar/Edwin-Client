@@ -565,6 +565,7 @@ export type DailyWorker = {
   eveningPhoto4Url?: string | null;
   eveningPhoto5Url?: string | null;
   status?: string;
+  reviewRemarks?: string | null;
 };
 
 export type DailyLabourReport = {

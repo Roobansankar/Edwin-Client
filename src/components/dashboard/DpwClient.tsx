@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { App, Button, Card, Flex, Select, Tag, Typography, Table, Space, Drawer } from 'antd';
+import { App, Button, Card, Flex, Select, Tag, Typography, Table, Space, Drawer, Tooltip } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { CalendarOutlined, PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -160,9 +160,28 @@ export function DpwClient({
       dataIndex: 'status',
       key: 'status',
       width: 130,
-      render: (status: string) => {
+      render: (status: string, record: DailyLabourReport) => {
         const colorMap: Record<string, string> = { pending: 'default', admin_approved: 'processing', approved: 'success', rejected: 'error' };
-        return <Tag color={colorMap[status] || 'default'}>{status ? status.replace('_', ' ') : 'pending'}</Tag>;
+        const tag = <Tag color={colorMap[status] || 'default'}>{status ? status.replace('_', ' ') : 'pending'}</Tag>;
+
+        const rejectedWorkers = record.workers?.filter((w) => w.status === 'rejected') || [];
+        if (status !== 'rejected' || rejectedWorkers.length === 0) return tag;
+
+        return (
+          <Tooltip
+            title={
+              <Space orientation="vertical" size={4}>
+                {rejectedWorkers.map((w) => (
+                  <div key={w.id}>
+                    <strong>{w.trade}</strong>{w.reviewRemarks ? `: ${w.reviewRemarks}` : ' — no remark given'}
+                  </div>
+                ))}
+              </Space>
+            }
+          >
+            {tag}
+          </Tooltip>
+        );
       },
     },
   ];

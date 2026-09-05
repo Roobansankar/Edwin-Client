@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Card, Flex, Typography, Tag, Space, Row, Col, Image, Button, Spin, Alert, Divider, Select, message } from 'antd';
+import { Card, Flex, Typography, Tag, Space, Row, Col, Image, Button, Spin, Alert, Divider, Select, Modal, Input, message } from 'antd';
 import { CalendarOutlined, ArrowLeftOutlined, ProjectOutlined, TeamOutlined, PictureOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { clientApiFetch } from '@/lib/client-api';
@@ -28,6 +28,8 @@ export function DailyLabourDetailClient() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<{ workerId: string; trade: string } | null>(null);
+  const [rejectRemark, setRejectRemark] = useState('');
 
   useEffect(() => {
     async function loadData() {
@@ -71,24 +73,49 @@ export function DailyLabourDetailClient() {
   const totalShift = report.workers.reduce((acc, w) => acc + (Number(w.count) || 1) * (Number(w.shift) || 0), 0);
   const totalAmount = report.workers.reduce((acc, w) => acc + (Number(w.count) || 1) * (Number(w.shift) || 0) * getShiftRate(w), 0);
 
-  const handleWorkerStatusChange = async (workerId: string, status: string) => {
+  const handleWorkerStatusChange = async (workerId: string, status: string, remarks?: string) => {
     try {
-      const updated = await clientApiFetch<DailyWorker>(`/daily-labour/${id}/workers/${workerId}/status`, {
+      const body: { status: string; remarks?: string } = { status };
+      if (remarks !== undefined) body.remarks = remarks;
+      await clientApiFetch<DailyWorker>(`/daily-labour/${id}/workers/${workerId}/status`, {
         method: 'PATCH',
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(body),
         headers: { 'Content-Type': 'application/json' },
       });
       setReport((prev) => {
         if (!prev) return prev;
         return {
           ...prev,
-          workers: prev.workers.map((w) => (w.id === workerId ? { ...w, status } : w)),
+          workers: prev.workers.map((w) =>
+            w.id === workerId
+              ? { ...w, status, reviewRemarks: remarks !== undefined ? (remarks || null) : w.reviewRemarks }
+              : w
+          ),
         };
       });
       message.success(`Trade status updated to ${status}`);
     } catch (err) {
       message.error(err instanceof Error ? err.message : 'Failed to update status');
     }
+  };
+
+  // Accounts/admin picking "Rejected" opens a small modal to capture why, so
+  // the site engineer gets a specific reason instead of a bare status flip.
+  const handleStatusSelect = (workerId: string, trade: string, newStatus: string) => {
+    if (newStatus === 'rejected') {
+      setRejectRemark('');
+      setRejectTarget({ workerId, trade });
+      return;
+    }
+    // Re-approving/resetting clears any earlier rejection remark so it
+    // doesn't linger once the issue has been resolved.
+    handleWorkerStatusChange(workerId, newStatus, '');
+  };
+
+  const submitRejection = () => {
+    if (!rejectTarget) return;
+    handleWorkerStatusChange(rejectTarget.workerId, 'rejected', rejectRemark.trim());
+    setRejectTarget(null);
   };
 
   const STATUS_OPTIONS = [
@@ -216,11 +243,11 @@ export function DailyLabourDetailClient() {
                       <Typography.Text type="secondary" className="text-xs uppercase block">Status</Typography.Text>
                       {canApprove ? (
                         <Select
-                          defaultValue={worker.status || 'pending'}
+                          value={worker.status || 'pending'}
                           size="small"
                           variant="borderless"
                           className="w-full"
-                          onChange={(newStatus) => handleWorkerStatusChange(worker.id, newStatus)}
+                          onChange={(newStatus) => handleStatusSelect(worker.id, worker.trade, newStatus)}
                           options={STATUS_OPTIONS}
                           popupMatchSelectWidth={false}
                         />
@@ -234,6 +261,16 @@ export function DailyLabourDetailClient() {
                       <Typography.Text type="secondary" className="text-xs uppercase block">Task/Remarks</Typography.Text>
                       <Typography.Text>{worker.remarks || '-'}</Typography.Text>
                     </Col>
+                    {worker.reviewRemarks && (
+                      <Col xs={24}>
+                        <Alert
+                          type={worker.status === 'rejected' ? 'error' : 'warning'}
+                          showIcon
+                          message="Remarks from Accounts"
+                          description={worker.reviewRemarks}
+                        />
+                      </Col>
+                    )}
                   </Row>
 
                   {hasPhotos && (
@@ -292,6 +329,26 @@ export function DailyLabourDetailClient() {
           </div>
         </Col>
       </Row>
+
+      <Modal
+        title="Reject Trade Entry"
+        open={!!rejectTarget}
+        onCancel={() => setRejectTarget(null)}
+        onOk={submitRejection}
+        okText="Reject"
+        okButtonProps={{ danger: true }}
+      >
+        <Typography.Paragraph>
+          Rejecting <Typography.Text strong>{rejectTarget?.trade}</Typography.Text>. The site engineer who submitted this
+          entry will be notified — add a remark so they know why.
+        </Typography.Paragraph>
+        <Input.TextArea
+          rows={3}
+          value={rejectRemark}
+          onChange={(e) => setRejectRemark(e.target.value)}
+          placeholder="Reason for rejection..."
+        />
+      </Modal>
     </div>
   );
 }
