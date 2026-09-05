@@ -22,7 +22,7 @@ export default function NewExpensePage() {
         clientApiFetch<Project[]>('/projects'),
         clientApiFetch<Trade[]>('/trades'),
         clientApiFetch<ExpenseType[]>('/expense-types'),
-        clientApiFetch<{ data: Expense[] }>('/expenses?limit=50'),
+        clientApiFetch<{ data: Expense[] }>('/expenses?limit=50&mine=true'),
       ]);
       setData({ projects, trades, expenseTypes, expenses: expensesRes.data });
     } catch (err) {

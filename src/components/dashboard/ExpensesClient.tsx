@@ -1,10 +1,9 @@
 'use client';
 
 import { useState, useTransition, useEffect, useMemo } from 'react';
-import { App, Button, Card, Col, DatePicker, Drawer, Flex, Row, Select, Space, Statistic, Table, Typography, Popconfirm, Tooltip, Image } from 'antd';
+import { App, Button, Card, Col, Drawer, Flex, Row, Select, Space, Statistic, Table, Typography, Popconfirm, Tooltip, Image } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DollarOutlined, PlusOutlined, EditOutlined, DeleteOutlined, FileTextOutlined, PictureOutlined } from '@ant-design/icons';
-import type { Dayjs } from 'dayjs';
 import { deleteExpense, updateExpenseStatus } from '@/actions/expenses';
 import type { Expense, Trade, Project, ExpenseType } from '@/types/erp';
 import { ExpenseForm } from './ExpenseForm';
@@ -20,13 +19,6 @@ import {
   titleIconClassName,
 } from './ui';
 
-function inRange(dateStr: string | null | undefined, range: [Dayjs | null, Dayjs | null]) {
-  if (!range[0] || !range[1] || !dateStr) return true;
-  const from = range[0].format('YYYY-MM-DD');
-  const to = range[1].format('YYYY-MM-DD');
-  const d = dateStr.split('T')[0];
-  return d >= from && d <= to;
-}
 const STATUS_OPTIONS = [
   { label: 'Pending', value: 'pending' },
   { label: 'Admin Approved', value: 'admin_approved' },
@@ -53,32 +45,14 @@ export function ExpensesClient({ expenses: initialExpenses, projects }: Expenses
     ? STATUS_OPTIONS.filter((opt) => opt.value !== 'admin_approved')
     : STATUS_OPTIONS;
 
-  const [projectFilter, setProjectFilter] = useState<string | undefined>();
-  const [creatorFilter, setCreatorFilter] = useState<string | undefined>();
-  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
-
-  const creatorOptions = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const e of expenses) {
-      if (e.creator?.id) map.set(e.creator.id, e.creator.name);
-    }
-    return Array.from(map, ([value, label]) => ({ value, label }));
-  }, [expenses]);
-
-  const filteredExpenses = useMemo(
-    () =>
-      expenses.filter(
-        (e) =>
-          (!projectFilter || e.projectId === projectFilter) &&
-          (!creatorFilter || e.creator?.id === creatorFilter) &&
-          inRange(e.expenseDate, dateRange),
-      ),
-    [expenses, projectFilter, creatorFilter, dateRange],
-  );
-
+  // This page is each user's own expense list — like site engineers already
+  // get — so no cross-user filter is needed here; the backend (via
+  // `mine=true`) only ever returns the current user's own expenses.
+  // Reviewing/approving everyone else's submissions happens on the
+  // dedicated Approvals page instead.
   const totalAmount = useMemo(
-    () => filteredExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0),
-    [filteredExpenses],
+    () => expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0),
+    [expenses],
   );
 
   useEffect(() => {
@@ -93,7 +67,7 @@ export function ExpensesClient({ expenses: initialExpenses, projects }: Expenses
 
   const refreshExpenses = async () => {
     try {
-      const res = await clientApiFetch<{ data: Expense[] }>('/expenses?limit=100');
+      const res = await clientApiFetch<{ data: Expense[] }>('/expenses?limit=100&mine=true');
       setExpenses(res.data);
       const types = await clientApiFetch<ExpenseType[]>('/expense-types');
       setExpenseTypes(types);
@@ -295,44 +269,11 @@ export function ExpensesClient({ expenses: initialExpenses, projects }: Expenses
     <div>
       <Flex justify="space-between" align="center" className={pageHeaderClassName} gap={16} wrap="wrap">
         <Typography.Title level={3} className={pageTitleClassName}>
-          <DollarOutlined className={titleIconClassName} /> Expenses
+          <DollarOutlined className={titleIconClassName} /> My Expenses
         </Typography.Title>
         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
           Add Expense
         </Button>
-      </Flex>
-
-      <Flex gap={12} wrap="wrap" style={{ marginBottom: 16 }}>
-        <Select
-          showSearch
-          placeholder="Filter by project"
-          allowClear
-          style={{ minWidth: 220 }}
-          value={projectFilter}
-          onChange={setProjectFilter}
-          options={projects.map((p) => ({ value: p.id, label: p.name }))}
-          filterOption={(input, option) =>
-            String(option?.label || '').toLowerCase().includes(input.toLowerCase())
-          }
-        />
-        <Select
-          showSearch
-          placeholder="Filter by added by"
-          allowClear
-          style={{ minWidth: 200 }}
-          value={creatorFilter}
-          onChange={setCreatorFilter}
-          options={creatorOptions}
-          filterOption={(input, option) =>
-            String(option?.label || '').toLowerCase().includes(input.toLowerCase())
-          }
-        />
-        <DatePicker.RangePicker
-          value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
-          onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
-          allowClear
-          placeholder={['From', 'To']}
-        />
       </Flex>
 
       <Row gutter={[16, 16]} className="mb-4">
@@ -355,7 +296,7 @@ export function ExpensesClient({ expenses: initialExpenses, projects }: Expenses
       >
         <Table
           className="mantis-table"
-          dataSource={filteredExpenses}
+          dataSource={expenses}
           columns={columns}
           rowKey="id"
           size="middle"

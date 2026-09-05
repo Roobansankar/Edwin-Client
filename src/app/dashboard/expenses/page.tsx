@@ -12,7 +12,7 @@ type ExpensesPageData = {
 async function loadPageData(): Promise<ExpensesPageData> {
   try {
     const [expenses, projects] = await Promise.all([
-      fetchExpenses('limit=100'),
+      fetchExpenses('limit=100&mine=true'),
       fetchProjects(),
     ]);
     return { expenses: expenses.data, projects };

@@ -115,7 +115,7 @@ const navigationSections: Array<{ title: string; items: NavItem[]; allowedRoles?
       { key: '/dashboard/approvals', icon: <SafetyCertificateOutlined />, label: 'Approvals', allowedRoles: ['admin', 'accounts_manager'] },
       { key: '/dashboard/advance-requests', icon: <DollarOutlined />, label: 'Vendor Payment Requests', allowedRoles: ['admin', 'accounts_manager'] },
       { key: '/dashboard/subcontractor-payment-requests', icon: <DollarOutlined />, label: 'Subcontractor Payment Requests', allowedRoles: ['admin', 'accounts_manager'] },
-      { key: '/dashboard/expenses', icon: <WalletOutlined />, label: 'Expenses', allowedRoles: ['admin', 'accounts_manager'] },
+      { key: '/dashboard/expenses', icon: <WalletOutlined />, label: 'My Expenses', allowedRoles: ['admin', 'accounts_manager'] },
       { key: '/dashboard/payments', icon: <CreditCardOutlined />, label: 'Payments', allowedRoles: ['admin', 'accounts_manager'] },
     ],
   },
