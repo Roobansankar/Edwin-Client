@@ -129,6 +129,7 @@ export function ApprovalsClient({ bills, expenses, dailyReports }: Props) {
     { title: '#', key: 'sno', width: 50, render: (_, __, i) => i + 1 },
     { title: 'Date', dataIndex: 'reportDate', render: formatDate },
     { title: 'Project', key: 'project', render: (_, record) => record.project?.name || '-' },
+    { title: 'Site Engineer', key: 'siteEngineer', render: (_, record) => record.createdBy?.name || '-' },
     {
       title: 'Headcount', key: 'headcount',
       render: (_, record) => record.workers?.reduce((s, w) => s + Number(w.count || 1), 0) || 0,

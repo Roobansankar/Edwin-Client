@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Card, Flex, Typography, Tag, Table, Space, Row, Col, Image, Button, Spin, Alert, Divider, Select, message } from 'antd';
+import { Card, Flex, Typography, Tag, Space, Row, Col, Image, Button, Spin, Alert, Divider, Select, message } from 'antd';
 import { CalendarOutlined, ArrowLeftOutlined, ProjectOutlined, TeamOutlined, PictureOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { clientApiFetch } from '@/lib/client-api';
@@ -97,86 +97,6 @@ export function DailyLabourDetailClient() {
     { label: 'Rejected', value: 'rejected' },
   ];
 
-  const workerColumns = [
-    {
-      title: 'Trade',
-      dataIndex: 'trade',
-      key: 'trade',
-      render: (trade: string) => <Tag color="blue" className="text-sm px-3 py-1">{trade}</Tag>,
-    },
-    {
-      title: 'Count',
-      dataIndex: 'count',
-      key: 'count',
-      render: (count: number) => <Typography.Text strong className="text-lg text-sky-400">{count}</Typography.Text>,
-    },
-    {
-      title: 'Shift',
-      dataIndex: 'shift',
-      key: 'shift',
-      render: (shift: string) => <Tag color="blue">{shift}</Tag>,
-    },
-    {
-      title: 'Total Shift',
-      key: 'totalShift',
-      render: (_: unknown, record: DailyWorker) => {
-        const value = (Number(record.count) || 1) * (Number(record.shift) || 0);
-        return <Typography.Text strong className="text-sky-400">{value}</Typography.Text>;
-      },
-    },
-    ...(showAmount
-      ? [
-          {
-            title: 'Amount',
-            key: 'amount',
-            render: (_: unknown, record: DailyWorker) => {
-              const value = (Number(record.count) || 1) * (Number(record.shift) || 0) * getShiftRate(record);
-              return <Typography.Text strong className="text-emerald-400">{formatCurrency(value)}</Typography.Text>;
-            },
-          },
-        ]
-      : []),
-    {
-      title: 'In Time',
-      dataIndex: 'inTime',
-      key: 'inTime',
-      render: (time: string) => <Tag color="green">{formatTime(time)}</Tag>,
-    },
-    {
-      title: 'Out Time',
-      dataIndex: 'outTime',
-      key: 'outTime',
-      render: (time: string) => <Tag color="orange">{formatTime(time)}</Tag>,
-    },
-    {
-      title: 'Task/Remarks',
-      dataIndex: 'remarks',
-      key: 'remarks',
-      render: (text: string) => text || '-',
-    },
-    {
-      title: 'Status',
-      key: 'status',
-      width: 130,
-      render: (_: unknown, record: DailyWorker) =>
-        canApprove ? (
-          <Select
-            defaultValue={record.status || 'pending'}
-            size="small"
-            variant="borderless"
-            className="w-full"
-            onChange={(newStatus) => handleWorkerStatusChange(record.id, newStatus)}
-            options={STATUS_OPTIONS}
-            popupMatchSelectWidth={false}
-          />
-        ) : (
-          <Tag color={record.status === 'approved' ? 'success' : record.status === 'rejected' ? 'error' : 'default'}>
-            {record.status || 'pending'}
-          </Tag>
-        ),
-    },
-  ];
-
   return (
     <div className="space-y-6 pb-10">
       <Flex justify="space-between" align="center" wrap="wrap" gap={12}>
@@ -245,84 +165,127 @@ export function DailyLabourDetailClient() {
           </Card>
         </Col>
 
-        {/* Worker Table */}
+        {/* Worker + Photos, one trade at a time */}
         <Col xs={24} lg={16}>
-          <Card 
-            title={<><TeamOutlined className="mr-2 text-sky-400" /> Trade Attendance Log</>} 
-            className="border-[var(--border)] bg-[var(--subtle-bg)]"
-            styles={{ body: { padding: 0 } }}
-          >
-            <Table
-              dataSource={report.workers}
-              columns={workerColumns}
-              rowKey="id"
-              pagination={false}
-              className="border-none"
-              size="middle"
-              scroll={{ x: 1050 }}
-            />
-          </Card>
+          <Typography.Title level={4} className="mb-4">
+            <TeamOutlined className="mr-2 text-sky-400" /> Trade Attendance Log
+          </Typography.Title>
 
-          {/* Trade Photos Section */}
-          <Divider className="border-[var(--border)] text-[var(--text-muted)] mt-8">Site Photographs (Trade-wise)</Divider>
-          
           <div className="space-y-6">
             {report.workers.map((worker, index) => {
+              const rowTotalShift = (Number(worker.count) || 1) * (Number(worker.shift) || 0);
+              const rowAmount = rowTotalShift * getShiftRate(worker);
               const morningUrls = getSessionPhotoUrls(worker, 'morning');
               const eveningUrls = getSessionPhotoUrls(worker, 'evening');
-              if (morningUrls.length === 0 && eveningUrls.length === 0) return null;
+              const hasPhotos = morningUrls.length > 0 || eveningUrls.length > 0;
 
               return (
                 <Card
                   key={worker.id || index}
-                  title={<Typography.Text strong className="text-sky-400">{worker.trade} - Photos</Typography.Text>}
+                  title={<Typography.Text strong className="text-sky-400">{worker.trade}</Typography.Text>}
                   className="border-[var(--border)] bg-[var(--subtle-bg)]"
                 >
-                  <Row gutter={[24, 24]}>
-                    <Col xs={24} md={12}>
-                      <Typography.Text type="secondary" className="mb-2 block text-xs uppercase">Morning Session</Typography.Text>
-                      <Image.PreviewGroup>
-                        <Row gutter={[12, 12]}>
-                          {morningUrls.map((url, i) => (
-                            <Col span={12} key={i}>
-                              <Image
-                                src={url}
-                                className="rounded-lg object-cover w-full aspect-video border border-[var(--border)] shadow-lg hover:scale-[1.02] transition-transform"
-                                placeholder={<div className="w-full aspect-video bg-slate-800 animate-pulse rounded-lg" />}
-                              />
-                            </Col>
-                          ))}
-                          {morningUrls.length === 0 && (
-                            <Col span={24}>
-                              <Typography.Text type="secondary" italic className="text-xs">No morning photos</Typography.Text>
-                            </Col>
-                          )}
-                        </Row>
-                      </Image.PreviewGroup>
+                  <Row gutter={[16, 16]}>
+                    <Col xs={12} sm={6}>
+                      <Typography.Text type="secondary" className="text-xs uppercase block">Count</Typography.Text>
+                      <Typography.Text strong className="text-lg text-sky-400">{worker.count}</Typography.Text>
                     </Col>
-
-                    <Col xs={24} md={12}>
-                      <Typography.Text type="secondary" className="mb-2 block text-xs uppercase">Evening Session</Typography.Text>
-                      <Image.PreviewGroup>
-                        <Row gutter={[12, 12]}>
-                          {eveningUrls.map((url, i) => (
-                            <Col span={12} key={i}>
-                              <Image
-                                src={url}
-                                className="rounded-lg object-cover w-full aspect-video border border-[var(--border)] shadow-lg hover:scale-[1.02] transition-transform"
-                                placeholder={<div className="w-full aspect-video bg-slate-800 animate-pulse rounded-lg" />}
-                              />
-                            </Col>
-                          ))}
-                          {eveningUrls.length === 0 && (
-                            <Col span={24}>
-                              <Typography.Text type="secondary" italic className="text-xs">No evening photos</Typography.Text>
-                            </Col>
-                          )}
-                        </Row>
-                      </Image.PreviewGroup>
+                    <Col xs={12} sm={6}>
+                      <Typography.Text type="secondary" className="text-xs uppercase block">Shift</Typography.Text>
+                      <Tag color="blue">{worker.shift}</Tag>
+                    </Col>
+                    <Col xs={12} sm={6}>
+                      <Typography.Text type="secondary" className="text-xs uppercase block">Total Shift</Typography.Text>
+                      <Typography.Text strong className="text-sky-400">{rowTotalShift}</Typography.Text>
+                    </Col>
+                    {showAmount && (
+                      <Col xs={12} sm={6}>
+                        <Typography.Text type="secondary" className="text-xs uppercase block">Amount</Typography.Text>
+                        <Typography.Text strong className="text-emerald-400">{formatCurrency(rowAmount)}</Typography.Text>
+                      </Col>
+                    )}
+                    <Col xs={12} sm={6}>
+                      <Typography.Text type="secondary" className="text-xs uppercase block">In Time</Typography.Text>
+                      <Tag color="green">{formatTime(worker.inTime || '')}</Tag>
+                    </Col>
+                    <Col xs={12} sm={6}>
+                      <Typography.Text type="secondary" className="text-xs uppercase block">Out Time</Typography.Text>
+                      <Tag color="orange">{formatTime(worker.outTime || '')}</Tag>
+                    </Col>
+                    <Col xs={12} sm={6}>
+                      <Typography.Text type="secondary" className="text-xs uppercase block">Status</Typography.Text>
+                      {canApprove ? (
+                        <Select
+                          defaultValue={worker.status || 'pending'}
+                          size="small"
+                          variant="borderless"
+                          className="w-full"
+                          onChange={(newStatus) => handleWorkerStatusChange(worker.id, newStatus)}
+                          options={STATUS_OPTIONS}
+                          popupMatchSelectWidth={false}
+                        />
+                      ) : (
+                        <Tag color={worker.status === 'approved' ? 'success' : worker.status === 'rejected' ? 'error' : 'default'}>
+                          {worker.status || 'pending'}
+                        </Tag>
+                      )}
+                    </Col>
+                    <Col xs={24}>
+                      <Typography.Text type="secondary" className="text-xs uppercase block">Task/Remarks</Typography.Text>
+                      <Typography.Text>{worker.remarks || '-'}</Typography.Text>
                     </Col>
                   </Row>
+
+                  {hasPhotos && (
+                    <>
+                      <Divider className="border-[var(--border)] text-[var(--text-muted)]">Site Photographs</Divider>
+                      <Row gutter={[24, 24]}>
+                        <Col xs={24} md={12}>
+                          <Typography.Text type="secondary" className="mb-2 block text-xs uppercase">Morning Session</Typography.Text>
+                          <Image.PreviewGroup>
+                            <Row gutter={[12, 12]}>
+                              {morningUrls.map((url, i) => (
+                                <Col span={12} key={i}>
+                                  <Image
+                                    src={url}
+                                    className="rounded-lg object-cover w-full aspect-video border border-[var(--border)] shadow-lg hover:scale-[1.02] transition-transform"
+                                    placeholder={<div className="w-full aspect-video bg-slate-800 animate-pulse rounded-lg" />}
+                                  />
+                                </Col>
+                              ))}
+                              {morningUrls.length === 0 && (
+                                <Col span={24}>
+                                  <Typography.Text type="secondary" italic className="text-xs">No morning photos</Typography.Text>
+                                </Col>
+                              )}
+                            </Row>
+                          </Image.PreviewGroup>
+                        </Col>
+
+                        <Col xs={24} md={12}>
+                          <Typography.Text type="secondary" className="mb-2 block text-xs uppercase">Evening Session</Typography.Text>
+                          <Image.PreviewGroup>
+                            <Row gutter={[12, 12]}>
+                              {eveningUrls.map((url, i) => (
+                                <Col span={12} key={i}>
+                                  <Image
+                                    src={url}
+                                    className="rounded-lg object-cover w-full aspect-video border border-[var(--border)] shadow-lg hover:scale-[1.02] transition-transform"
+                                    placeholder={<div className="w-full aspect-video bg-slate-800 animate-pulse rounded-lg" />}
+                                  />
+                                </Col>
+                              ))}
+                              {eveningUrls.length === 0 && (
+                                <Col span={24}>
+                                  <Typography.Text type="secondary" italic className="text-xs">No evening photos</Typography.Text>
+                                </Col>
+                              )}
+                            </Row>
+                          </Image.PreviewGroup>
+                        </Col>
+                      </Row>
+                    </>
+                  )}
                 </Card>
               );
             })}
