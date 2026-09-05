@@ -71,6 +71,7 @@ const navigationSections: Array<{ title: string; items: NavItem[]; allowedRoles?
     title: 'Workspace',
     items: [
       { key: '/dashboard', icon: <AppstoreOutlined />, label: 'Dashboard', allowedRoles: ['admin', 'accounts_manager', 'site_engineer', 'purchase_team'] },
+      { key: '/dashboard/my-projects', icon: <ProjectOutlined />, label: 'My Projects', allowedRoles: ['site_engineer'] },
       { key: '/dashboard/new', icon: <FormOutlined />, label: 'Daily Entry List', allowedRoles: ['site_engineer'] },
       { key: '/dashboard/expenses/new', icon: <WalletOutlined />, label: 'Expense', allowedRoles: ['site_engineer'] },
       { key: '/dashboard/timesheet-attendance', icon: <CalendarOutlined />, label: 'Timesheet', allowedRoles: ['site_engineer', 'purchase_team', 'admin'] },

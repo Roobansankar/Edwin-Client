@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { Alert, Button, Card, Col, Progress, Row, Skeleton, Space, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { CheckCircleOutlined, CloseCircleOutlined, ProjectOutlined, ReloadOutlined, ShoppingCartOutlined, FileTextOutlined } from '@ant-design/icons';
@@ -42,6 +43,7 @@ function DashboardSkeleton() {
 }
 
 export function EngineerDashboardClient() {
+  const router = useRouter();
   const {
     data: dashboardData,
     error,
@@ -113,7 +115,11 @@ export function EngineerDashboardClient() {
 
       <Row gutter={[16, 16]} className="mb-6">
         <Col xs={24} sm={12} lg={8}>
-          <Card className="rounded-xl! border! border-blue-500/20! bg-linear-to-br! from-blue-500/15! to-blue-500/5!">
+          <Card
+            hoverable
+            className="rounded-xl! border! border-blue-500/20! bg-linear-to-br! from-blue-500/15! to-blue-500/5! cursor-pointer"
+            onClick={() => router.push('/dashboard/my-projects')}
+          >
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-500/20 text-blue-500 text-xl">
                 <ProjectOutlined />
@@ -126,7 +132,11 @@ export function EngineerDashboardClient() {
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={8}>
-          <Card className="rounded-xl! border! border-amber-500/20! bg-linear-to-br! from-amber-500/15! to-amber-500/5!">
+          <Card
+            hoverable
+            className="rounded-xl! border! border-amber-500/20! bg-linear-to-br! from-amber-500/15! to-amber-500/5! cursor-pointer"
+            onClick={() => router.push('/dashboard/material-requirement')}
+          >
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-500/20 text-amber-500 text-xl">
                 <ShoppingCartOutlined />
@@ -139,7 +149,11 @@ export function EngineerDashboardClient() {
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={8}>
-          <Card className="rounded-xl! border! border-emerald-500/20! bg-linear-to-br! from-emerald-500/15! to-emerald-500/5!">
+          <Card
+            hoverable
+            className="rounded-xl! border! border-emerald-500/20! bg-linear-to-br! from-emerald-500/15! to-emerald-500/5! cursor-pointer"
+            onClick={() => router.push('/dashboard/material-requirement')}
+          >
             <Typography.Text className={secondaryTextClassName}>MR Status</Typography.Text>
             <div className="mt-2 flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-2">
@@ -161,7 +175,11 @@ export function EngineerDashboardClient() {
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={8}>
-          <Card className="rounded-xl! border! border-violet-500/20! bg-linear-to-br! from-violet-500/15! to-violet-500/5!">
+          <Card
+            hoverable
+            className="rounded-xl! border! border-violet-500/20! bg-linear-to-br! from-violet-500/15! to-violet-500/5! cursor-pointer"
+            onClick={() => router.push('/dashboard/timesheet-attendance')}
+          >
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-violet-500/20 text-violet-500 text-xl">
                 <FileTextOutlined />
@@ -175,7 +193,7 @@ export function EngineerDashboardClient() {
         </Col>
       </Row>
 
-      <Card title={<Typography.Text strong>My Active Projects</Typography.Text>} className={cardClassName} style={{ marginBottom: 24 }}>
+      <Card id="my-active-projects" title={<Typography.Text strong>My Active Projects</Typography.Text>} className={cardClassName} style={{ marginBottom: 24 }}>
         <Table
           dataSource={data.projects}
           columns={projectColumns}
@@ -183,6 +201,10 @@ export function EngineerDashboardClient() {
           pagination={false}
           size="middle"
           scroll={{ x: 400 }}
+          onRow={(record) => ({
+            onClick: () => router.push(`/dashboard/projects/${record.id}`),
+            style: { cursor: 'pointer' },
+          })}
           locale={{ emptyText: <Space>No assigned projects</Space> }}
         />
       </Card>
@@ -191,6 +213,10 @@ export function EngineerDashboardClient() {
         <Table
           dataSource={data.recentMaterialRequirements}
           scroll={{ x: 610 }}
+          onRow={() => ({
+            onClick: () => router.push('/dashboard/material-requirement'),
+            style: { cursor: 'pointer' },
+          })}
           columns={[
             { title: 'Enquiry No', dataIndex: 'enquiryNo', key: 'enquiryNo', width: 150 },
             { title: 'Project', dataIndex: 'projectName', key: 'projectName', width: 200 },
