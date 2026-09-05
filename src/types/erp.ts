@@ -353,6 +353,7 @@ export type PurchaseOrder = {
   gstPercent?: number | null;
   gstAmount?: number | null;
   totalWithGst?: number | null;
+  transportAmount?: number | null;
   advanceAmount?: number;
   paidAmount?: number;
   items?: LineItem[];
@@ -731,6 +732,7 @@ export type VendorQuotation = {
   gstPercent?: number | null;
   gstAmount?: number | null;
   totalWithGst?: number | null;
+  transportAmount?: number | null;
   quotationUrl?: string | null;
   quotationKey?: string | null;
   status: string;

@@ -36,7 +36,7 @@ const STATUS_OPTIONS = [
 ];
 
 type PoItem = { description: string; quantity: number; unit: string; rate: number };
-type VendorPoSection = { vendorId: string; vendorName: string; items: PoItem[]; gstPercent: number };
+type VendorPoSection = { vendorId: string; vendorName: string; items: PoItem[]; gstPercent: number; transportAmount: number };
 
 const approvedQuotations = (vqs: VendorQuotation[]) => vqs.filter((vq) => vq.status === 'approved');
 
@@ -105,6 +105,7 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
       rate: Number(i.rate) || 0,
     })),
     gstPercent: Number(q.gstPercent) || 0,
+    transportAmount: Number(q.transportAmount) || 0,
   });
 
   const handleEnquirySelect = useCallback((value: string) => {
@@ -132,11 +133,20 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
     });
   };
 
+  const updateTransportAmount = (vIdx: number, transportAmount: number) => {
+    setVendorSections((prev) => {
+      const copy = [...prev];
+      copy[vIdx].transportAmount = transportAmount;
+      return copy;
+    });
+  };
+
   const calcSectionTotals = (section: VendorPoSection) => {
     const basicAmount = section.items.reduce((sum, i) => sum + i.quantity * i.rate, 0);
     const gstAmount = Number((basicAmount * section.gstPercent / 100).toFixed(2));
-    const totalWithGst = Number((basicAmount + gstAmount).toFixed(2));
-    return { basicAmount, gstAmount, totalWithGst };
+    const transportAmount = section.transportAmount || 0;
+    const totalWithGst = Number((basicAmount + gstAmount + transportAmount).toFixed(2));
+    return { basicAmount, gstAmount, transportAmount, totalWithGst };
   };
 
   const uploadBillFileIfNeeded = async (file: File) => {
@@ -185,6 +195,7 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
             projectId,
             materialRequirementNo: selectedMRNo || undefined,
             gstPercent: section.gstPercent || undefined,
+            transportAmount: section.transportAmount || undefined,
             items,
             billFileUrl,
             billFileKey,
@@ -237,6 +248,7 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
           rate: Number(i.rate),
         })),
         gstPercent: Number(po.gstPercent) || 0,
+        transportAmount: Number(po.transportAmount) || 0,
       },
     ]);
     setBillFile(null);
@@ -268,6 +280,7 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
           vendorId: section.vendorId,
           projectId,
           gstPercent: section.gstPercent || undefined,
+          transportAmount: section.transportAmount || undefined,
           items,
           billFileUrl,
           billFileKey,
@@ -502,9 +515,12 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
                       />
                     </Flex>
                   ))}
-                  <Flex gap={16} align="center">
+                  <Flex gap={16} align="center" wrap="wrap">
                     <Form.Item label="GST %" className="mb-0">
                       <InputNumber min={0} max={100} addonAfter="%" value={section.gstPercent || undefined} onChange={(v) => updateGst(vIdx, v ?? 0)} />
+                    </Form.Item>
+                    <Form.Item label="Transport Amt" className="mb-0">
+                      <InputNumber min={0} prefix="₹" placeholder="Transport / freight" value={section.transportAmount || undefined} onChange={(v) => updateTransportAmount(vIdx, v ?? 0)} />
                     </Form.Item>
                     <Form.Item label="Basic" className="mb-0"><Typography.Text strong>{formatCurrency(basicAmount)}</Typography.Text></Form.Item>
                     <Form.Item label="GST Amt" className="mb-0"><Typography.Text>{formatCurrency(gstAmount)}</Typography.Text></Form.Item>
