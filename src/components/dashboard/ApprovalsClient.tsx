@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
-import { App, Button, Card, Col, DatePicker, Flex, Input, Row, Select, Statistic, Table, Tabs, Tag, Typography } from 'antd';
+import { App, Button, Card, Col, DatePicker, Flex, Input, Row, Select, Space, Statistic, Table, Tabs, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
   CalendarOutlined, CameraOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, EyeOutlined, FileDoneOutlined, FilePdfOutlined, FilterOutlined, SearchOutlined, WalletOutlined
@@ -153,6 +153,17 @@ export function ApprovalsClient({ bills, expenses, dailyReports }: Props) {
   const expenseColumns: ColumnsType<Expense> = [
     { title: '#', key: 'sno', width: 50, render: (_, __, i) => i + 1 },
     { title: 'Date', dataIndex: 'expenseDate', render: formatDate },
+    {
+      title: 'Name', key: 'creator',
+      render: (_, record) => record.creator ? (
+        <Space orientation="vertical" size={0}>
+          <Typography.Text strong>{record.creator.name}</Typography.Text>
+          <Typography.Text type="secondary" className="text-[10px] uppercase">
+            {record.creator.role.replace('_', ' ')}
+          </Typography.Text>
+        </Space>
+      ) : '-',
+    },
     { title: 'Expense Type', key: 'expenseType', render: (_, record) => record.expenseType?.name || record.category || '-' },
     { title: 'Project', key: 'project', render: (_, record) => record.project?.name || '-' },
     { title: 'Trade', key: 'trade', render: (_, record) => record.trade?.name || '-' },
@@ -263,7 +274,7 @@ export function ApprovalsClient({ bills, expenses, dailyReports }: Props) {
         </Row>
         <Table
           dataSource={dataSource} columns={columns} rowKey="id"
-          pagination={{ pageSize: 10 }} scroll={{ x: 1200 }}
+          pagination={{ pageSize: 10 }} scroll={{ x: 1300 }}
           locale={{ emptyText }}
         />
       </div>
