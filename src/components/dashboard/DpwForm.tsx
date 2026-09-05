@@ -8,7 +8,7 @@ import { createDailyLabourReport, updateDailyLabourReport, deleteDailyLabourRepo
 import { createTrade } from '@/actions/trades';
 import { createTeam } from '@/actions/teams';
 import type { Project, Trade, Team, DailyLabourReport } from '@/types/erp';
-import { cardClassName } from './ui';
+import { cardClassName, formatCurrency } from './ui';
 import { useAuthStore } from '@/store/auth';
 import { GeoTagPhotoCapture, type GeoTagFile } from './GeoTagPhotoCapture';
 
@@ -236,6 +236,12 @@ export function DpwForm({ projects, trades, teams = [], initialValues, onSuccess
     });
   };
 
+  const workersWatch: Array<{ count?: number | string; shift?: number | string; shiftAmount?: number | string }> =
+    Form.useWatch('workers', form) || [];
+  const totalWorkers = workersWatch.reduce((sum, w) => sum + (Number(w?.count) || 0), 0);
+  const totalShifts = workersWatch.reduce((sum, w) => sum + (Number(w?.count) || 0) * (Number(w?.shift) || 0), 0);
+  const totalAmount = workersWatch.reduce((sum, w) => sum + (Number(w?.count) || 0) * (Number(w?.shift) || 0) * (Number(w?.shiftAmount) || 0), 0);
+
   const isSiteEngineer = user?.role === 'site_engineer';
   const availableProjects = isSiteEngineer && user.projects
     ? projects.filter(p => user.projects?.some(up => up.id === p.id))
@@ -265,8 +271,14 @@ export function DpwForm({ projects, trades, teams = [], initialValues, onSuccess
         <Form.List name="workers">
           {(fields, { add, remove }) => (
             <>
-              {fields.map(({ key, name, ...restField }) => (
-                <Card size="small" key={key} className="mb-6 border-[var(--border)] bg-[var(--subtle-bg)] shadow-md" 
+              {fields.map(({ key, name, ...restField }) => {
+                const rowData = workersWatch[name] || {};
+                const rowCount = Number(rowData.count) || 0;
+                const rowShift = Number(rowData.shift) || 0;
+                const rowTotalShift = rowCount * rowShift;
+                const rowTotalAmount = rowTotalShift * (Number(rowData.shiftAmount) || 0);
+                return (
+                <Card size="small" key={key} className="mb-6 border-[var(--border)] bg-[var(--subtle-bg)] shadow-md"
                   title={<Typography.Text strong className="text-sky-400">Trade Entry #{name + 1}</Typography.Text>}
                   extra={<Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)} />}
                 >
@@ -384,14 +396,52 @@ export function DpwForm({ projects, trades, teams = [], initialValues, onSuccess
                         <Input.TextArea autoSize placeholder="Task details..." />
                       </Form.Item>
                     </Col>
+
+                    <Col xs={24}>
+                      <Space size={16} wrap className="rounded-md bg-[var(--card-bg)] px-3 py-2">
+                        <Typography.Text type="secondary" className="text-xs">
+                          Total Workers: <Typography.Text strong>{rowCount}</Typography.Text>
+                        </Typography.Text>
+                        <Typography.Text type="secondary" className="text-xs">
+                          Total Shift: <Typography.Text strong className="text-sky-400">{rowTotalShift}</Typography.Text>
+                        </Typography.Text>
+                        {!isSiteEngineer && (
+                          <Typography.Text type="secondary" className="text-xs">
+                            Total Amount: <Typography.Text strong className="text-sky-400">{formatCurrency(rowTotalAmount)}</Typography.Text>
+                          </Typography.Text>
+                        )}
+                      </Space>
+                    </Col>
                   </Row>
                 </Card>
-              ))}
+                );
+              })}
               <Form.Item>
                 <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
                   Add Trade Entry
                 </Button>
               </Form.Item>
+
+              {fields.length > 0 && (
+                <Card size="small" className="mb-4 border-[var(--border)] bg-[var(--subtle-bg)]">
+                  <Row gutter={16}>
+                    <Col xs={12} sm={isSiteEngineer ? 12 : 8}>
+                      <Typography.Text type="secondary" className="block text-xs uppercase">Total Workers</Typography.Text>
+                      <Typography.Text strong className="text-lg text-sky-400">{totalWorkers}</Typography.Text>
+                    </Col>
+                    <Col xs={12} sm={isSiteEngineer ? 12 : 8}>
+                      <Typography.Text type="secondary" className="block text-xs uppercase">Total Shift</Typography.Text>
+                      <Typography.Text strong className="text-lg text-sky-400">{totalShifts}</Typography.Text>
+                    </Col>
+                    {!isSiteEngineer && (
+                      <Col xs={24} sm={8}>
+                        <Typography.Text type="secondary" className="block text-xs uppercase">Total Amount</Typography.Text>
+                        <Typography.Text strong className="text-lg text-sky-400">{formatCurrency(totalAmount)}</Typography.Text>
+                      </Col>
+                    )}
+                  </Row>
+                </Card>
+              )}
             </>
           )}
         </Form.List>

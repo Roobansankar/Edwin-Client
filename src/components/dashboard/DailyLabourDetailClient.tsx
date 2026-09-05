@@ -6,8 +6,9 @@ import { Card, Flex, Typography, Tag, Table, Space, Row, Col, Image, Button, Spi
 import { CalendarOutlined, ArrowLeftOutlined, ProjectOutlined, TeamOutlined, PictureOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { clientApiFetch } from '@/lib/client-api';
-import type { DailyLabourReport, DailyWorker } from '@/types/erp';
+import type { DailyLabourReport, DailyWorker, Trade } from '@/types/erp';
 import { useAuthStore } from '@/store/auth';
+import { formatCurrency } from './ui';
 
 const PHOTO_SLOTS = [1, 2, 3, 4, 5] as const;
 
@@ -22,7 +23,9 @@ export function DailyLabourDetailClient() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const canApprove = user?.role === 'admin' || user?.role === 'accounts_manager';
+  const showAmount = user?.role !== 'site_engineer';
   const [report, setReport] = useState<DailyLabourReport | null>(null);
+  const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,6 +43,21 @@ export function DailyLabourDetailClient() {
     loadData();
   }, [id]);
 
+  // Shift-wise rates are configured on the Salary page (per Trade) rather
+  // than always being saved on the worker row itself, so look them up here
+  // and use them as the source of truth for the Amount calculation.
+  useEffect(() => {
+    if (!showAmount) return;
+    clientApiFetch<Trade[]>('/trades')
+      .then(setTrades)
+      .catch(() => setTrades([]));
+  }, [showAmount]);
+
+  const getShiftRate = (worker: DailyWorker) => {
+    const trade = trades.find((t) => t.id === worker.tradeId) || trades.find((t) => t.name === worker.trade);
+    return Number(trade?.shiftWiseAmount ?? worker.shiftAmount ?? 0);
+  };
+
   if (loading) return <div className="flex h-screen items-center justify-center bg-[var(--page-bg)]"><Spin size="large" /></div>;
   if (error) return <Alert type="error" message={error} showIcon />;
   if (!report) return null;
@@ -50,6 +68,8 @@ export function DailyLabourDetailClient() {
   };
 
   const totalHeadcount = report.workers.reduce((acc, w) => acc + (Number(w.count) || 1), 0);
+  const totalShift = report.workers.reduce((acc, w) => acc + (Number(w.count) || 1) * (Number(w.shift) || 0), 0);
+  const totalAmount = report.workers.reduce((acc, w) => acc + (Number(w.count) || 1) * (Number(w.shift) || 0) * getShiftRate(w), 0);
 
   const handleWorkerStatusChange = async (workerId: string, status: string) => {
     try {
@@ -96,6 +116,26 @@ export function DailyLabourDetailClient() {
       key: 'shift',
       render: (shift: string) => <Tag color="blue">{shift}</Tag>,
     },
+    {
+      title: 'Total Shift',
+      key: 'totalShift',
+      render: (_: unknown, record: DailyWorker) => {
+        const value = (Number(record.count) || 1) * (Number(record.shift) || 0);
+        return <Typography.Text strong className="text-sky-400">{value}</Typography.Text>;
+      },
+    },
+    ...(showAmount
+      ? [
+          {
+            title: 'Amount',
+            key: 'amount',
+            render: (_: unknown, record: DailyWorker) => {
+              const value = (Number(record.count) || 1) * (Number(record.shift) || 0) * getShiftRate(record);
+              return <Typography.Text strong className="text-emerald-400">{formatCurrency(value)}</Typography.Text>;
+            },
+          },
+        ]
+      : []),
     {
       title: 'In Time',
       dataIndex: 'inTime',
@@ -164,6 +204,16 @@ export function DailyLabourDetailClient() {
                 <Typography.Text type="secondary" className="text-xs uppercase block">Total Headcount</Typography.Text>
                 <Typography.Title level={3} style={{ margin: 0, color: '#38bdf8' }}>{totalHeadcount} Workers</Typography.Title>
               </div>
+              <div>
+                <Typography.Text type="secondary" className="text-xs uppercase block">Total Shift</Typography.Text>
+                <Typography.Title level={3} style={{ margin: 0, color: '#38bdf8' }}>{totalShift}</Typography.Title>
+              </div>
+              {showAmount && (
+                <div>
+                  <Typography.Text type="secondary" className="text-xs uppercase block">Total Amount</Typography.Text>
+                  <Typography.Title level={3} style={{ margin: 0, color: '#34d399' }}>{formatCurrency(totalAmount)}</Typography.Title>
+                </div>
+              )}
 
               <div className="mt-4 pt-4 border-t border-white/5">
                 <Typography.Text type="secondary" className="text-xs uppercase block mb-3">Trade Breakdown</Typography.Text>
@@ -209,7 +259,7 @@ export function DailyLabourDetailClient() {
               pagination={false}
               className="border-none"
               size="middle"
-              scroll={{ x: 800 }}
+              scroll={{ x: 1050 }}
             />
           </Card>
 
