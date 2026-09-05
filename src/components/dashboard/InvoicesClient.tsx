@@ -167,26 +167,33 @@ export function InvoicesClient({ invoices, projects }: InvoicesClientProps) {
     {
       title: 'Invoice',
       dataIndex: 'invoiceNumber',
+      width: 130,
       sorter: (a, b) => a.invoiceNumber.localeCompare(b.invoiceNumber),
       render: (value: string) => <Typography.Text strong>{value}</Typography.Text>,
     },
     {
       title: 'Project',
-      dataIndex: ['project', 'name'],
-      render: (_value, record) => record.project?.name || '-',
+      key: 'project',
+      width: 100,
+      render: (_value, record) => record.project?.projectCode || '-',
     },
     {
       title: 'Estimate',
       key: 'estimate',
       align: 'right',
-      width: 140,
+      width: 200,
       render: (_, record) => {
         const estimate = Number(record.project?.estimatedTotal || record.project?.estimatedBudget || 0);
         const raised = projectTotals.get(record.projectId || '')?.raised || 0;
         return (
-          <Flex vertical gap={0} className="items-end">
+          <Flex vertical gap={2} className="items-end" style={{ width: 160 }}>
             <Typography.Text>{formatCurrency(estimate)}</Typography.Text>
-            <Typography.Text type="secondary" className={`${secondaryTextClassName} text-[10px]`}>
+            <Typography.Text
+              type="secondary"
+              className={`${secondaryTextClassName} text-[10px]`}
+              style={{ maxWidth: '100%' }}
+              ellipsis={{ tooltip: `Raised: ${formatCurrency(raised)}` }}
+            >
               Raised: {formatCurrency(raised)}
             </Typography.Text>
           </Flex>
@@ -197,13 +204,19 @@ export function InvoicesClient({ invoices, projects }: InvoicesClientProps) {
       title: 'Total',
       dataIndex: 'totalAmount',
       align: 'right',
+      width: 200,
       sorter: (a, b) => Number(a.totalAmount) - Number(b.totalAmount),
       render: (value: number | string, record) => {
         const total = Number(value) + Number(record.gstAmount);
         return (
-          <Flex vertical gap={0} className="items-end">
+          <Flex vertical gap={2} className="items-end" style={{ width: 160 }}>
             <Typography.Text strong>{formatCurrency(total)}</Typography.Text>
-            <Typography.Text type="secondary" className={`${secondaryTextClassName} text-[10px]`}>
+            <Typography.Text
+              type="secondary"
+              className={`${secondaryTextClassName} text-[10px]`}
+              style={{ maxWidth: '100%' }}
+              ellipsis={{ tooltip: `Base: ${formatCurrency(value)}` }}
+            >
               Base: {formatCurrency(value)}
             </Typography.Text>
           </Flex>
@@ -214,12 +227,14 @@ export function InvoicesClient({ invoices, projects }: InvoicesClientProps) {
       title: 'Received',
       dataIndex: 'paidAmount',
       align: 'right',
+      width: 140,
       render: (value) => <Typography.Text type="success">{formatCurrency(value)}</Typography.Text>,
     },
     {
       title: 'Receivable',
       key: 'balance',
       align: 'right',
+      width: 150,
       render: (_, record) => {
         const total = Number(record.totalAmount) + Number(record.gstAmount);
         const balance = total - Number(record.paidAmount || 0);
@@ -229,17 +244,18 @@ export function InvoicesClient({ invoices, projects }: InvoicesClientProps) {
     {
       title: 'Status',
       dataIndex: 'status',
+      width: 110,
       render: (value: string) => <StatusTag value={value} />,
     },
     {
       title: 'Due Date',
       dataIndex: 'dueDate',
+      width: 120,
       render: formatDate,
     },
     {
       title: 'Actions',
       key: 'actions',
-      fixed: 'right',
       width: 280,
       render: (_, record) => (
         <Space>
@@ -389,7 +405,7 @@ export function InvoicesClient({ invoices, projects }: InvoicesClientProps) {
           columns={columns}
           rowKey="id"
           size="middle"
-          scroll={{ x: 1100 }}
+          scroll={{ x: 1500 }}
           pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} invoices` }}
         />
       </Card>

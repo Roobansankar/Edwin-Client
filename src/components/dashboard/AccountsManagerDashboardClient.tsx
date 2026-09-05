@@ -2,15 +2,16 @@
 
 import { Alert, Button, Card, Col, Row, Skeleton, Table, Typography, Tag, Space } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { 
-  ReloadOutlined, 
-  ArrowUpOutlined, 
-  ArrowDownOutlined, 
+import {
+  ReloadOutlined,
+  ArrowUpOutlined,
+  ArrowDownOutlined,
   HistoryOutlined,
   FileTextOutlined,
   ShoppingCartOutlined
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import type { AccountsDashboardData } from '@/types/erp';
 import { clientApiFetch } from '@/lib/client-api';
 import { cardClassName, formatCurrency, formatDate, secondaryTextClassName } from './ui';
@@ -45,6 +46,7 @@ function DashboardSkeleton() {
 }
 
 export function AccountsManagerDashboardClient() {
+  const router = useRouter();
   const {
     data,
     error,
@@ -134,7 +136,11 @@ export function AccountsManagerDashboardClient() {
 
       <Row gutter={[16, 16]} className="mb-6">
         <Col xs={24} sm={12} lg={6}>
-          <Card className="rounded-xl! border! border-emerald-500/20! bg-linear-to-br! from-emerald-500/15! to-emerald-500/5!">
+          <Card
+            hoverable
+            className="rounded-xl! border! border-emerald-500/20! bg-linear-to-br! from-emerald-500/15! to-emerald-500/5! cursor-pointer"
+            onClick={() => router.push('/dashboard/accounts/invoices')}
+          >
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-500 text-xl">
                 <FileTextOutlined />
@@ -148,7 +154,11 @@ export function AccountsManagerDashboardClient() {
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <Card className="rounded-xl! border! border-rose-500/20! bg-linear-to-br! from-rose-500/15! to-rose-500/5!">
+          <Card
+            hoverable
+            className="rounded-xl! border! border-rose-500/20! bg-linear-to-br! from-rose-500/15! to-rose-500/5! cursor-pointer"
+            onClick={() => router.push('/dashboard/accounts/bills')}
+          >
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-rose-500/20 text-rose-500 text-xl">
                 <ShoppingCartOutlined />
@@ -162,7 +172,11 @@ export function AccountsManagerDashboardClient() {
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <Card className="rounded-xl! border! border-blue-500/20! bg-linear-to-br! from-blue-500/15! to-blue-500/5!">
+          <Card
+            hoverable
+            className="rounded-xl! border! border-blue-500/20! bg-linear-to-br! from-blue-500/15! to-blue-500/5! cursor-pointer"
+            onClick={() => router.push('/dashboard/payments')}
+          >
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-500/20 text-blue-500 text-xl">
                 <ArrowUpOutlined />
@@ -176,7 +190,11 @@ export function AccountsManagerDashboardClient() {
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <Card className="rounded-xl! border! border-amber-500/20! bg-linear-to-br! from-amber-500/15! to-amber-500/5!">
+          <Card
+            hoverable
+            className="rounded-xl! border! border-amber-500/20! bg-linear-to-br! from-amber-500/15! to-amber-500/5! cursor-pointer"
+            onClick={() => router.push('/dashboard/payments')}
+          >
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-500/20 text-amber-500 text-xl">
                 <ArrowDownOutlined />
@@ -206,6 +224,10 @@ export function AccountsManagerDashboardClient() {
           rowKey="id"
           pagination={{ pageSize: 10 }}
           size="middle"
+          onRow={() => ({
+            onClick: () => router.push('/dashboard/payments'),
+            style: { cursor: 'pointer' },
+          })}
           locale={{ emptyText: 'No recent payments' }}
         />
       </Card>
