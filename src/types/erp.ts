@@ -410,6 +410,30 @@ export type UnpaidExpenseWeekSummary = {
   expenseCount: number;
 };
 
+export type LabourPayment = {
+  id: string;
+  userId: string;
+  userName: string;
+  weekStart: string;
+  weekEnd: string;
+  amount: number | string;
+  paymentDate: string;
+  status: 'pending' | 'paid' | string;
+  notes?: string | null;
+  createdById?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type UnpaidLabourWeekSummary = {
+  userId: string;
+  userName: string;
+  weekStart: string;
+  weekEnd: string;
+  totalAmount: number;
+  entryCount: number;
+};
+
 export type DashboardProject = {
   id: string;
   name: string;

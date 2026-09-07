@@ -295,8 +295,6 @@ export function AdvanceRequestsClient({ requests }: Props) {
           scroll={{ x: 1100 }}
           locale={{ emptyText: 'No vendor payment requests found' }}
           size="middle"
-          bordered
-          className="advance-requests-table"
         />
       </Card>
 
