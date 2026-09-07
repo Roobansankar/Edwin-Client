@@ -78,13 +78,13 @@ export async function deleteExpense(id: string) {
   }
 }
 
-export async function updateExpenseStatus(id: string, status: string) {
+export async function updateExpenseStatus(id: string, status: string, rejectionReason?: string) {
   try {
     const headers = await getAuthHeaders();
     const res = await fetch(`${getApiBaseUrl()}/expenses/${id}`, {
       method: 'PATCH',
       headers,
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(rejectionReason !== undefined ? { status, rejectionReason } : { status }),
     });
     if (!res.ok) {
       const error = await res.json().catch(() => ({ message: 'Failed to update status' }));

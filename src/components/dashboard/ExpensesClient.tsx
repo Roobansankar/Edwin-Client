@@ -180,22 +180,30 @@ export function ExpensesClient({ expenses: initialExpenses, projects }: Expenses
       width: 140,
       filters: STATUS_OPTIONS.map(opt => ({ text: opt.label, value: opt.value })),
       onFilter: (value, record) => record.status === value,
-      render: (value: string, record: Expense) =>
-        canUpdateStatus && value !== 'admin_approved' ? (
-          <Select
-            defaultValue={value || 'pending'}
-            size="small"
-            variant="borderless"
-            className="w-full"
-            onChange={(newStatus) => handleStatusChange(record.id, newStatus)}
-            options={statusOptions}
-            popupMatchSelectWidth={false}
-            styles={{ popup: { root: { minWidth: 120 } } }}
-            disabled={isPending}
-          />
-        ) : (
-          <StatusTag value={value || 'pending'} />
-        ),
+      render: (value: string, record: Expense) => (
+        <Space orientation="vertical" size={2} className="w-full">
+          {canUpdateStatus && value !== 'admin_approved' ? (
+            <Select
+              defaultValue={value || 'pending'}
+              size="small"
+              variant="borderless"
+              className="w-full"
+              onChange={(newStatus) => handleStatusChange(record.id, newStatus)}
+              options={statusOptions}
+              popupMatchSelectWidth={false}
+              styles={{ popup: { root: { minWidth: 120 } } }}
+              disabled={isPending}
+            />
+          ) : (
+            <StatusTag value={value || 'pending'} />
+          )}
+          {value === 'rejected' && record.rejectionReason && (
+            <Typography.Text type="danger" className="text-[10px]">
+              {record.rejectionReason}
+            </Typography.Text>
+          )}
+        </Space>
+      ),
     },
     {
       title: 'Receipts',

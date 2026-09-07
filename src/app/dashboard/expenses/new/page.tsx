@@ -90,7 +90,16 @@ export default function NewExpensePage() {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      render: (status: string) => <StatusTag value={status} />,
+      render: (status: string, record: Expense) => (
+        <Space orientation="vertical" size={2}>
+          <StatusTag value={status} />
+          {status === 'rejected' && record.rejectionReason && (
+            <Typography.Text type="danger" className="text-[10px]">
+              {record.rejectionReason}
+            </Typography.Text>
+          )}
+        </Space>
+      ),
     },
     {
       title: 'Receipts',

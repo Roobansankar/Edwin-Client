@@ -379,6 +379,7 @@ export type Expense = {
   receiptUrls?: string[] | null;
   sitePhotoUrls?: string[] | null;
   status?: ExpenseStatus;
+  rejectionReason?: string | null;
   createdBy?: string | null;
   creator?: { id: string; name: string; role: string };
   createdAt?: string;

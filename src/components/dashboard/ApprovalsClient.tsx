@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
-import { App, Button, Card, Col, DatePicker, Flex, Input, Row, Select, Space, Statistic, Table, Tabs, Tag, Typography } from 'antd';
+import { App, Button, Card, Col, DatePicker, Flex, Input, Modal, Row, Select, Space, Statistic, Table, Tabs, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
   CalendarOutlined, CameraOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, EyeOutlined, FileDoneOutlined, FilePdfOutlined, FilterOutlined, SearchOutlined, WalletOutlined
@@ -45,6 +45,8 @@ export function ApprovalsClient({ bills, expenses, dailyReports }: Props) {
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [activeTab, setActiveTab] = useState('expenses');
+  const [rejectExpenseId, setRejectExpenseId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
   const { message } = App.useApp();
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
@@ -98,11 +100,30 @@ export function ApprovalsClient({ bills, expenses, dailyReports }: Props) {
     });
   }, [dailyReports, dateRange, searchText, statusFilter]);
 
-  const handleExpenseStatusChange = (id: string, status: string) => {
+  const handleExpenseStatusChange = (id: string, status: string, reason?: string) => {
     startTransition(async () => {
-      try { await updateExpenseStatus(id, status); message.success('Expense status updated'); }
+      try { await updateExpenseStatus(id, status, reason); message.success('Expense status updated'); }
       catch (error) { message.error(error instanceof Error ? error.message : 'Failed'); }
     });
+  };
+
+  // Picking "Rejected" opens a small modal to capture why, so the person
+  // who submitted the expense gets a specific reason instead of a bare
+  // status flip.
+  const handleExpenseStatusSelect = (id: string, newStatus: string) => {
+    if (newStatus === 'rejected') {
+      setRejectReason('');
+      setRejectExpenseId(id);
+      return;
+    }
+    // Moving off rejected clears any earlier reason so it doesn't linger.
+    handleExpenseStatusChange(id, newStatus, '');
+  };
+
+  const submitExpenseRejection = () => {
+    if (!rejectExpenseId) return;
+    handleExpenseStatusChange(rejectExpenseId, 'rejected', rejectReason.trim());
+    setRejectExpenseId(null);
   };
 
   const handleBillStatusChange = (id: string, status: string) => {
@@ -202,8 +223,8 @@ export function ApprovalsClient({ bills, expenses, dailyReports }: Props) {
       title: 'Status', key: 'status', width: 140,
       render: (_, record) => (
         <Select
-          defaultValue={record.status || 'pending'} size="small" variant="borderless" className="w-full"
-          onChange={(newStatus) => handleExpenseStatusChange(record.id, newStatus)}
+          value={record.status || 'pending'} size="small" variant="borderless" className="w-full"
+          onChange={(newStatus) => handleExpenseStatusSelect(record.id, newStatus)}
           options={APPROVAL_STATUS_OPTIONS} popupMatchSelectWidth={false} disabled={isPending}
         />
       ),
@@ -324,6 +345,25 @@ export function ApprovalsClient({ bills, expenses, dailyReports }: Props) {
           ]}
         />
       </Card>
+
+      <Modal
+        title="Reject Expense"
+        open={!!rejectExpenseId}
+        onCancel={() => setRejectExpenseId(null)}
+        onOk={submitExpenseRejection}
+        okText="Reject"
+        okButtonProps={{ danger: true }}
+      >
+        <Typography.Paragraph>
+          The person who submitted this expense will be notified — add a remark so they know why.
+        </Typography.Paragraph>
+        <Input.TextArea
+          rows={3}
+          value={rejectReason}
+          onChange={(e) => setRejectReason(e.target.value)}
+          placeholder="Reason for rejection..."
+        />
+      </Modal>
     </div>
   );
 }
