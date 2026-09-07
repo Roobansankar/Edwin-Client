@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition, useCallback } from 'react';
 import { Button, Card, DatePicker, Drawer, Flex, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Typography, Upload, App } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { DeleteOutlined, EditOutlined, EyeOutlined, FilePdfOutlined, HistoryOutlined, PlusOutlined, ShoppingCartOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, EyeOutlined, FilePdfOutlined, HistoryOutlined, PlusOutlined, SearchOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { PDFDownloadLink, PDFViewer } from '@react-pdf/renderer';
 import { createPurchaseOrder, updatePurchaseOrderStatus, updatePurchaseOrder, deletePurchaseOrder, uploadBillFile } from '@/actions/purchase-orders';
@@ -65,6 +65,8 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
   const [previewPo, setPreviewPo] = useState<PurchaseOrder | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
 
   useEffect(() => {
     setIsClient(true);
@@ -76,6 +78,26 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
   }, []);
+
+  const filteredOrders = useMemo(() => {
+    const from = dateRange[0]?.format('YYYY-MM-DD');
+    const to = dateRange[1]?.format('YYYY-MM-DD');
+    return purchaseOrders.filter((po) => {
+      if (from && to) {
+        const created = po.createdAt ? po.createdAt.split('T')[0] : '';
+        if (created < from || created > to) return false;
+      }
+      if (searchText) {
+        const q = searchText.toLowerCase();
+        const haystack = [po.poNumber, po.vendor?.name, po.project?.name, po.materialRequirementNo]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [purchaseOrders, searchText, dateRange]);
 
   const vendorQuotations = useMemo(() => vendorQuotationsProp || [], [vendorQuotationsProp]);
   const usedQuotationKeys = useMemo(
@@ -362,13 +384,30 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
         )}
       </Flex>
 
+      <Flex gap={12} wrap="wrap" className="mb-6!">
+        <Input.Search
+          placeholder="Search PO, vendor, project..."
+          allowClear
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+          style={{ width: 200 }}
+        />
+        <DatePicker.RangePicker
+          value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
+          onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+          allowClear
+          placeholder={['From date', 'To date']}
+        />
+      </Flex>
+
       <Card className={cardClassName} styles={{ body: { padding: 0 } }}>
         {isMobile ? (
           <div className="flex flex-col">
-            {purchaseOrders.length === 0 ? (
+            {filteredOrders.length === 0 ? (
               <div className="p-4 text-center text-gray-400">No purchase orders</div>
             ) : (
-              purchaseOrders.map((record) => (
+              filteredOrders.map((record) => (
                 <div key={record.id} className="border-b border-[var(--border)] p-3 last:border-b-0">
                   <Flex justify="space-between" align="center" className="mb-1">
                     <Typography.Text strong className="text-sm">{record.poNumber}</Typography.Text>
@@ -409,7 +448,7 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
             )}
           </div>
         ) : (
-          <Table dataSource={purchaseOrders} columns={columns} rowKey="id" size="middle" scroll={{ x: 'max-content' }} pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} POs` }} />
+          <Table dataSource={filteredOrders} columns={columns} rowKey="id" size="middle" scroll={{ x: 'max-content' }} pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} POs` }} />
         )}
       </Card>
 

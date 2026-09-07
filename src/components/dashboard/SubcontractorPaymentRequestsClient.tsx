@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { App, Button, Card, Col, DatePicker, Drawer, Flex, Form, Input, InputNumber, Popconfirm, Row, Select, Space, Statistic, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { CheckOutlined, CloseOutlined, DollarOutlined, FileTextOutlined } from '@ant-design/icons';
+import { CheckOutlined, CloseOutlined, DollarOutlined, FileTextOutlined, SearchOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { respondSubcontractorPaymentRequest } from '@/actions/subcontractor-payment-requests';
 import { createPayment } from '@/actions/payments';
@@ -36,6 +36,8 @@ type Props = { requests: SubcontractorPaymentRequest[] };
 
 export function SubcontractorPaymentRequestsClient({ requests }: Props) {
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [searchText, setSearchText] = useState('');
+  const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
   const [isPending, startTransition] = useTransition();
   const { message } = App.useApp();
   const user = useAuthStore((s) => s.user);
@@ -49,9 +51,26 @@ export function SubcontractorPaymentRequestsClient({ requests }: Props) {
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  const filtered = useMemo(
-    () => (statusFilter ? requests.filter((r) => r.status === statusFilter) : requests),
-    [requests, statusFilter],
+  const filtered = useMemo(() => {
+    const from = dateRange[0]?.format('YYYY-MM-DD');
+    const to = dateRange[1]?.format('YYYY-MM-DD');
+    return requests.filter((r) => {
+      if (statusFilter && r.status !== statusFilter) return false;
+      if (from && to) {
+        const created = r.createdAt ? r.createdAt.split('T')[0] : '';
+        if (created < from || created > to) return false;
+      }
+      if (searchText) {
+        const q = searchText.toLowerCase();
+        const haystack = [r.subcontractWorkOrder?.woNumber, r.subcontractor?.name, r.project?.name, r.notes]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [requests, statusFilter, searchText, dateRange],
   );
 
   const counts = useMemo(
@@ -263,7 +282,22 @@ export function SubcontractorPaymentRequestsClient({ requests }: Props) {
           </Col>
         </Row>
 
-        <Flex justify="flex-end" className="mb-4!">
+        <Flex justify="flex-end" gap={12} wrap="wrap" className="mb-4!">
+          <Input.Search
+            placeholder="Search WO, subcontractor, project..."
+            allowClear
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+            style={{ width: isMobile ? '100%' : 220 }}
+          />
+          <DatePicker.RangePicker
+            value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
+            onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+            allowClear
+            style={{ width: isMobile ? '100%' : undefined }}
+            placeholder={['From date', 'To date']}
+          />
           <Select
             allowClear
             placeholder="Filter by status"

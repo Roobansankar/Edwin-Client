@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useTransition, useEffect } from 'react';
+import { useState, useMemo, useTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { App, Button, Card, DatePicker, Drawer, Flex, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Typography, Upload, Divider } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { DeleteOutlined, EditOutlined, EyeOutlined, FileDoneOutlined, PlusOutlined, HistoryOutlined, UploadOutlined, FileTextOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, EyeOutlined, FileDoneOutlined, PlusOutlined, HistoryOutlined, SearchOutlined, UploadOutlined, FileTextOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import { Controller, useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { z } from 'zod';
-import dayjs from 'dayjs';
 import { createBill, updateBill, deleteBill, uploadBillFile } from '@/actions/invoices';
 import { createPayment } from '@/actions/payments';
 import { getApiBaseUrl } from '@/lib/api-url';
@@ -70,6 +70,9 @@ type BillsClientProps = {
 
 export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole }: BillsClientProps) {
   const canManagePayments = userRole === 'admin' || userRole === 'accounts_manager';
+  // Recording a bill is purchase team's job (they're the ones receiving
+  // vendor bills); accounts only reviews/approves and manages payments.
+  const canRecordBill = userRole === 'admin' || userRole === 'purchase_team';
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<PurchaseBill | null>(null);
@@ -78,6 +81,28 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
   const [isPending, startTransition] = useTransition();
   const { message } = App.useApp();
   const [fileList, setFileList] = useState<any[]>([]);
+  const [searchText, setSearchText] = useState('');
+  const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
+
+  const filteredBills = useMemo(() => {
+    const from = dateRange[0]?.format('YYYY-MM-DD');
+    const to = dateRange[1]?.format('YYYY-MM-DD');
+    return bills.filter((bill) => {
+      if (from && to) {
+        const billed = bill.billDate ? bill.billDate.split('T')[0] : '';
+        if (billed < from || billed > to) return false;
+      }
+      if (searchText) {
+        const q = searchText.toLowerCase();
+        const haystack = [bill.billNumber, bill.vendor?.name, bill.project?.name, bill.purchaseOrder?.poNumber]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [bills, searchText, dateRange]);
 
   const {
     control,
@@ -435,14 +460,33 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
         <Typography.Title level={3} className={pageTitleClassName}>
           <FileDoneOutlined className={titleIconClassName} /> Purchase Bills
         </Typography.Title>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>
-          Record Bill
-        </Button>
+        {canRecordBill && (
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>
+            Record Bill
+          </Button>
+        )}
+      </Flex>
+
+      <Flex gap={12} wrap="wrap" className="mb-6!">
+        <Input.Search
+          placeholder="Search bill, vendor, project..."
+          allowClear
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+          style={{ width: 200 }}
+        />
+        <DatePicker.RangePicker
+          value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
+          onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+          allowClear
+          placeholder={['From date', 'To date']}
+        />
       </Flex>
 
       <Card className={cardClassName}>
         <Table
-          dataSource={bills}
+          dataSource={filteredBills}
           columns={columns}
           rowKey="id"
           size="middle"

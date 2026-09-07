@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useTransition, useEffect, useMemo } from 'react';
-import { App, Button, Card, Col, Drawer, Flex, Row, Select, Space, Statistic, Table, Typography, Popconfirm, Tooltip, Image } from 'antd';
+import { App, Button, Card, Col, DatePicker, Drawer, Flex, Input, Row, Select, Space, Statistic, Table, Typography, Popconfirm, Tooltip, Image } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { DollarOutlined, PlusOutlined, EditOutlined, DeleteOutlined, FileTextOutlined, PictureOutlined } from '@ant-design/icons';
+import { DollarOutlined, PlusOutlined, EditOutlined, DeleteOutlined, FileTextOutlined, PictureOutlined, SearchOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import { deleteExpense, updateExpenseStatus } from '@/actions/expenses';
 import type { Expense, Trade, Project, ExpenseType } from '@/types/erp';
 import { ExpenseForm } from './ExpenseForm';
@@ -40,7 +41,10 @@ export function ExpensesClient({ expenses: initialExpenses, projects }: Expenses
   const [isPending, startTransition] = useTransition();
   const { message } = App.useApp();
   const { user } = useAuthStore();
-  const canUpdateStatus = user?.role === 'admin' || user?.role === 'accounts_manager';
+  // This is each person's own expense list — accounts shouldn't be able to
+  // self-approve/reject their own claim here, only see its status. Actually
+  // changing status happens on the Approvals page, reviewing someone else's.
+  const canUpdateStatus = user?.role === 'admin';
   const statusOptions = user?.role === 'accounts_manager'
     ? STATUS_OPTIONS.filter((opt) => opt.value !== 'admin_approved')
     : STATUS_OPTIONS;
@@ -49,10 +53,34 @@ export function ExpensesClient({ expenses: initialExpenses, projects }: Expenses
   // get — so no cross-user filter is needed here; the backend (via
   // `mine=true`) only ever returns the current user's own expenses.
   // Reviewing/approving everyone else's submissions happens on the
-  // dedicated Approvals page instead.
+  // dedicated Approvals page instead. Search/date below just narrow down
+  // that same personal list.
+  const [searchText, setSearchText] = useState('');
+  const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
+
+  const filteredExpenses = useMemo(() => {
+    const from = dateRange[0]?.format('YYYY-MM-DD');
+    const to = dateRange[1]?.format('YYYY-MM-DD');
+    return expenses.filter((e) => {
+      if (from && to) {
+        const d = e.expenseDate ? e.expenseDate.split('T')[0] : '';
+        if (d < from || d > to) return false;
+      }
+      if (searchText) {
+        const q = searchText.toLowerCase();
+        const haystack = [e.description, e.category, e.expenseType?.name, e.project?.name, e.trade?.name]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [expenses, searchText, dateRange]);
+
   const totalAmount = useMemo(
-    () => expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0),
-    [expenses],
+    () => filteredExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0),
+    [filteredExpenses],
   );
 
   useEffect(() => {
@@ -298,13 +326,30 @@ export function ExpensesClient({ expenses: initialExpenses, projects }: Expenses
         </Col>
       </Row>
 
+      <Flex gap={12} wrap="wrap" className="mb-6!">
+        <Input.Search
+          placeholder="Search description, type, project..."
+          allowClear
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+          style={{ width: 220 }}
+        />
+        <DatePicker.RangePicker
+          value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
+          onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+          allowClear
+          placeholder={['From date', 'To date']}
+        />
+      </Flex>
+
       <Card
         className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
         styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
       >
         <Table
           className="mantis-table"
-          dataSource={expenses}
+          dataSource={filteredExpenses}
           columns={columns}
           rowKey="id"
           size="middle"
