@@ -58,7 +58,14 @@ export function ApprovalsClient({ bills, expenses, dailyReports }: Props) {
         if (d < from || d > to) return false;
       }
       if (statusFilter && e.status !== statusFilter) return false;
-      if (searchText && !e.description?.toLowerCase().includes(searchText.toLowerCase()) && !e.category?.toLowerCase().includes(searchText.toLowerCase())) return false;
+      if (searchText) {
+        const q = searchText.toLowerCase();
+        const haystack = [e.description, e.category, e.creator?.name, e.expenseType?.name, e.trade?.name]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
       return true;
     });
   }, [expenses, dateRange, searchText, statusFilter]);
