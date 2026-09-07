@@ -26,6 +26,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_OPTIONS = [
+  { label: 'All', value: '' },
   { label: 'Pending', value: 'pending' },
   { label: 'Accepted by Accounts', value: 'accepted' },
   { label: 'Admin Approved', value: 'admin_approved' },
@@ -73,10 +74,6 @@ export function AdvanceRequestsClient({ requests }: Props) {
     });
   };
 
-  // Recording the payment straight from here creates a real row on the
-  // Master Ledger (/dashboard/payments) — same as filling in that page's
-  // "Record Direct Payment" form by hand and picking this request there,
-  // just without leaving this page.
   const [payTarget, setPayTarget] = useState<AdvanceRequest | null>(null);
   const [payAmount, setPayAmount] = useState(0);
   const [payDate, setPayDate] = useState(dayjs());
@@ -118,41 +115,43 @@ export function AdvanceRequestsClient({ requests }: Props) {
   };
 
   const columns: ColumnsType<AdvanceRequest> = [
-    { title: '#', key: 'sno', width: 50, render: (_, __, i) => i + 1 },
-    { title: 'PO Number', key: 'po', render: (_, record) => record.purchaseOrder?.poNumber || <Typography.Text type="secondary">-</Typography.Text> },
-    { title: 'Vendor', key: 'vendor', render: (_, record) => record.vendor?.name || record.vendorId },
-    { title: 'Project', key: 'project', render: (_, record) => record.project?.name || '-' },
-    { title: 'MR Ref', key: 'mrRef', render: (_, record) => {
+    { title: '#', key: 'sno', width: 40, align: 'center', render: (_, __, i) => i + 1 },
+    { title: 'PO Number', key: 'po', width: 110, render: (_, record) => record.purchaseOrder?.poNumber || <Typography.Text type="secondary">-</Typography.Text> },
+    { title: 'Vendor', key: 'vendor', width: 120, ellipsis: true, render: (_, record) => record.vendor?.name || record.vendorId },
+    { title: 'Project', key: 'project', width: 120, ellipsis: true, render: (_, record) => record.project?.name || '-' },
+    { title: 'MR Ref', key: 'mrRef', width: 80, render: (_, record) => {
       const mrRef = record.materialRequirementNo || record.purchaseOrder?.materialRequirementNo;
       return mrRef || <Typography.Text type="secondary">-</Typography.Text>;
     } },
-    { title: 'Amount', dataIndex: 'amount', align: 'right', render: (value: number | string) => formatCurrency(value) },
-    { title: 'Total Amount', key: 'poTotal', align: 'right', render: (_, record) => {
+    { title: 'Amount', dataIndex: 'amount', width: 100, align: 'right', render: (value: number | string) => <Typography.Text strong>{formatCurrency(value)}</Typography.Text> },
+    { title: 'PO Total', key: 'poTotal', width: 100, align: 'right', render: (_, record) => {
       const poTotal = record.purchaseOrder ? (record.purchaseOrder.totalWithGst || record.purchaseOrder.totalAmount) : record.vendorQuotation?.totalAmount;
       return poTotal ? formatCurrency(poTotal) : <Typography.Text type="secondary">-</Typography.Text>;
     } },
-    { title: 'PO Document', key: 'poDocument', render: (_, record) => {
+    { title: 'PO Doc', key: 'poDocument', width: 60, align: 'center', render: (_, record) => {
       const url = record.purchaseOrder?.billFileUrl || record.vendorQuotation?.quotationUrl;
       return url ? (
-        <Button type="link" size="small" icon={<FilePdfOutlined />} href={url} target="_blank">View</Button>
+        <Button type="link" size="small" icon={<FilePdfOutlined />} href={url} target="_blank" className="p-0!">
+          View
+        </Button>
       ) : <Typography.Text type="secondary">-</Typography.Text>;
     } },
-    { title: 'Notes', dataIndex: 'notes', ellipsis: true, render: (value?: string | null) => value || '-' },
-    { title: 'Requested At', dataIndex: 'createdAt', width: 130, render: formatDate },
+    { title: 'Notes', dataIndex: 'notes', width: 120, ellipsis: true, render: (value?: string | null) => value || '-' },
+    { title: 'Requested', dataIndex: 'createdAt', width: 90, render: formatDate },
     {
       title: 'Status',
       key: 'status',
-      width: 150,
-      render: (_, record) => <Tag color={STATUS_COLORS[record.status] || 'default'}>{STATUS_LABELS[record.status] || record.status.toUpperCase()}</Tag>,
+      width: 130,
+      render: (_, record) => <Tag color={STATUS_COLORS[record.status] || 'default'} className="m-0!">{STATUS_LABELS[record.status] || record.status.toUpperCase()}</Tag>,
     },
     {
       title: 'Actions',
       key: 'actions',
-      width: 200,
+      width: 160,
       render: (_, record) => {
         if (record.status === 'pending') {
           return (
-            <Flex gap={8}>
+            <Flex gap={6} wrap="wrap">
               <Popconfirm
                 title="Accept vendor payment request?"
                 description={`Marks the ${formatCurrency(record.amount)} request as accepted — it will still need final admin approval.`}
@@ -180,10 +179,10 @@ export function AdvanceRequestsClient({ requests }: Props) {
         }
         if (record.status === 'accepted') {
           if (!isAdmin) {
-            return <Typography.Text type="secondary" className="text-xs">Awaiting admin approval</Typography.Text>;
+            return <Typography.Text type="secondary" className="text-xs whitespace-nowrap">Awaiting admin</Typography.Text>;
           }
           return (
-            <Flex gap={8}>
+            <Flex gap={6} wrap="wrap">
               <Popconfirm
                 title="Give final approval?"
                 description={`Marks the ${formatCurrency(record.amount)} request as fully approved — it will count toward the vendor's advance on Purchase Orders.`}
@@ -192,7 +191,7 @@ export function AdvanceRequestsClient({ requests }: Props) {
                 cancelText="No"
               >
                 <Button size="small" type="primary" ghost icon={<CheckOutlined />} loading={isPending}>
-                  Final Approve
+                  Approve
                 </Button>
               </Popconfirm>
               <Popconfirm
@@ -212,13 +211,13 @@ export function AdvanceRequestsClient({ requests }: Props) {
         if (record.status === 'admin_approved') {
           return (
             <Button size="small" type="primary" icon={<DollarOutlined />} onClick={() => openPay(record)}>
-              Record Payment
+              Pay
             </Button>
           );
         }
         return (
-          <Typography.Text type="secondary" className="text-xs">
-            {record.respondedAt ? `Responded ${formatDate(record.respondedAt)}` : '-'}
+          <Typography.Text type="secondary" className="text-xs whitespace-nowrap">
+            {record.respondedAt ? formatDate(record.respondedAt) : '-'}
           </Typography.Text>
         );
       },
@@ -226,45 +225,65 @@ export function AdvanceRequestsClient({ requests }: Props) {
   ];
 
   return (
-    <div>
+    <div className="flex flex-col gap-4">
       <Flex justify="space-between" align="center" className={pageHeaderClassName} gap={16} wrap="wrap">
         <Typography.Title level={3} className={pageTitleClassName}>
           <DollarOutlined className={titleIconClassName} /> Vendor Payment Requests
         </Typography.Title>
       </Flex>
 
-      <Card className={cardClassName}>
-        <Row gutter={16} className="mb-4">
-          <Col xs={12} sm={6} md={4}>
-            <Card size="small" className="border! border-amber-500/20! bg-amber-500/5!">
-              <Statistic title={<Tag color="warning">Pending</Tag>} value={counts.pending} />
-            </Card>
-          </Col>
-          <Col xs={12} sm={6} md={4}>
-            <Card size="small" className="border! border-blue-500/20! bg-blue-500/5!">
-              <Statistic title={<Tag color="blue">Accepted</Tag>} value={counts.accepted} />
-            </Card>
-          </Col>
-          <Col xs={12} sm={6} md={4}>
-            <Card size="small" className="border! border-emerald-500/20! bg-emerald-500/5!">
-              <Statistic title={<Tag color="success">Admin Approved</Tag>} value={counts.adminApproved} />
-            </Card>
-          </Col>
-          <Col xs={12} sm={6} md={4}>
-            <Card size="small" className="border! border-red-500/20! bg-red-500/5!">
-              <Statistic title={<Tag color="error">Rejected</Tag>} value={counts.rejected} />
-            </Card>
-          </Col>
-        </Row>
+      <Row gutter={[12, 12]}>
+        <Col xs={12} sm={6}>
+          <Card size="small" className={`${cardClassName} !border-amber-500/30 !bg-amber-500/5`}>
+            <Statistic
+              title={<span className="text-xs">Pending</span>}
+              value={counts.pending}
+              valueStyle={{ color: '#fa8c16' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={12} sm={6}>
+          <Card size="small" className={`${cardClassName} !border-blue-500/30 !bg-blue-500/5`}>
+            <Statistic
+              title={<span className="text-xs">Accepted</span>}
+              value={counts.accepted}
+              valueStyle={{ color: '#1677ff' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={12} sm={6}>
+          <Card size="small" className={`${cardClassName} !border-green-500/30 !bg-green-500/5`}>
+            <Statistic
+              title={<span className="text-xs">Admin Approved</span>}
+              value={counts.adminApproved}
+              valueStyle={{ color: '#52c41a' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={12} sm={6}>
+          <Card size="small" className={`${cardClassName} !border-red-500/30 !bg-red-500/5`}>
+            <Statistic
+              title={<span className="text-xs">Rejected</span>}
+              value={counts.rejected}
+              valueStyle={{ color: '#ff4d4f' }}
+            />
+          </Card>
+        </Col>
+      </Row>
 
-        <Flex justify="flex-end" className="mb-4!">
+      <Card className={cardClassName}>
+        <Flex justify="flex-end" align="center" className="mb-3! gap-3!" wrap="wrap">
+          <Typography.Text type="secondary" className="text-xs">
+            {filtered.length} of {requests.length} requests
+          </Typography.Text>
           <Select
-            allowClear
             placeholder="Filter by status"
             style={{ width: 200 }}
             value={statusFilter || undefined}
             onChange={(val) => setStatusFilter(val || '')}
             options={STATUS_OPTIONS}
+            allowClear
+            onClear={() => setStatusFilter('')}
           />
         </Flex>
 
@@ -272,15 +291,18 @@ export function AdvanceRequestsClient({ requests }: Props) {
           dataSource={filtered}
           columns={columns}
           rowKey="id"
-          pagination={{ pageSize: 10 }}
-          scroll={{ x: 1200 }}
-          locale={{ emptyText: 'No vendor payment requests from purchase team' }}
+          pagination={{ pageSize: 10, showSizeChanger: false, showTotal: (total) => `Total ${total} requests` }}
+          scroll={{ x: 1100 }}
+          locale={{ emptyText: 'No vendor payment requests found' }}
+          size="middle"
+          bordered
+          className="advance-requests-table"
         />
       </Card>
 
       <Drawer
         title={payTarget ? `Record Payment — ${payTarget.vendor?.name || ''}` : 'Record Payment'}
-        size={420}
+        width={420}
         open={!!payTarget}
         onClose={() => setPayTarget(null)}
         extra={

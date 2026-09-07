@@ -133,3 +133,67 @@ body {
 .mantis-table .ant-table-tbody > tr:last-child > td {
   border-bottom: none !important;
 }
+
+/* Advance Requests table — responsive with scroll */
+.advance-requests-table .ant-table {
+  background: transparent;
+}
+
+.advance-requests-table .ant-table-thead > tr > th {
+  background: var(--table-header-bg) !important;
+  color: var(--text-secondary) !important;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid var(--border) !important;
+  padding: 10px 12px !important;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.advance-requests-table .ant-table-thead > tr > th::before {
+  display: none !important;
+}
+
+.advance-requests-table .ant-table-tbody > tr > td {
+  border-bottom: 1px solid var(--border-secondary) !important;
+  color: var(--text-secondary) !important;
+  padding: 10px 12px !important;
+  white-space: nowrap;
+}
+
+.advance-requests-table .ant-table-tbody > tr:hover > td {
+  background: var(--subtle-hover-bg) !important;
+}
+
+.advance-requests-table .ant-table-tbody > tr:last-child > td {
+  border-bottom: none !important;
+}
+
+.advance-requests-table .ant-table-cell-row-hover {
+  background: var(--subtle-hover-bg) !important;
+}
+
+.advance-requests-table .ant-table-placeholder .ant-empty-description {
+  color: var(--text-muted) !important;
+}
+
+/* Ensure table wrapper scrolls horizontally on small screens */
+.advance-requests-table .ant-table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Responsive: hide less important columns on small screens */
+@media (max-width: 768px) {
+  .advance-requests-table .ant-table-thead > tr > th:nth-child(5),
+  .advance-requests-table .ant-table-tbody > tr > td:nth-child(5),
+  .advance-requests-table .ant-table-thead > tr > th:nth-child(8),
+  .advance-requests-table .ant-table-tbody > tr > td:nth-child(8),
+  .advance-requests-table .ant-table-thead > tr > th:nth-child(9),
+  .advance-requests-table .ant-table-tbody > tr > td:nth-child(9) {
+    display: none !important;
+  }
+}
