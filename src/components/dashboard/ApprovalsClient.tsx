@@ -8,7 +8,7 @@ import {
 } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
-import { getApiBaseUrl } from '@/lib/api-url';
+
 import dayjs from 'dayjs';
 import { updateBillStatus } from '@/actions/invoices';
 import { updateExpenseStatus } from '@/actions/expenses';
@@ -203,7 +203,7 @@ export function ApprovalsClient({ bills, expenses, dailyReports }: Props) {
         record.receiptUrls?.length ? (
           <Flex gap={4} wrap="wrap">
             {record.receiptUrls.map((url, i) => (
-              <Button key={i} type="link" size="small" icon={<FilePdfOutlined />} href={`${getApiBaseUrl().replace('/api/v1', '')}${url}`} target="_blank" />
+              <Button key={i} type="link" size="small" icon={<FilePdfOutlined />} href={url} target="_blank" />
             ))}
           </Flex>
         ) : '-',
@@ -214,7 +214,7 @@ export function ApprovalsClient({ bills, expenses, dailyReports }: Props) {
         record.sitePhotoUrls?.length ? (
           <Flex gap={4} wrap="wrap">
             {record.sitePhotoUrls.map((url, i) => (
-              <Button key={i} type="link" size="small" icon={<CameraOutlined />} href={`${getApiBaseUrl().replace('/api/v1', '')}${url}`} target="_blank" />
+              <Button key={i} type="link" size="small" icon={<CameraOutlined />} href={url} target="_blank" />
             ))}
           </Flex>
         ) : '-',
