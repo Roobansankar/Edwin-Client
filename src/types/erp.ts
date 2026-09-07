@@ -303,6 +303,7 @@ export type PurchaseOrderStatus = 'draft' | 'sent' | 'pending' | 'admin_approved
 export type EnquiryItem = {
   description: string;
   quantity: number;
+  unit?: string;
 };
 
 export type PurchaseEnquiry = {

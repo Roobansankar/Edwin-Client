@@ -191,7 +191,7 @@ export function PurchaseEnquiryPdf({ enquiry, items: itemsOverride, vendorName }
             <View key={index} style={styles.tableRow} wrap={false}>
               <Text style={[styles.td, styles.colNo]}>{index + 1}</Text>
               <Text style={[styles.td, styles.colDesc]}>{item.description}</Text>
-              <Text style={[styles.td, styles.colQty]}>{Number(item.quantity).toFixed(0)}</Text>
+              <Text style={[styles.td, styles.colQty]}>{Number(item.quantity).toFixed(0)}{item.unit ? ` ${item.unit}` : ''}</Text>
             </View>
           ))}
         </View>

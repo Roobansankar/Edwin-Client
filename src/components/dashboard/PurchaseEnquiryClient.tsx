@@ -24,9 +24,23 @@ type Props = {
   payments?: Payment[];
 };
 
+const UNIT_OPTIONS = [
+  { label: 'Nos', value: 'nos' },
+  { label: 'Kg', value: 'kg' },
+  { label: 'Litre', value: 'litre' },
+  { label: 'Meter', value: 'meter' },
+  { label: 'Sq.ft', value: 'sqft' },
+  { label: 'Cu.ft', value: 'cuft' },
+  { label: 'Bag', value: 'bag' },
+  { label: 'Ton', value: 'ton' },
+  { label: 'Box', value: 'box' },
+  { label: 'Set', value: 'set' },
+];
+
 const itemSchema = z.object({
   description: z.string().min(1, 'Required'),
   quantity: z.number().min(1, 'Min 1'),
+  unit: z.string().min(1, 'Select unit'),
 });
 
 const peSchema = z.object({
@@ -153,7 +167,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
     defaultValues: {
       projectId: '',
       notes: '',
-      items: [{ description: '', quantity: 1 }],
+      items: [{ description: '', quantity: 1, unit: 'nos' }],
     },
   });
 
@@ -164,7 +178,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
       reset({
         projectId: editing.projectId,
         notes: editing.notes || '',
-        items: editing.items?.length ? editing.items.map((i) => ({ description: i.description, quantity: Number(i.quantity) })) : [{ description: '', quantity: 1 }],
+        items: editing.items?.length ? editing.items.map((i) => ({ description: i.description, quantity: Number(i.quantity), unit: i.unit || 'nos' })) : [{ description: '', quantity: 1, unit: 'nos' }],
       });
     }
   }, [editing, reset]);
@@ -216,7 +230,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
         <Flex vertical>
           {r.items?.map((item, i) => (
             <Typography.Text key={i} type="secondary" className="text-xs">
-              {item.description} — Qty: {item.quantity}
+              {item.description} — Qty: {item.quantity} {item.unit || ''}
             </Typography.Text>
           ))}
         </Flex>
@@ -348,7 +362,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
             icon={<PlusOutlined />}
             onClick={() => {
               setEditing(null);
-              reset({ projectId: '', notes: '', items: [{ description: '', quantity: 1 }] });
+              reset({ projectId: '', notes: '', items: [{ description: '', quantity: 1, unit: 'nos' }] });
               setOpen(true);
             }}
           >
@@ -483,9 +497,23 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
                       label="Qty"
                       validateStatus={fieldState.error ? 'error' : undefined}
                       help={fieldState.error?.message}
-                      className="mb-2 w-30"
+                      className="mb-2 w-24"
                     >
                       <InputNumber min={1} precision={0} className="w-full" value={f.value} onChange={(v) => f.onChange(v ?? 1)} />
+                    </Form.Item>
+                  )}
+                />
+                <Controller
+                  control={control}
+                  name={`items.${index}.unit`}
+                  render={({ field: f, fieldState }) => (
+                    <Form.Item
+                      label="Unit"
+                      validateStatus={fieldState.error ? 'error' : undefined}
+                      help={fieldState.error?.message}
+                      className="mb-2 w-28"
+                    >
+                      <Select {...f} options={UNIT_OPTIONS} />
                     </Form.Item>
                   )}
                 />
@@ -499,7 +527,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
                 />
               </Flex>
             ))}
-            <Button icon={<PlusOutlined />} onClick={() => append({ description: '', quantity: 1 })}>
+            <Button icon={<PlusOutlined />} onClick={() => append({ description: '', quantity: 1, unit: 'nos' })}>
               Add Item
             </Button>
             {errors.items?.message && (
@@ -627,7 +655,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
               <Flex vertical gap={4}>
                 {splitEnquiry?.items.map((item, idx) => (
                   <Checkbox key={idx} value={idx}>
-                    {item.description} — Qty: {item.quantity}
+                    {item.description} — Qty: {item.quantity} {item.unit || ''}
                   </Checkbox>
                 ))}
               </Flex>
