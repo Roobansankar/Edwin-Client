@@ -1,4 +1,4 @@
-import { fetchProjects, fetchBills, fetchExpenses, fetchDailyLabourReports, fetchPayments } from '@/lib/api';
+import { fetchProjects, fetchBills, fetchExpenses, fetchDailyLabourReports, fetchPayments, fetchAdvanceRequests } from '@/lib/api';
 import { getUserFromToken } from '@/lib/auth';
 import { ReportsClient } from '@/components/dashboard/ReportsClient';
 import { Alert } from 'antd';
@@ -10,12 +10,13 @@ async function loadData() {
     const user = await getUserFromToken();
     const canLoadReportData = user ? REPORT_DATA_ROLES.includes(user.role) : false;
 
-    const [projects, bills, expenses, dailyLabourReports, payments] = await Promise.all([
+    const [projects, bills, expenses, dailyLabourReports, payments, advanceRequests] = await Promise.all([
       fetchProjects(),
       canLoadReportData ? fetchBills() : Promise.resolve([]),
       canLoadReportData ? fetchExpenses('limit=5000') : Promise.resolve({ data: [], total: 0, page: 1, limit: 5000 }),
       canLoadReportData ? fetchDailyLabourReports() : Promise.resolve([]),
       canLoadReportData ? fetchPayments('limit=5000') : Promise.resolve({ data: [], total: 0, page: 1, limit: 5000 }),
+      canLoadReportData ? fetchAdvanceRequests() : Promise.resolve([]),
     ]);
 
     return {
@@ -24,6 +25,7 @@ async function loadData() {
       expenses: Array.isArray(expenses) ? expenses : expenses?.data || [],
       dailyLabourReports: Array.isArray(dailyLabourReports) ? dailyLabourReports : [],
       payments: Array.isArray(payments) ? payments : payments?.data || [],
+      advanceRequests: Array.isArray(advanceRequests) ? advanceRequests : [],
       role: user?.role || 'viewer',
     };
   } catch (error) {
@@ -53,6 +55,7 @@ export default async function ReportsPage() {
       expenses={data.expenses}
       dailyLabourReports={data.dailyLabourReports}
       payments={data.payments}
+      advanceRequests={data.advanceRequests}
       role={data.role}
     />
   );

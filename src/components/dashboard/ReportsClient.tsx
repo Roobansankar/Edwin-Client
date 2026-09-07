@@ -24,7 +24,7 @@ import {
   ProjectOutlined,
   TeamOutlined,
 } from '@ant-design/icons';
-import type { Project, PurchaseBill, Expense, DailyLabourReport, Payment } from '@/types/erp';
+import type { Project, PurchaseBill, Expense, DailyLabourReport, Payment, AdvanceRequest } from '@/types/erp';
 import { exportToExcel } from '@/lib/excel';
 import {
   formatCurrency,
@@ -43,16 +43,38 @@ function inRange(dateStr: string | null | undefined, range: [Dayjs | null, Dayjs
   return d >= from && d <= to;
 }
 
+type VendorPaymentRow = {
+  key: string;
+  date: string;
+  projectId?: string | null;
+  projectName: string;
+  vendorName: string;
+  amount: number;
+  mode?: string | null;
+  reference?: string | null;
+  notes?: string | null;
+  status: string;
+};
+
+const VENDOR_PAYMENT_STATUS_COLORS: Record<string, string> = {
+  pending: 'orange',
+  accepted: 'blue',
+  admin_approved: 'cyan',
+  rejected: 'red',
+  paid: 'success',
+};
+
 type ReportsClientProps = {
   projects: Project[];
   bills: PurchaseBill[];
   expenses: Expense[];
   dailyLabourReports: DailyLabourReport[];
   payments: Payment[];
+  advanceRequests: AdvanceRequest[];
   role: string;
 };
 
-export function ReportsClient({ projects, bills, expenses, dailyLabourReports, payments, role }: ReportsClientProps) {
+export function ReportsClient({ projects, bills, expenses, dailyLabourReports, payments, advanceRequests, role }: ReportsClientProps) {
   const [activeTab, setActiveTab] = useState('project');
   const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>();
   const [dlProjectId, setDlProjectId] = useState<string | undefined>();
@@ -106,12 +128,52 @@ export function ReportsClient({ projects, bills, expenses, dailyLabourReports, p
   // The generic Payment ledger doesn't carry a "vendor" / "subcontractor"
   // category of its own — which bucket a row belongs to is inferred from
   // which relation it's actually attached to.
+  //
+  // Vendor Payments shows the whole lifecycle, not just money already paid:
+  // every Vendor Payment Request (pending/accepted/admin-approved/rejected)
+  // plus every actual Payment row, so a still-pending request is visible
+  // here too — not just ones that made it all the way to a real payment.
+  const paidAdvanceRequestIds = useMemo(
+    () => new Set(payments.filter((p) => p.advanceRequestId).map((p) => p.advanceRequestId as string)),
+    [payments],
+  );
+
   const vendorPayments = useMemo(() => {
-    return payments
+    const fromPayments: VendorPaymentRow[] = payments
       .filter((p) => Boolean(p.vendorId || p.purchaseBillId || p.purchaseOrderId || p.advanceRequestId))
-      .filter((p) => (!vpProjectId || p.projectId === vpProjectId) && inRange(p.paymentDate, vpDateRange))
-      .sort((a, b) => (b.paymentDate || '').localeCompare(a.paymentDate || ''));
-  }, [payments, vpProjectId, vpDateRange]);
+      .map((p) => ({
+        key: `payment-${p.id}`,
+        date: p.paymentDate,
+        projectId: p.projectId,
+        projectName: p.project?.name || '-',
+        vendorName: p.vendor?.name || p.payeeName || '-',
+        amount: Number(p.amount || 0),
+        mode: p.paymentMode,
+        reference: p.referenceNumber,
+        notes: p.notes,
+        status: 'paid',
+      }));
+
+    // A request already turned into a Payment shows as that payment's row
+    // above (status "paid") — don't also list the original request, or the
+    // same money would appear twice.
+    const fromRequests: VendorPaymentRow[] = advanceRequests
+      .filter((r) => !paidAdvanceRequestIds.has(r.id))
+      .map((r) => ({
+        key: `request-${r.id}`,
+        date: r.createdAt || '',
+        projectId: r.projectId,
+        projectName: r.project?.name || '-',
+        vendorName: r.vendor?.name || '-',
+        amount: Number(r.amount || 0),
+        notes: r.notes,
+        status: r.status,
+      }));
+
+    return [...fromPayments, ...fromRequests]
+      .filter((row) => (!vpProjectId || row.projectId === vpProjectId) && inRange(row.date, vpDateRange))
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  }, [payments, advanceRequests, paidAdvanceRequestIds, vpProjectId, vpDateRange]);
 
   const subcontractorPayments = useMemo(() => {
     return payments
@@ -228,15 +290,16 @@ export function ReportsClient({ projects, bills, expenses, dailyLabourReports, p
     exportToExcel({
       filename: 'Vendor-Payments',
       sheetName: 'Vendor Payments',
-      headers: ['Date', 'Project', 'Vendor', 'Amount', 'Mode', 'Reference', 'Notes'],
-      rows: vendorPayments.map((p) => [
-        formatDate(p.paymentDate),
-        p.project?.name || '-',
-        p.vendor?.name || p.payeeName || '-',
-        Number(p.amount || 0),
-        titleCase(p.paymentMode),
-        p.referenceNumber || '-',
-        p.notes || '-',
+      headers: ['Date', 'Project', 'Vendor', 'Amount', 'Mode', 'Reference', 'Status', 'Notes'],
+      rows: vendorPayments.map((row) => [
+        row.date ? formatDate(row.date) : '-',
+        row.projectName,
+        row.vendorName,
+        row.amount,
+        row.mode ? titleCase(row.mode) : '-',
+        row.reference || '-',
+        titleCase(row.status),
+        row.notes || '-',
       ]),
     });
   };
@@ -333,20 +396,50 @@ export function ReportsClient({ projects, bills, expenses, dailyLabourReports, p
     },
   ];
 
-  const vendorPaymentColumns: ColumnsType<Payment> = [
-    { title: 'Date', dataIndex: 'paymentDate', width: 120, render: (v: string) => <Typography.Text strong>{formatDate(v)}</Typography.Text> },
-    { title: 'Project', dataIndex: ['project', 'name'], width: 200, render: (v: string) => v || '-' },
-    { title: 'Vendor', key: 'vendor', width: 180, render: (_, p) => p.vendor?.name || p.payeeName || '-' },
+  const vendorPaymentColumns: ColumnsType<VendorPaymentRow> = [
+    { title: 'Date', dataIndex: 'date', width: 120, render: (v: string) => <Typography.Text strong>{v ? formatDate(v) : '-'}</Typography.Text> },
+    {
+      title: 'Project',
+      dataIndex: 'projectName',
+      width: 220,
+      render: (v: string) => <span style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{v}</span>,
+    },
+    {
+      title: 'Vendor',
+      dataIndex: 'vendorName',
+      width: 200,
+      render: (v: string) => <span style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{v}</span>,
+    },
     { title: 'Amount', dataIndex: 'amount', align: 'right' as const, width: 130, render: (v: number) => formatCurrency(v) },
-    { title: 'Mode', dataIndex: 'paymentMode', width: 100, render: (v: string) => titleCase(v) },
-    { title: 'Reference', dataIndex: 'referenceNumber', width: 140, render: (v?: string | null) => v || '-' },
+    { title: 'Mode', dataIndex: 'mode', width: 100, render: (v?: string | null) => (v ? titleCase(v) : '-') },
+    { title: 'Reference', dataIndex: 'reference', width: 140, render: (v?: string | null) => v || '-' },
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      width: 150,
+      render: (v: string) => <Tag color={VENDOR_PAYMENT_STATUS_COLORS[v] || 'default'}>{v === 'admin_approved' ? 'ADMIN APPROVED' : v.toUpperCase()}</Tag>,
+    },
     { title: 'Notes', dataIndex: 'notes', ellipsis: true, render: (v?: string | null) => v || '-' },
   ];
 
   const subcontractorPaymentColumns: ColumnsType<Payment> = [
     { title: 'Date', dataIndex: 'paymentDate', width: 120, render: (v: string) => <Typography.Text strong>{formatDate(v)}</Typography.Text> },
-    { title: 'Project', dataIndex: ['project', 'name'], width: 200, render: (v: string) => v || '-' },
-    { title: 'Subcontractor', key: 'subcontractor', width: 180, render: (_, p) => p.subcontractWorkOrder?.subcontractor?.name || p.payeeName || '-' },
+    {
+      title: 'Project',
+      dataIndex: ['project', 'name'],
+      width: 220,
+      render: (v: string) => <span style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{v || '-'}</span>,
+    },
+    {
+      title: 'Subcontractor',
+      key: 'subcontractor',
+      width: 200,
+      render: (_, p) => (
+        <span style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+          {p.subcontractWorkOrder?.subcontractor?.name || p.payeeName || '-'}
+        </span>
+      ),
+    },
     { title: 'Amount', dataIndex: 'amount', align: 'right' as const, width: 130, render: (v: number) => formatCurrency(v) },
     { title: 'Mode', dataIndex: 'paymentMode', width: 100, render: (v: string) => titleCase(v) },
     { title: 'Reference', dataIndex: 'referenceNumber', width: 140, render: (v?: string | null) => v || '-' },
@@ -694,9 +787,9 @@ export function ReportsClient({ projects, bills, expenses, dailyLabourReports, p
             className="mantis-table"
             dataSource={vendorPayments}
             columns={vendorPaymentColumns}
-            rowKey="id"
+            rowKey="key"
             size="middle"
-            scroll={{ x: 1000 }}
+            scroll={{ x: 1190 }}
             pagination={{ pageSize: 15, showTotal: (total) => `${total} payments` }}
             locale={{ emptyText: 'No vendor payments for the selected filters' }}
           />
@@ -774,7 +867,7 @@ export function ReportsClient({ projects, bills, expenses, dailyLabourReports, p
             columns={subcontractorPaymentColumns}
             rowKey="id"
             size="middle"
-            scroll={{ x: 1000 }}
+            scroll={{ x: 1040 }}
             pagination={{ pageSize: 15, showTotal: (total) => `${total} payments` }}
             locale={{ emptyText: 'No subcontractor payments for the selected filters' }}
           />
