@@ -90,7 +90,7 @@ const navigationSections: Array<{ title: string; items: NavItem[]; allowedRoles?
       { key: '/dashboard/subcontractor-work', icon: <TeamOutlined />, label: 'Subcontractor Work', allowedRoles: ['site_engineer', 'purchase_team'] },
       { key: '/dashboard/material-requirement', icon: <FileSearchOutlined />, label: 'Material Requirement', allowedRoles: ['site_engineer'] },
       { key: '/dashboard/report', icon: <FileTextOutlined />, label: 'My Report', allowedRoles: ['site_engineer'] },
-      { key: '/dashboard/reports', icon: <FileTextOutlined />, label: 'Reports', allowedRoles: ['admin'] },
+      { key: '/dashboard/reports', icon: <FileTextOutlined />, label: 'Reports', allowedRoles: ['admin', 'accounts_manager'] },
       { key: '/dashboard/project-access', icon: <SafetyCertificateOutlined />, label: 'Project Access', allowedRoles: ['admin'] },
       { key: '/dashboard/architecture', icon: <NodeIndexOutlined />, label: 'System Architecture', allowedRoles: ['admin'] },
     ],

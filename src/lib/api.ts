@@ -39,6 +39,7 @@ import type {
   StaffAccessEntry,
   ExpensePayment,
   UnpaidExpenseWeekSummary,
+  Payment,
 } from '@/types/erp';
 import { getApiBaseUrl } from './api-url';
 
@@ -104,7 +105,7 @@ export const fetchExpenses = (params?: string) => apiFetch<PagedResponse<Expense
 export const fetchExpenseSummary = () => apiFetch<ExpenseSummary[]>('/expenses/summary');
 export const fetchExpensePayments = () => apiFetch<ExpensePayment[]>('/expense-payments');
 export const fetchUnpaidExpenseWeeklySummary = () => apiFetch<UnpaidExpenseWeekSummary[]>('/expense-payments/unpaid-summary');
-export const fetchPayments = (params?: string) => apiFetch<PagedResponse<any>>(`/payments${params ? `?${params}` : ''}`);
+export const fetchPayments = (params?: string) => apiFetch<PagedResponse<Payment>>(`/payments${params ? `?${params}` : ''}`);
 export const fetchPaymentsSummary = () => apiFetch<any[]>('/payments/summary');
 export const fetchDpr = (params?: string) => apiFetch<any>(`/dpr${params ? `?${params}` : ''}`);
 export const fetchDailyLabourReports = (params?: string) => apiFetch<DailyLabourReport[]>(`/daily-labour${params ? `?${params}` : ''}`);

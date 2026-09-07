@@ -18,13 +18,13 @@ import {
 import type { Dayjs } from 'dayjs';
 import type { ColumnsType } from 'antd/es/table';
 import {
-  BarChartOutlined,
-  CalendarOutlined,
+  DollarOutlined,
   FileExcelOutlined,
   FileTextOutlined,
   ProjectOutlined,
+  TeamOutlined,
 } from '@ant-design/icons';
-import type { DprReport, Project, PurchaseBill, WeeklyTimesheet, Expense } from '@/types/erp';
+import type { Project, PurchaseBill, Expense, DailyLabourReport, Payment } from '@/types/erp';
 import { exportToExcel } from '@/lib/excel';
 import {
   formatCurrency,
@@ -34,9 +34,6 @@ import {
   titleCase,
   titleIconClassName,
 } from './ui';
-
-const DAY_KEYS = ['monHours', 'tueHours', 'wedHours', 'thuHours', 'friHours', 'satHours', 'sunHours'] as const;
-const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 function inRange(dateStr: string | null | undefined, range: [Dayjs | null, Dayjs | null]) {
   if (!range[0] || !range[1] || !dateStr) return true;
@@ -49,52 +46,28 @@ function inRange(dateStr: string | null | undefined, range: [Dayjs | null, Dayjs
 type ReportsClientProps = {
   projects: Project[];
   bills: PurchaseBill[];
-  timesheets: WeeklyTimesheet[];
   expenses: Expense[];
-  dprReports: DprReport[];
+  dailyLabourReports: DailyLabourReport[];
+  payments: Payment[];
   role: string;
 };
 
-type TimesheetReportRow = {
-  key: string;
-  engineer: string;
-  engineerId: string;
-  projectId?: string | null;
-  projectName: string;
-  weekStart: string;
-  weekEnd: string;
-  status: string;
-  hours: Record<(typeof DAY_KEYS)[number], number>;
-  totalHours: number;
-  costPerHr: number;
-  totalCost: number;
-};
-
-export function ReportsClient({ projects, bills, timesheets, expenses, dprReports, role }: ReportsClientProps) {
+export function ReportsClient({ projects, bills, expenses, dailyLabourReports, payments, role }: ReportsClientProps) {
   const [activeTab, setActiveTab] = useState('project');
   const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>();
-  const [tsProjectId, setTsProjectId] = useState<string | undefined>();
-  const [tsEngineerId, setTsEngineerId] = useState<string | undefined>();
-  const [dprProjectId, setDprProjectId] = useState<string | undefined>();
+  const [dlProjectId, setDlProjectId] = useState<string | undefined>();
+  const [vpProjectId, setVpProjectId] = useState<string | undefined>();
+  const [spProjectId, setSpProjectId] = useState<string | undefined>();
   const [projectDateRange, setProjectDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
-  const [tsDateRange, setTsDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
-  const [dprDateRange, setDprDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
+  const [dlDateRange, setDlDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
+  const [vpDateRange, setVpDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
+  const [spDateRange, setSpDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
 
   const projectNameById = useMemo(() => {
     const map = new Map<string, string>();
     for (const p of projects) map.set(p.id, p.name);
     return map;
   }, [projects]);
-
-  const engineerOptions = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const ts of timesheets) {
-      if (ts.siteEngineer) map.set(ts.siteEngineer.id, ts.siteEngineer.name);
-    }
-    return Array.from(map.entries())
-      .map(([value, label]) => ({ value, label }))
-      .sort((a, b) => a.label.localeCompare(b.label));
-  }, [timesheets]);
 
   const projectBills = useMemo(() => {
     if (!selectedProjectId) return [];
@@ -124,57 +97,50 @@ export function ReportsClient({ projects, bills, timesheets, expenses, dprReport
     return { count: projectExpenses.length, total };
   }, [projectExpenses]);
 
-  const timesheetRows: TimesheetReportRow[] = useMemo(() => {
-    const rows: TimesheetReportRow[] = [];
-    for (const ts of timesheets) {
-      const engineerName = ts.siteEngineer?.name || ts.siteEngineerId;
-      const costPerHr = Number(ts.siteEngineer?.salaryGrade?.avgCostPerHr || 0);
-      for (const row of ts.rows || []) {
-        if (!row.projectId) continue;
-        if (tsProjectId && row.projectId !== tsProjectId) continue;
-        if (tsEngineerId && ts.siteEngineerId !== tsEngineerId) continue;
-        if (!inRange(ts.weekStart, tsDateRange)) continue;
-        let totalHours = 0;
-        for (const day of DAY_KEYS) totalHours += Number(row[day] || 0);
-        if (totalHours === 0) continue;
-        const hours = {} as TimesheetReportRow['hours'];
-        for (const day of DAY_KEYS) hours[day] = Number(row[day] || 0);
-        rows.push({
-          key: `${ts.id}-${row.id}`,
-          engineer: engineerName,
-          engineerId: ts.siteEngineerId,
-          projectId: row.projectId,
-          projectName: projectNameById.get(row.projectId) || '-',
-          weekStart: ts.weekStart,
-          weekEnd: ts.weekEnd,
-          status: ts.status,
-          hours,
-          totalHours,
-          costPerHr,
-          totalCost: totalHours * costPerHr,
-        });
+  const filteredDailyLabour = useMemo(() => {
+    return dailyLabourReports
+      .filter((r) => (!dlProjectId || r.projectId === dlProjectId) && inRange(r.reportDate, dlDateRange))
+      .sort((a, b) => (b.reportDate || '').localeCompare(a.reportDate || ''));
+  }, [dailyLabourReports, dlProjectId, dlDateRange]);
+
+  // The generic Payment ledger doesn't carry a "vendor" / "subcontractor"
+  // category of its own — which bucket a row belongs to is inferred from
+  // which relation it's actually attached to.
+  const vendorPayments = useMemo(() => {
+    return payments
+      .filter((p) => Boolean(p.vendorId || p.purchaseBillId || p.purchaseOrderId || p.advanceRequestId))
+      .filter((p) => (!vpProjectId || p.projectId === vpProjectId) && inRange(p.paymentDate, vpDateRange))
+      .sort((a, b) => (b.paymentDate || '').localeCompare(a.paymentDate || ''));
+  }, [payments, vpProjectId, vpDateRange]);
+
+  const subcontractorPayments = useMemo(() => {
+    return payments
+      .filter((p) => Boolean(p.subcontractWorkOrderId || p.subcontractorPaymentRequestId))
+      .filter((p) => (!spProjectId || p.projectId === spProjectId) && inRange(p.paymentDate, spDateRange))
+      .sort((a, b) => (b.paymentDate || '').localeCompare(a.paymentDate || ''));
+  }, [payments, spProjectId, spDateRange]);
+
+  const dailyLabourSummary = useMemo(() => {
+    let headcount = 0;
+    let totalShift = 0;
+    for (const r of filteredDailyLabour) {
+      for (const w of r.workers || []) {
+        headcount += Number(w.count) || 1;
+        totalShift += (Number(w.count) || 1) * (Number(w.shift) || 0);
       }
     }
-    return rows;
-  }, [timesheets, tsProjectId, tsEngineerId, tsDateRange, projectNameById]);
+    return { count: filteredDailyLabour.length, headcount, totalShift };
+  }, [filteredDailyLabour]);
 
-  const timesheetSummary = useMemo(() => {
-    const engineers = new Set<string>();
-    let totalHours = 0;
-    let totalCost = 0;
-    for (const row of timesheetRows) {
-      engineers.add(row.engineerId);
-      totalHours += row.totalHours;
-      totalCost += row.totalCost;
-    }
-    return { engineers: engineers.size, rows: timesheetRows.length, totalHours, totalCost };
-  }, [timesheetRows]);
+  const vendorPaymentsSummary = useMemo(
+    () => ({ count: vendorPayments.length, total: vendorPayments.reduce((s, p) => s + Number(p.amount || 0), 0) }),
+    [vendorPayments],
+  );
 
-  const filteredDprReports = useMemo(() => {
-    return dprReports
-      .filter((d) => (!dprProjectId || d.projectId === dprProjectId) && inRange(d.reportDate, dprDateRange))
-      .sort((a, b) => (b.reportDate || '').localeCompare(a.reportDate || ''));
-  }, [dprReports, dprProjectId, dprDateRange]);
+  const subcontractorPaymentsSummary = useMemo(
+    () => ({ count: subcontractorPayments.length, total: subcontractorPayments.reduce((s, p) => s + Number(p.amount || 0), 0) }),
+    [subcontractorPayments],
+  );
 
   const exportProjectBills = () => {
     exportToExcel({
@@ -238,45 +204,56 @@ export function ReportsClient({ projects, bills, timesheets, expenses, dprReport
     });
   };
 
-  const exportTimesheet = () => {
+  const exportDailyLabour = () => {
     exportToExcel({
-      filename: 'Timesheet-Hours-Report',
-      sheetName: 'Timesheet Hours',
-      headers: [
-        'Engineer',
-        'Project',
-        'Week Start',
-        'Week End',
-        ...DAY_LABELS,
-        'Total Hours',
-        'Cost / Hour',
-        'Total Cost',
-        'Status',
-      ],
-      rows: timesheetRows.map((r) => [
-        r.engineer,
-        r.projectName,
-        formatDate(r.weekStart),
-        formatDate(r.weekEnd),
-        ...DAY_KEYS.map((d) => r.hours[d]),
-        r.totalHours,
-        r.costPerHr,
-        r.totalCost,
-        titleCase(r.status),
+      filename: 'Daily-Labour-List',
+      sheetName: 'Daily Labour',
+      headers: ['Date', 'Project', 'Site Engineer', 'Headcount', 'Total Shift', 'Status'],
+      rows: filteredDailyLabour.map((r) => {
+        const headcount = (r.workers || []).reduce((s, w) => s + (Number(w.count) || 1), 0);
+        const totalShift = (r.workers || []).reduce((s, w) => s + (Number(w.count) || 1) * (Number(w.shift) || 0), 0);
+        return [
+          formatDate(r.reportDate),
+          r.project?.name || '-',
+          r.createdBy?.name || '-',
+          headcount,
+          totalShift,
+          titleCase(r.status),
+        ];
+      }),
+    });
+  };
+
+  const exportVendorPayments = () => {
+    exportToExcel({
+      filename: 'Vendor-Payments',
+      sheetName: 'Vendor Payments',
+      headers: ['Date', 'Project', 'Vendor', 'Amount', 'Mode', 'Reference', 'Notes'],
+      rows: vendorPayments.map((p) => [
+        formatDate(p.paymentDate),
+        p.project?.name || '-',
+        p.vendor?.name || p.payeeName || '-',
+        Number(p.amount || 0),
+        titleCase(p.paymentMode),
+        p.referenceNumber || '-',
+        p.notes || '-',
       ]),
     });
   };
 
-  const exportDprReports = () => {
+  const exportSubcontractorPayments = () => {
     exportToExcel({
-      filename: 'DPR-Reports',
-      sheetName: 'DPR Reports',
-      headers: ['Report Date', 'Project', 'File', 'Uploaded At'],
-      rows: filteredDprReports.map((d) => [
-        formatDate(d.reportDate),
-        d.project?.name || '-',
-        d.fileKey || '-',
-        formatDate(d.createdAt),
+      filename: 'Subcontractor-Payments',
+      sheetName: 'Subcontractor Payments',
+      headers: ['Date', 'Project', 'Subcontractor', 'Amount', 'Mode', 'Reference', 'Notes'],
+      rows: subcontractorPayments.map((p) => [
+        formatDate(p.paymentDate),
+        p.project?.name || '-',
+        p.subcontractWorkOrder?.subcontractor?.name || p.payeeName || '-',
+        Number(p.amount || 0),
+        titleCase(p.paymentMode),
+        p.referenceNumber || '-',
+        p.notes || '-',
       ]),
     });
   };
@@ -327,37 +304,53 @@ export function ReportsClient({ projects, bills, timesheets, expenses, dprReport
     { title: 'Remarks', dataIndex: 'remarks', width: 160, render: (v: string) => v || '-' },
   ];
 
-  const timesheetColumns: ColumnsType<TimesheetReportRow> = [
-    { title: 'Engineer', dataIndex: 'engineer', width: 170, render: (v: string) => <Typography.Text strong>{v}</Typography.Text> },
-    { title: 'Project', dataIndex: 'projectName', width: 180, render: (v: string) => v || '-' },
-    { title: 'Week Start', dataIndex: 'weekStart', width: 120, render: (v: string) => formatDate(v) },
-    { title: 'Week End', dataIndex: 'weekEnd', width: 120, render: (v: string) => formatDate(v) },
-    ...DAY_KEYS.map((day, i) => ({
-      title: DAY_LABELS[i],
-      key: day,
-      width: 70,
-      align: 'right' as const,
-      render: (_: unknown, r: TimesheetReportRow) => r.hours[day] || 0,
-    })),
-    { title: 'Total Hours', key: 'totalHours', width: 110, align: 'right' as const, render: (_, r) => <Typography.Text strong>{r.totalHours}</Typography.Text> },
-    { title: 'Cost / Hr', key: 'costPerHr', width: 100, align: 'right' as const, render: (_, r) => (r.costPerHr ? formatCurrency(r.costPerHr) : '-') },
-    { title: 'Total Cost', key: 'totalCost', width: 120, align: 'right' as const, render: (_, r) => (r.totalCost ? formatCurrency(r.totalCost) : '-') },
-    { title: 'Status', dataIndex: 'status', width: 120, render: (v: string) => <Tag color="blue">{titleCase(v)}</Tag> },
-  ];
 
-  const dprColumns: ColumnsType<DprReport> = [
-    { title: 'Report Date', dataIndex: 'reportDate', width: 130, render: (v: string) => <Typography.Text strong>{formatDate(v)}</Typography.Text> },
+  const dailyLabourColumns: ColumnsType<DailyLabourReport> = [
+    { title: 'Date', dataIndex: 'reportDate', width: 120, render: (v: string) => <Typography.Text strong>{formatDate(v)}</Typography.Text> },
     { title: 'Project', dataIndex: ['project', 'name'], width: 200, render: (v: string) => v || '-' },
+    { title: 'Site Engineer', key: 'creator', width: 180, render: (_, r) => r.createdBy?.name || '-' },
     {
-      title: 'File',
-      key: 'file',
-      render: (_, r) => (
-        <Typography.Link href={r.fileUrl} target="_blank">
-          {r.fileKey || 'View File'}
-        </Typography.Link>
+      title: 'Headcount',
+      key: 'headcount',
+      align: 'right' as const,
+      width: 110,
+      render: (_, r) => (r.workers || []).reduce((s, w) => s + (Number(w.count) || 1), 0),
+    },
+    {
+      title: 'Total Shift',
+      key: 'totalShift',
+      align: 'right' as const,
+      width: 110,
+      render: (_, r) => (r.workers || []).reduce((s, w) => s + (Number(w.count) || 1) * (Number(w.shift) || 0), 0),
+    },
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      width: 120,
+      render: (v: string) => (
+        <Tag color={v === 'approved' ? 'success' : v === 'rejected' ? 'error' : 'warning'}>{titleCase(v)}</Tag>
       ),
     },
-    { title: 'Uploaded At', dataIndex: 'createdAt', width: 140, render: (v: string) => <Typography.Text type="secondary">{formatDate(v)}</Typography.Text> },
+  ];
+
+  const vendorPaymentColumns: ColumnsType<Payment> = [
+    { title: 'Date', dataIndex: 'paymentDate', width: 120, render: (v: string) => <Typography.Text strong>{formatDate(v)}</Typography.Text> },
+    { title: 'Project', dataIndex: ['project', 'name'], width: 200, render: (v: string) => v || '-' },
+    { title: 'Vendor', key: 'vendor', width: 180, render: (_, p) => p.vendor?.name || p.payeeName || '-' },
+    { title: 'Amount', dataIndex: 'amount', align: 'right' as const, width: 130, render: (v: number) => formatCurrency(v) },
+    { title: 'Mode', dataIndex: 'paymentMode', width: 100, render: (v: string) => titleCase(v) },
+    { title: 'Reference', dataIndex: 'referenceNumber', width: 140, render: (v?: string | null) => v || '-' },
+    { title: 'Notes', dataIndex: 'notes', ellipsis: true, render: (v?: string | null) => v || '-' },
+  ];
+
+  const subcontractorPaymentColumns: ColumnsType<Payment> = [
+    { title: 'Date', dataIndex: 'paymentDate', width: 120, render: (v: string) => <Typography.Text strong>{formatDate(v)}</Typography.Text> },
+    { title: 'Project', dataIndex: ['project', 'name'], width: 200, render: (v: string) => v || '-' },
+    { title: 'Subcontractor', key: 'subcontractor', width: 180, render: (_, p) => p.subcontractWorkOrder?.subcontractor?.name || p.payeeName || '-' },
+    { title: 'Amount', dataIndex: 'amount', align: 'right' as const, width: 130, render: (v: number) => formatCurrency(v) },
+    { title: 'Mode', dataIndex: 'paymentMode', width: 100, render: (v: string) => titleCase(v) },
+    { title: 'Reference', dataIndex: 'referenceNumber', width: 140, render: (v?: string | null) => v || '-' },
+    { title: 'Notes', dataIndex: 'notes', ellipsis: true, render: (v?: string | null) => v || '-' },
   ];
 
   const projectTabItems = {
@@ -548,11 +541,11 @@ export function ReportsClient({ projects, bills, timesheets, expenses, dprReport
     ),
   };
 
-  const timesheetTabItems = {
-    key: 'timesheet',
+  const dailyLabourTabItems = {
+    key: 'daily-labour',
     label: (
       <span>
-        <BarChartOutlined className="mr-1" /> Timesheet Hours
+        <TeamOutlined className="mr-1" /> Daily Labour List
       </span>
     ),
     children: (
@@ -564,34 +557,16 @@ export function ReportsClient({ projects, bills, timesheets, expenses, dprReport
               placeholder="Filter by project"
               allowClear
               style={{ minWidth: 220 }}
-              value={tsProjectId}
-              onChange={setTsProjectId}
+              value={dlProjectId}
+              onChange={setDlProjectId}
               options={projects.map((p) => ({ value: p.id, label: p.name }))}
               filterOption={(input, option) =>
                 String(option?.label || '').toLowerCase().includes(input.toLowerCase())
               }
             />
-            <Select
-              showSearch
-              placeholder="Filter by engineer"
-              allowClear
-              style={{ minWidth: 200 }}
-              value={tsEngineerId}
-              onChange={setTsEngineerId}
-              options={engineerOptions}
-              filterOption={(input, option) =>
-                String(option?.label || '').toLowerCase().includes(input.toLowerCase())
-              }
-            />
-            <DatePicker
-              picker="month"
-              placeholder="Month"
-              allowClear
-              onChange={(month) => setTsDateRange(month ? [month.startOf('month'), month.endOf('month')] : [null, null])}
-            />
             <DatePicker.RangePicker
-              value={tsDateRange[0] || tsDateRange[1] ? tsDateRange : [null, null]}
-              onChange={(dates) => setTsDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+              value={dlDateRange[0] || dlDateRange[1] ? dlDateRange : [null, null]}
+              onChange={(dates) => setDlDateRange(dates ? [dates[0], dates[1]] : [null, null])}
               allowClear
               placeholder={['From', 'To']}
             />
@@ -599,63 +574,35 @@ export function ReportsClient({ projects, bills, timesheets, expenses, dprReport
           <Button
             type="primary"
             icon={<FileExcelOutlined />}
-            disabled={timesheetRows.length === 0}
-            onClick={exportTimesheet}
+            disabled={filteredDailyLabour.length === 0}
+            onClick={exportDailyLabour}
           >
             Export to Excel
           </Button>
         </Flex>
 
         <Row gutter={[16, 16]} className="mb-4">
-          <Col xs={12} sm={6}>
-            <Card
-              className="rounded-xl! border! border-[var(--border)]!"
-              styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}
-            >
+          <Col xs={12} sm={8}>
+            <Card className="rounded-xl! border! border-[var(--border)]!" styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}>
               <Flex vertical gap={10}>
-                <Typography.Text className="text-sm text-[var(--text-muted)]!">Engineers</Typography.Text>
-                <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">
-                  {timesheetSummary.engineers}
-                </Typography.Title>
+                <Typography.Text className="text-sm text-[var(--text-muted)]!">Reports</Typography.Text>
+                <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">{dailyLabourSummary.count}</Typography.Title>
               </Flex>
             </Card>
           </Col>
-          <Col xs={12} sm={6}>
-            <Card
-              className="rounded-xl! border! border-[var(--border)]!"
-              styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}
-            >
+          <Col xs={12} sm={8}>
+            <Card className="rounded-xl! border! border-[var(--border)]!" styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}>
               <Flex vertical gap={10}>
-                <Typography.Text className="text-sm text-[var(--text-muted)]!">Work Entries</Typography.Text>
-                <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">
-                  {timesheetSummary.rows}
-                </Typography.Title>
+                <Typography.Text className="text-sm text-[var(--text-muted)]!">Headcount</Typography.Text>
+                <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">{dailyLabourSummary.headcount}</Typography.Title>
               </Flex>
             </Card>
           </Col>
-          <Col xs={12} sm={6}>
-            <Card
-              className="rounded-xl! border! border-[var(--border)]!"
-              styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}
-            >
+          <Col xs={12} sm={8}>
+            <Card className="rounded-xl! border! border-[var(--border)]!" styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}>
               <Flex vertical gap={10}>
-                <Typography.Text className="text-sm text-[var(--text-muted)]!">Total Hours</Typography.Text>
-                <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">
-                  {timesheetSummary.totalHours.toFixed(2)}
-                </Typography.Title>
-              </Flex>
-            </Card>
-          </Col>
-          <Col xs={12} sm={6}>
-            <Card
-              className="rounded-xl! border! border-[var(--border)]!"
-              styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}
-            >
-              <Flex vertical gap={10}>
-                <Typography.Text className="text-sm text-[var(--text-muted)]!">Labour Cost</Typography.Text>
-                <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">
-                  {formatCurrency(timesheetSummary.totalCost)}
-                </Typography.Title>
+                <Typography.Text className="text-sm text-[var(--text-muted)]!">Total Shift</Typography.Text>
+                <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">{dailyLabourSummary.totalShift}</Typography.Title>
               </Flex>
             </Card>
           </Col>
@@ -667,24 +614,24 @@ export function ReportsClient({ projects, bills, timesheets, expenses, dprReport
         >
           <Table
             className="mantis-table"
-            dataSource={timesheetRows}
-            columns={timesheetColumns}
-            rowKey="key"
+            dataSource={filteredDailyLabour}
+            columns={dailyLabourColumns}
+            rowKey="id"
             size="middle"
-            scroll={{ x: 1400 }}
-            pagination={{ pageSize: 15, showTotal: (total) => `${total} entries` }}
-            locale={{ emptyText: 'No timesheet hours for the selected filters' }}
+            scroll={{ x: 900 }}
+            pagination={{ pageSize: 15, showTotal: (total) => `${total} reports` }}
+            locale={{ emptyText: 'No daily labour reports for the selected filters' }}
           />
         </Card>
       </div>
     ),
   };
 
-  const dprTabItems = {
-    key: 'dpr',
+  const vendorPaymentsTabItems = {
+    key: 'vendor-payments',
     label: (
       <span>
-        <CalendarOutlined className="mr-1" /> DPR Reports
+        <DollarOutlined className="mr-1" /> Vendor Payments
       </span>
     ),
     children: (
@@ -696,22 +643,16 @@ export function ReportsClient({ projects, bills, timesheets, expenses, dprReport
               placeholder="Filter by project"
               allowClear
               style={{ minWidth: 220 }}
-              value={dprProjectId}
-              onChange={setDprProjectId}
+              value={vpProjectId}
+              onChange={setVpProjectId}
               options={projects.map((p) => ({ value: p.id, label: p.name }))}
               filterOption={(input, option) =>
                 String(option?.label || '').toLowerCase().includes(input.toLowerCase())
               }
             />
-            <DatePicker
-              picker="month"
-              placeholder="Month"
-              allowClear
-              onChange={(month) => setDprDateRange(month ? [month.startOf('month'), month.endOf('month')] : [null, null])}
-            />
             <DatePicker.RangePicker
-              value={dprDateRange[0] || dprDateRange[1] ? dprDateRange : [null, null]}
-              onChange={(dates) => setDprDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+              value={vpDateRange[0] || vpDateRange[1] ? vpDateRange : [null, null]}
+              onChange={(dates) => setVpDateRange(dates ? [dates[0], dates[1]] : [null, null])}
               allowClear
               placeholder={['From', 'To']}
             />
@@ -719,12 +660,31 @@ export function ReportsClient({ projects, bills, timesheets, expenses, dprReport
           <Button
             type="primary"
             icon={<FileExcelOutlined />}
-            disabled={filteredDprReports.length === 0}
-            onClick={exportDprReports}
+            disabled={vendorPayments.length === 0}
+            onClick={exportVendorPayments}
           >
             Export to Excel
           </Button>
         </Flex>
+
+        <Row gutter={[16, 16]} className="mb-4">
+          <Col xs={12} sm={6}>
+            <Card className="rounded-xl! border! border-[var(--border)]!" styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}>
+              <Flex vertical gap={10}>
+                <Typography.Text className="text-sm text-[var(--text-muted)]!">Payments</Typography.Text>
+                <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">{vendorPaymentsSummary.count}</Typography.Title>
+              </Flex>
+            </Card>
+          </Col>
+          <Col xs={12} sm={6}>
+            <Card className="rounded-xl! border! border-[var(--border)]!" styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}>
+              <Flex vertical gap={10}>
+                <Typography.Text className="text-sm text-[var(--text-muted)]!">Total Amount</Typography.Text>
+                <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">{formatCurrency(vendorPaymentsSummary.total)}</Typography.Title>
+              </Flex>
+            </Card>
+          </Col>
+        </Row>
 
         <Card
           className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
@@ -732,13 +692,91 @@ export function ReportsClient({ projects, bills, timesheets, expenses, dprReport
         >
           <Table
             className="mantis-table"
-            dataSource={filteredDprReports}
-            columns={dprColumns}
+            dataSource={vendorPayments}
+            columns={vendorPaymentColumns}
             rowKey="id"
             size="middle"
-            scroll={{ x: 900 }}
-            pagination={{ pageSize: 15, showTotal: (total) => `${total} reports` }}
-            locale={{ emptyText: 'No DPR reports for the selected filters' }}
+            scroll={{ x: 1000 }}
+            pagination={{ pageSize: 15, showTotal: (total) => `${total} payments` }}
+            locale={{ emptyText: 'No vendor payments for the selected filters' }}
+          />
+        </Card>
+      </div>
+    ),
+  };
+
+  const subcontractorPaymentsTabItems = {
+    key: 'subcontractor-payments',
+    label: (
+      <span>
+        <DollarOutlined className="mr-1" /> Subcontractor Payments
+      </span>
+    ),
+    children: (
+      <div>
+        <Flex justify="space-between" align="center" gap={16} wrap="wrap" className="mb-4!">
+          <Flex gap={12} wrap="wrap">
+            <Select
+              showSearch
+              placeholder="Filter by project"
+              allowClear
+              style={{ minWidth: 220 }}
+              value={spProjectId}
+              onChange={setSpProjectId}
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              filterOption={(input, option) =>
+                String(option?.label || '').toLowerCase().includes(input.toLowerCase())
+              }
+            />
+            <DatePicker.RangePicker
+              value={spDateRange[0] || spDateRange[1] ? spDateRange : [null, null]}
+              onChange={(dates) => setSpDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+              allowClear
+              placeholder={['From', 'To']}
+            />
+          </Flex>
+          <Button
+            type="primary"
+            icon={<FileExcelOutlined />}
+            disabled={subcontractorPayments.length === 0}
+            onClick={exportSubcontractorPayments}
+          >
+            Export to Excel
+          </Button>
+        </Flex>
+
+        <Row gutter={[16, 16]} className="mb-4">
+          <Col xs={12} sm={6}>
+            <Card className="rounded-xl! border! border-[var(--border)]!" styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}>
+              <Flex vertical gap={10}>
+                <Typography.Text className="text-sm text-[var(--text-muted)]!">Payments</Typography.Text>
+                <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">{subcontractorPaymentsSummary.count}</Typography.Title>
+              </Flex>
+            </Card>
+          </Col>
+          <Col xs={12} sm={6}>
+            <Card className="rounded-xl! border! border-[var(--border)]!" styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}>
+              <Flex vertical gap={10}>
+                <Typography.Text className="text-sm text-[var(--text-muted)]!">Total Amount</Typography.Text>
+                <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">{formatCurrency(subcontractorPaymentsSummary.total)}</Typography.Title>
+              </Flex>
+            </Card>
+          </Col>
+        </Row>
+
+        <Card
+          className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
+          styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
+        >
+          <Table
+            className="mantis-table"
+            dataSource={subcontractorPayments}
+            columns={subcontractorPaymentColumns}
+            rowKey="id"
+            size="middle"
+            scroll={{ x: 1000 }}
+            pagination={{ pageSize: 15, showTotal: (total) => `${total} payments` }}
+            locale={{ emptyText: 'No subcontractor payments for the selected filters' }}
           />
         </Card>
       </div>
@@ -747,8 +785,8 @@ export function ReportsClient({ projects, bills, timesheets, expenses, dprReport
 
   const canSeeReportData = ['admin', 'accounts_manager', 'purchase_team'].includes(role);
   const tabItems = canSeeReportData
-    ? [projectTabItems, timesheetTabItems, dprTabItems]
-    : [dprTabItems];
+    ? [projectTabItems, dailyLabourTabItems, vendorPaymentsTabItems, subcontractorPaymentsTabItems]
+    : [];
 
   return (
     <div>
@@ -762,7 +800,11 @@ export function ReportsClient({ projects, bills, timesheets, expenses, dprReport
         className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
         styles={{ body: { padding: '8px 8px' } }}
       >
-        <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
+        {tabItems.length === 0 ? (
+          <Empty description="No reports available" className="py-10" />
+        ) : (
+          <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
+        )}
       </Card>
     </div>
   );

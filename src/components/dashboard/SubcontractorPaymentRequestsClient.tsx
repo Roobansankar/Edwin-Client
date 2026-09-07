@@ -82,19 +82,19 @@ export function SubcontractorPaymentRequestsClient({ requests }: Props) {
   const columns: ColumnsType<SubcontractorPaymentRequest> = [
     { title: '#', key: 'sno', width: 50, render: (_, __, i) => i + 1 },
     { title: 'Subcontractor', key: 'subcontractor', width: 160, render: (_, record) => record.subcontractor?.name || record.subcontractorId },
-    { title: 'Project', key: 'project', width: 160, responsive: ['md'], render: (_, record) => record.project?.name || '-' },
-    { title: 'WO Number', key: 'wo', width: 130, responsive: ['lg'], render: (_, record) => record.subcontractWorkOrder?.woNumber || <Typography.Text type="secondary">-</Typography.Text> },
+    { title: 'Project', key: 'project', width: 160, render: (_, record) => record.project?.name || '-' },
+    { title: 'WO Number', key: 'wo', width: 130, render: (_, record) => record.subcontractWorkOrder?.woNumber || <Typography.Text type="secondary">-</Typography.Text> },
     { title: 'Amount', dataIndex: 'amount', align: 'right', width: 120, render: (value: number | string) => formatCurrency(value) },
-    { title: 'WO Total', key: 'woTotal', align: 'right', width: 120, responsive: ['xl'], render: (_, record) =>
+    { title: 'WO Total', key: 'woTotal', align: 'right', width: 120, render: (_, record) =>
       record.subcontractWorkOrder?.totalAmount ? formatCurrency(record.subcontractWorkOrder.totalAmount) : <Typography.Text type="secondary">-</Typography.Text>,
     },
-    { title: 'Work Order', key: 'workorder', width: 100, responsive: ['xl'], render: (_, record) =>
+    { title: 'Work Order', key: 'workorder', width: 100, render: (_, record) =>
       record.subcontractWorkOrder?.workorderUrl ? (
         <Button type="link" size="small" icon={<FileTextOutlined />} href={record.subcontractWorkOrder.workorderUrl} target="_blank">View</Button>
       ) : <Typography.Text type="secondary">-</Typography.Text>,
     },
-    { title: 'Notes', dataIndex: 'notes', width: 160, responsive: ['lg'], ellipsis: true, render: (value?: string | null) => value || '-' },
-    { title: 'Requested At', dataIndex: 'createdAt', width: 120, responsive: ['md'], render: formatDate },
+    { title: 'Notes', dataIndex: 'notes', width: 160, ellipsis: true, render: (value?: string | null) => value || '-' },
+    { title: 'Requested At', dataIndex: 'createdAt', width: 120, render: formatDate },
     {
       title: 'Status',
       key: 'status',
@@ -221,94 +221,14 @@ export function SubcontractorPaymentRequestsClient({ requests }: Props) {
           />
         </Flex>
 
-        {isMobile ? (
-          <div className="flex flex-col">
-            {filtered.length === 0 ? (
-              <div className="p-4 text-center text-gray-400">No subcontractor payment requests from purchase team</div>
-            ) : (
-              filtered.map((record) => {
-                const pendingActions = record.status === 'pending';
-                const acceptedActions = record.status === 'accepted' && isAdmin;
-                return (
-                  <div key={record.id} className="border-b border-[var(--border)] p-3 last:border-b-0">
-                    <Flex justify="space-between" align="center" className="mb-1">
-                      <Typography.Text strong className="text-sm">{record.subcontractor?.name || record.subcontractorId}</Typography.Text>
-                      <Tag color={STATUS_COLORS[record.status] || 'default'} className="m-0!">
-                        {STATUS_LABELS[record.status] || record.status.toUpperCase()}
-                      </Tag>
-                    </Flex>
-                    <div className="flex flex-col gap-0.5 text-xs text-[var(--text-muted)]">
-                      {record.project?.name && <span>Project: {record.project.name}</span>}
-                      {record.subcontractWorkOrder?.woNumber && <span>WO: {record.subcontractWorkOrder.woNumber}</span>}
-                      <Flex justify="space-between" align="center" className="mt-1">
-                        <Typography.Text strong>{formatCurrency(record.amount)}</Typography.Text>
-                        <span>{record.createdAt ? formatDate(record.createdAt) : ''}</span>
-                      </Flex>
-                    </div>
-                    {(pendingActions || acceptedActions) && (
-                      <Flex gap={8} className="mt-2">
-                        {pendingActions && (
-                          <>
-                            <Popconfirm
-                              title="Accept payment request?"
-                              onConfirm={() => handleRespond(record.id, 'accepted')}
-                              okText="Yes, accept"
-                              cancelText="No"
-                            >
-                              <Button size="small" type="primary" ghost icon={<CheckOutlined />} loading={isPending}>Accept</Button>
-                            </Popconfirm>
-                            <Popconfirm
-                              title="Reject this request?"
-                              onConfirm={() => handleRespond(record.id, 'rejected')}
-                              okText="Yes"
-                              cancelText="No"
-                              okButtonProps={{ danger: true }}
-                            >
-                              <Button size="small" danger icon={<CloseOutlined />} loading={isPending}>Reject</Button>
-                            </Popconfirm>
-                          </>
-                        )}
-                        {acceptedActions && (
-                          <>
-                            <Popconfirm
-                              title="Give final approval?"
-                              onConfirm={() => handleRespond(record.id, 'admin_approved')}
-                              okText="Yes, approve"
-                              cancelText="No"
-                            >
-                              <Button size="small" type="primary" ghost icon={<CheckOutlined />} loading={isPending}>Final Approve</Button>
-                            </Popconfirm>
-                            <Popconfirm
-                              title="Reject this request?"
-                              onConfirm={() => handleRespond(record.id, 'rejected')}
-                              okText="Yes"
-                              cancelText="No"
-                              okButtonProps={{ danger: true }}
-                            >
-                              <Button size="small" danger icon={<CloseOutlined />} loading={isPending}>Reject</Button>
-                            </Popconfirm>
-                          </>
-                        )}
-                      </Flex>
-                    )}
-                    {record.status === 'accepted' && !isAdmin && (
-                      <Typography.Text type="secondary" className="text-xs mt-2 block">Awaiting admin approval</Typography.Text>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
-        ) : (
-          <Table
-            dataSource={filtered}
-            columns={columns}
-            rowKey="id"
-            pagination={{ pageSize: 10 }}
-            scroll={{ x: 1300 }}
-            locale={{ emptyText: 'No subcontractor payment requests from purchase team' }}
-          />
-        )}
+        <Table
+          dataSource={filtered}
+          columns={columns}
+          rowKey="id"
+          pagination={{ pageSize: 10 }}
+          scroll={{ x: 1300 }}
+          locale={{ emptyText: 'No subcontractor payment requests from purchase team' }}
+        />
       </Card>
     </div>
   );
