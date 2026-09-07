@@ -157,7 +157,7 @@ export function ProjectDetailsClient({ data }: Props) {
   ];
 
   const summaryCards = [
-    { label: 'Total Expenses', value: totalExpenses, color: 'text-orange-600' },
+    { label: 'Paid Expenses', value: totalExpenses, color: 'text-orange-600' },
     { label: 'Purchase Bills', value: totalBills, color: 'text-purple-600' },
     { label: 'Invoiced Amount', value: totalInvoiced, color: 'text-green-600' },
     { label: 'Vendor Payments', value: totalVendorPayments, color: 'text-rose-600' },
@@ -217,7 +217,7 @@ export function ProjectDetailsClient({ data }: Props) {
         </Descriptions>
       </Card>
 
-      <Card title={<Text strong>Expenses ({expenses.length})</Text>} size="small">
+      <Card title={<Text strong>Paid Expenses ({expenses.length})</Text>} size="small">
         <Table
           dataSource={expenses}
           columns={expenseColumns}

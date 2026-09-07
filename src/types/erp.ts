@@ -384,6 +384,30 @@ export type Expense = {
   createdAt?: string;
 };
 
+export type ExpensePayment = {
+  id: string;
+  userId: string;
+  userName: string;
+  weekStart: string;
+  weekEnd: string;
+  amount: number | string;
+  paymentDate: string;
+  status: 'pending' | 'paid' | string;
+  notes?: string | null;
+  createdById?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type UnpaidExpenseWeekSummary = {
+  userId: string;
+  userName: string;
+  weekStart: string;
+  weekEnd: string;
+  totalAmount: number;
+  expenseCount: number;
+};
+
 export type DashboardProject = {
   id: string;
   name: string;
