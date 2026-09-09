@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { Card, Table, Typography, Progress, Alert, Spin } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { ProjectOutlined } from '@ant-design/icons';
-import { useRouter } from 'next/navigation';
 import { fetchEngineerAssignedProjects } from '@/lib/client-api';
 import { StatusTag, cardClassName, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
 
@@ -19,7 +18,6 @@ type AssignedProject = {
 };
 
 export function EngineerAssignedProjectsClient() {
-  const router = useRouter();
   const [projects, setProjects] = useState<AssignedProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +30,7 @@ export function EngineerAssignedProjectsClient() {
   }, []);
 
   const columns: ColumnsType<AssignedProject> = [
+    { title: 'S.No', key: 'sno', width: 70, render: (_text, _record, index) => index + 1 },
     { title: 'Project', dataIndex: 'name', render: (v: string) => <Typography.Text strong>{v}</Typography.Text> },
     { title: 'Code', dataIndex: 'projectCode', render: (v?: string) => v || '-' },
     { title: 'Client', dataIndex: 'clientName', render: (v?: string | null) => v || '-' },
@@ -64,11 +63,7 @@ export function EngineerAssignedProjectsClient() {
             rowKey="id"
             pagination={false}
             size="middle"
-            scroll={{ x: 700 }}
-            onRow={(record) => ({
-              onClick: () => router.push(`/dashboard/projects/${record.id}`),
-              style: { cursor: 'pointer' },
-            })}
+            scroll={{ x: 770 }}
             locale={{ emptyText: 'No projects assigned yet' }}
           />
         )}

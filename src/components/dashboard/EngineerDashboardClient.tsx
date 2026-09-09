@@ -201,10 +201,6 @@ export function EngineerDashboardClient() {
           pagination={false}
           size="middle"
           scroll={{ x: 400 }}
-          onRow={(record) => ({
-            onClick: () => router.push(`/dashboard/projects/${record.id}`),
-            style: { cursor: 'pointer' },
-          })}
           locale={{ emptyText: <Space>No assigned projects</Space> }}
         />
       </Card>

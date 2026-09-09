@@ -206,14 +206,13 @@ export function MaterialReceivedClient({ records, projects, itemDescriptions, pu
   const columns: ColumnsType<MaterialReceived> = [
     { title: 'S.No', key: 'sno', width: 60, render: (_, __, i) => i + 1 },
     { title: 'MR Number', dataIndex: 'mrNumber', key: 'mrNumber', width: 150, render: (v: string) => <Typography.Text strong>{v}</Typography.Text> },
-    { title: 'PO Number', key: 'po', width: 130, responsive: ['md'], render: (_, r) => r.purchaseOrder?.poNumber || r.purchaseOrderId || '-' },
-    { title: 'Project', key: 'project', width: 200, responsive: ['md'], render: (_, r) => r.project ? `${r.project.name} (${r.project.projectCode || 'No Code'})` : r.projectId },
-    { title: 'Date', dataIndex: 'receivedDate', key: 'receivedDate', width: 120, responsive: ['lg'], render: (v?: string | null) => formatDate(v) },
+    { title: 'PO Number', key: 'po', width: 130, render: (_, r) => r.purchaseOrder?.poNumber || r.purchaseOrderId || '-' },
+    { title: 'Project', key: 'project', width: 200, render: (_, r) => r.project ? `${r.project.name} (${r.project.projectCode || 'No Code'})` : r.projectId },
+    { title: 'Date', dataIndex: 'receivedDate', key: 'receivedDate', width: 120, render: (v?: string | null) => formatDate(v) },
     {
       title: 'Items',
       key: 'items',
       width: 250,
-      responsive: ['lg'],
       render: (_, r) => (
         <Flex vertical>
           {r.items?.map((item, i) => (
@@ -228,7 +227,6 @@ export function MaterialReceivedClient({ records, projects, itemDescriptions, pu
       title: 'Photos',
       key: 'photos',
       width: 140,
-      responsive: ['xl'],
       render: (_, r) =>
         r.photoUrls?.length ? (
           <Image.PreviewGroup>
@@ -249,7 +247,6 @@ export function MaterialReceivedClient({ records, projects, itemDescriptions, pu
       title: 'Bill',
       key: 'bill',
       width: 110,
-      responsive: ['xl'],
       render: (_, r) =>
         r.billUrl ? (
           <Button type="link" size="small" icon={<FilePdfOutlined />} href={r.billUrl} target="_blank">View</Button>
@@ -268,7 +265,7 @@ export function MaterialReceivedClient({ records, projects, itemDescriptions, pu
         <Tag color={r.status === 'pending' ? 'orange' : 'green'}>{(r.status || 'pending').toUpperCase()}</Tag>
       ),
     },
-    { title: 'Created', dataIndex: 'createdAt', key: 'createdAt', width: 120, responsive: ['xl'], render: (v?: string) => formatDate(v) },
+    { title: 'Created', dataIndex: 'createdAt', key: 'createdAt', width: 120, render: (v?: string) => formatDate(v) },
     {
       title: 'Actions',
       key: 'actions',
