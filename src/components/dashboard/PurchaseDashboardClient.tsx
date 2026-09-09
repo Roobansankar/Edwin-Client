@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, Col, Row, Statistic, Table, Typography, Flex, Alert, Spin, Divider } from 'antd';
-import { ShoppingCartOutlined, InboxOutlined, FileTextOutlined, WarningOutlined } from '@ant-design/icons';
+import { ShoppingCartOutlined, InboxOutlined, FileTextOutlined, WarningOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { fetchPurchaseDashboard } from '@/lib/client-api';
 import { StatusTag, formatDate } from './ui';
 
@@ -54,66 +54,76 @@ export function PurchaseDashboardClient() {
     <div className="space-y-6">
       <Typography.Title level={2}>Purchase Dashboard</Typography.Title>
 
-      <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card
-            variant="borderless"
-            hoverable
-            className="bg-blue-500/10 border border-blue-500/20 cursor-pointer"
-            onClick={() => router.push('/dashboard/material-requirement')}
-          >
-            <Statistic
-              title={<span className="text-blue-400">Material Requirements</span>}
-              value={data.kpis.materialRequirementCount}
-              prefix={<FileTextOutlined className="mr-2" />}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card
-            variant="borderless"
-            hoverable
-            className="bg-purple-500/10 border border-purple-500/20 cursor-pointer"
-            onClick={() => router.push('/dashboard/material-received')}
-          >
-            <Statistic
-              title={<span className="text-purple-400">Material Received</span>}
-              value={data.kpis.materialReceivedCount}
-              prefix={<InboxOutlined className="mr-2" />}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card
-            variant="borderless"
-            hoverable
-            className="bg-green-500/10 border border-green-500/20 cursor-pointer"
-            onClick={() => router.push('/dashboard/purchase-orders')}
-          >
-            <Statistic
-              title={<span className="text-green-400">Active POs</span>}
-              value={data.kpis.activePOCount}
-              prefix={<ShoppingCartOutlined className="mr-2" />}
-              suffix="Approved"
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card
-            variant="borderless"
-            hoverable
-            className="bg-orange-500/10 border border-orange-500/20 cursor-pointer"
-            onClick={() => router.push('/dashboard/accounts/bills')}
-          >
-            <Statistic
-              title={<span className="text-orange-400">Bills</span>}
-              value={data.kpis.unpaidBillCount}
-              prefix={<WarningOutlined className="mr-2" />}
-              suffix="Bills"
-            />
-          </Card>
-        </Col>
-      </Row>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card
+          size="small"
+          variant="borderless"
+          hoverable
+          className="h-full bg-blue-500/10 border border-blue-500/20 cursor-pointer flex flex-col justify-center"
+          onClick={() => router.push('/dashboard/material-requirement')}
+        >
+          <Statistic
+            title={<span className="text-blue-400">Material Requirements</span>}
+            value={data.kpis.materialRequirementCount}
+            prefix={<FileTextOutlined className="mr-2" />}
+          />
+        </Card>
+        <Card
+          size="small"
+          variant="borderless"
+          hoverable
+          className="h-full bg-purple-500/10 border border-purple-500/20 cursor-pointer flex flex-col justify-center"
+          onClick={() => router.push('/dashboard/material-received')}
+        >
+          <Statistic
+            title={<span className="text-purple-400">Material Received</span>}
+            value={data.kpis.materialReceivedCount}
+            prefix={<InboxOutlined className="mr-2" />}
+          />
+        </Card>
+        <Card
+          size="small"
+          variant="borderless"
+          hoverable
+          className="h-full bg-green-500/10 border border-green-500/20 cursor-pointer flex flex-col justify-center"
+          onClick={() => router.push('/dashboard/purchase-orders')}
+        >
+          <Statistic
+            title={<span className="text-green-400">Active POs</span>}
+            value={data.kpis.activePOCount}
+            prefix={<ShoppingCartOutlined className="mr-2" />}
+            suffix="Approved"
+          />
+        </Card>
+        <Card
+          size="small"
+          variant="borderless"
+          hoverable
+          className="h-full bg-amber-500/10 border border-amber-500/20 cursor-pointer flex flex-col justify-center"
+          onClick={() => router.push('/dashboard/purchase-orders')}
+        >
+          <Statistic
+            title={<span className="text-amber-400">Pending POs</span>}
+            value={data.kpis.pendingPOCount}
+            prefix={<ClockCircleOutlined className="mr-2" />}
+            suffix="Awaiting Approval"
+          />
+        </Card>
+        <Card
+          size="small"
+          variant="borderless"
+          hoverable
+          className="h-full bg-orange-500/10 border border-orange-500/20 cursor-pointer flex flex-col justify-center"
+          onClick={() => router.push('/dashboard/accounts/bills')}
+        >
+          <Statistic
+            title={<span className="text-orange-400">Bills</span>}
+            value={data.kpis.unpaidBillCount}
+            prefix={<WarningOutlined className="mr-2" />}
+            suffix="Bills"
+          />
+        </Card>
+      </div>
 
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={16}>
