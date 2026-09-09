@@ -94,7 +94,7 @@ export function PurchaseDashboardClient() {
               title={<span className="text-green-400">Active POs</span>}
               value={data.kpis.activePOCount}
               prefix={<ShoppingCartOutlined className="mr-2" />}
-              suffix="Pending"
+              suffix="Approved"
             />
           </Card>
         </Col>
@@ -117,7 +117,7 @@ export function PurchaseDashboardClient() {
 
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={16}>
-          <Card title="Pending Purchase Orders" className="h-full border-[var(--border)]">
+          <Card title="Active Purchase Orders (Approved, Awaiting Full Billing)" className="h-full border-[var(--border)]">
             <Table
               dataSource={data.pendingPOs}
               columns={poColumns}
