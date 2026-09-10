@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Button, Card, Checkbox, Divider, Drawer, Flex, Form, Input, Modal, Popconfirm, Select, Space, Table, Tag, Typography, App, InputNumber } from 'antd';
+import { Button, Card, Checkbox, DatePicker, Divider, Drawer, Flex, Form, Input, Modal, Popconfirm, Select, Space, Table, Tag, Typography, App, InputNumber } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { DeleteOutlined, EditOutlined, FilePdfOutlined, HistoryOutlined, PlusOutlined, ShoppingCartOutlined, SplitCellsOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, FilePdfOutlined, HistoryOutlined, PlusOutlined, SearchOutlined, ShoppingCartOutlined, SplitCellsOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import { Controller, useForm, useFieldArray } from 'react-hook-form';
 import { z } from 'zod';
 import { PDFDownloadLink, PDFViewer } from '@react-pdf/renderer';
@@ -85,6 +86,8 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
 
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyEnquiry, setHistoryEnquiry] = useState<PurchaseEnquiry | null>(null);
+  const [searchText, setSearchText] = useState('');
+  const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
 
   const posByEnquiryNo = useMemo(() => {
     const map = new Map<string, PurchaseOrder[]>();
@@ -122,6 +125,32 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
     const poIds = new Set((posByEnquiryNo.get(historyEnquiry.enquiryNo) || []).map((po) => po.id));
     return payments.filter((p) => p.purchaseOrderId && poIds.has(p.purchaseOrderId));
   }, [historyEnquiry, posByEnquiryNo, payments]);
+
+  const filteredEnquiries = useMemo(() => {
+    const from = dateRange[0]?.format('YYYY-MM-DD');
+    const to = dateRange[1]?.format('YYYY-MM-DD');
+    return enquiries.filter((enq) => {
+      if (from && to) {
+        const created = enq.createdAt ? enq.createdAt.split('T')[0] : '';
+        if (created < from || created > to) return false;
+      }
+      if (searchText) {
+        const q = searchText.toLowerCase();
+        const haystack = [
+          enq.enquiryNo,
+          enq.project?.name,
+          enq.project?.projectCode,
+          enq.creator?.name,
+          enq.createdBy,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [enquiries, searchText, dateRange]);
 
   const [splitOpen, setSplitOpen] = useState(false);
   const [splitEnquiry, setSplitEnquiry] = useState<PurchaseEnquiry | null>(null);
@@ -371,13 +400,30 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
         )}
       </Flex>
 
+      <Flex gap={12} wrap="wrap" className="mb-6!">
+        <Input.Search
+          placeholder="Search enquiry no, project, site engineer..."
+          allowClear
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+          style={{ width: 280 }}
+        />
+        <DatePicker.RangePicker
+          value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
+          onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+          allowClear
+          placeholder={['From date', 'To date']}
+        />
+      </Flex>
+
       <Card
         className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
         styles={{ body: { padding: '8px 0' } }}
       >
         <Table
           className="mantis-table"
-          dataSource={enquiries}
+          dataSource={filteredEnquiries}
           columns={columns}
           rowKey="id"
           loading={isPending}

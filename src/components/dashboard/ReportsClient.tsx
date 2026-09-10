@@ -248,7 +248,6 @@ export function ReportsClient({ projects, bills, expenses, dailyLabourReports, p
         'Description',
         'Trade',
         'Amount',
-        'Paid By',
         'Status',
         'Remarks',
       ],
@@ -259,7 +258,6 @@ export function ReportsClient({ projects, bills, expenses, dailyLabourReports, p
         e.description || '-',
         e.trade?.name || '-',
         Number(e.amount || 0),
-        e.paidBy || '-',
         e.status ? titleCase(e.status) : '-',
         e.remarks || '-',
       ]),
@@ -270,15 +268,17 @@ export function ReportsClient({ projects, bills, expenses, dailyLabourReports, p
     exportToExcel({
       filename: 'Daily-Labour-List',
       sheetName: 'Daily Labour',
-      headers: ['Date', 'Project', 'Site Engineer', 'Headcount', 'Total Shift', 'Status'],
+      headers: ['Date', 'Project', 'Site Engineer', 'Headcount', 'Trade Count', 'Total Shift', 'Status'],
       rows: filteredDailyLabour.map((r) => {
         const headcount = (r.workers || []).reduce((s, w) => s + (Number(w.count) || 1), 0);
+        const tradeCount = new Set((r.workers || []).map((w) => w.trade).filter(Boolean)).size;
         const totalShift = (r.workers || []).reduce((s, w) => s + (Number(w.count) || 1) * (Number(w.shift) || 0), 0);
         return [
           formatDate(r.reportDate),
           r.project?.name || '-',
           r.createdBy?.name || '-',
           headcount,
+          tradeCount,
           totalShift,
           titleCase(r.status),
         ];
@@ -362,7 +362,6 @@ export function ReportsClient({ projects, bills, expenses, dailyLabourReports, p
     { title: 'Description', dataIndex: 'description', render: (v: string) => v || '-' },
     { title: 'Trade', dataIndex: ['trade', 'name'], width: 120, render: (v: string) => v || '-' },
     { title: 'Amount', dataIndex: 'amount', width: 120, align: 'right' as const, render: (v: number) => formatCurrency(v) },
-    { title: 'Paid By', dataIndex: 'paidBy', width: 120, render: (v: string) => v || '-' },
     { title: 'Status', dataIndex: 'status', width: 130, render: (v: string) => <Tag color="blue">{titleCase(v)}</Tag> },
     { title: 'Remarks', dataIndex: 'remarks', width: 160, render: (v: string) => v || '-' },
   ];
@@ -378,6 +377,13 @@ export function ReportsClient({ projects, bills, expenses, dailyLabourReports, p
       align: 'right' as const,
       width: 110,
       render: (_, r) => (r.workers || []).reduce((s, w) => s + (Number(w.count) || 1), 0),
+    },
+    {
+      title: 'Trade Count',
+      key: 'tradeCount',
+      align: 'right' as const,
+      width: 110,
+      render: (_, r) => new Set((r.workers || []).map((w) => w.trade).filter(Boolean)).size,
     },
     {
       title: 'Total Shift',

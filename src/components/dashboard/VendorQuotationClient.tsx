@@ -5,7 +5,7 @@ import {
   Button, Card, Checkbox, Drawer, Flex, Form, Input, InputNumber, Modal, Select, Space, Table, Tag, Typography, App, Upload,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { PlusOutlined, UploadOutlined, DeleteOutlined, EyeOutlined, FileTextOutlined, EditOutlined } from '@ant-design/icons';
+import { PlusOutlined, UploadOutlined, DeleteOutlined, EyeOutlined, FileTextOutlined, EditOutlined, SearchOutlined } from '@ant-design/icons';
 import type { Project, Vendor, VendorQuotation, PurchaseEnquiry } from '@/types/erp';
 import { cardClassName, formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
 import { clientApiFetch } from '@/lib/client-api';
@@ -102,6 +102,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
   const [data, setData] = useState<VendorQuotation[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [searchText, setSearchText] = useState('');
   const { message } = App.useApp();
 
   const [projectId, setProjectId] = useState('');
@@ -426,13 +427,29 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
     }
   };
 
-  const flatData = data.reduce<Array<VendorQuotation & { _groupSize: number; _isFirst: boolean }>>((acc, r, idx) => {
-    const prev = data[idx - 1];
+  // Search matches whole enquiry groups (MR Ref / project / vendor), so the
+  // grouped rowSpan layout stays intact instead of a group losing rows.
+  const filteredData = useMemo(() => {
+    const q = searchText.trim().toLowerCase();
+    if (!q) return data;
+    const matchedGroups = new Set<string>();
+    for (const r of data) {
+      const haystack = [r.materialRequirement?.enquiryNo, r.project?.name, r.vendor?.name]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      if (haystack.includes(q)) matchedGroups.add(r.groupId);
+    }
+    return data.filter((r) => matchedGroups.has(r.groupId));
+  }, [data, searchText]);
+
+  const flatData = filteredData.reduce<Array<VendorQuotation & { _groupSize: number; _isFirst: boolean }>>((acc, r, idx) => {
+    const prev = filteredData[idx - 1];
     const isNewGroup = !prev || prev.groupId !== r.groupId;
     const groupSize = isNewGroup
-      ? data.slice(idx).findIndex((x) => x.groupId !== r.groupId)
+      ? filteredData.slice(idx).findIndex((x) => x.groupId !== r.groupId)
       : 0;
-    const realGroupSize = groupSize === -1 ? data.length - idx : groupSize > 0 ? groupSize : 0;
+    const realGroupSize = groupSize === -1 ? filteredData.length - idx : groupSize > 0 ? groupSize : 0;
     acc.push({ ...r, _groupSize: isNewGroup ? (realGroupSize || 1) : 0, _isFirst: isNewGroup });
     return acc;
   }, []);
@@ -576,6 +593,17 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>
           New Enquiry
         </Button>
+      </Flex>
+
+      <Flex gap={12} wrap="wrap" className="mb-6!">
+        <Input.Search
+          placeholder="Search by MR Ref, project, vendor..."
+          allowClear
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+          style={{ width: 300 }}
+        />
       </Flex>
 
       <Card className={cardClassName} styles={{ body: { padding: 0 } }}>

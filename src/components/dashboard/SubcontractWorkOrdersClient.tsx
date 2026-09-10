@@ -35,6 +35,7 @@ import {
   UploadOutlined,
   HistoryOutlined,
   CloseOutlined,
+  SearchOutlined,
 } from '@ant-design/icons';
 import { PDFDownloadLink, PDFViewer } from '@react-pdf/renderer';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -105,6 +106,7 @@ export function SubcontractWorkOrdersClient({
   const [open, setOpen] = useState(false);
   const [editingSwo, setEditingSwo] = useState<SubcontractWorkOrder | null>(null);
   const [previewSwo, setPreviewSwo] = useState<SubcontractWorkOrder | null>(null);
+  const [searchText, setSearchText] = useState('');
   const [isPending, startTransition] = useTransition();
   const { message } = App.useApp();
   const user = useAuthStore((s) => s.user);
@@ -130,6 +132,23 @@ export function SubcontractWorkOrdersClient({
     return `${prefix}${String(maxSeq + 1).padStart(3, '0')}`;
   }, [workOrders]);
 
+  const filteredWorkOrders = useMemo(() => {
+    if (!searchText) return workOrders;
+    const q = searchText.toLowerCase();
+    return workOrders.filter((wo) => {
+      const haystack = [
+        wo.woNumber,
+        wo.project?.name,
+        wo.project?.projectCode,
+        wo.subcontractor?.name,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [workOrders, searchText]);
+
   const handleStatusChange = (id: string, status: string) => {
     startTransition(async () => {
       try {
@@ -140,6 +159,7 @@ export function SubcontractWorkOrdersClient({
       }
     });
   };
+
   const [isClient, setIsClient] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const inputRef = useRef<any>(null);
@@ -559,13 +579,24 @@ export function SubcontractWorkOrdersClient({
         </Button>
       </Flex>
 
+      <Flex gap={12} wrap="wrap" className="mb-4!">
+        <Input.Search
+          placeholder="Search WO number, project, subcontractor..."
+          allowClear
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+          style={{ width: 320 }}
+        />
+      </Flex>
+
       <Card
         className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
         styles={{ body: { padding: '8px 0' } }}
       >
         <Table
           className="mantis-table"
-          dataSource={workOrders}
+          dataSource={filteredWorkOrders}
           columns={columns}
           rowKey="id"
           size="middle"

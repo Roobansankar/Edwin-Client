@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button, Card, Divider, Drawer, Flex, Form, Input, Popconfirm, Space, Table, Typography, App, Select } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined, TeamOutlined, CloseOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined, SearchOutlined, TeamOutlined, CloseOutlined } from '@ant-design/icons';
 import { Controller, useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
@@ -39,9 +39,16 @@ type SubcontractorsClientProps = {
 export function SubcontractorsClient({ subcontractors, workCategories }: SubcontractorsClientProps) {
   const [open, setOpen] = useState(false);
   const [editingSubcontractor, setEditingSubcontractor] = useState<Subcontractor | null>(null);
+  const [searchText, setSearchText] = useState('');
   const [isPending, startTransition] = useTransition();
   const { message } = App.useApp();
   const router = useRouter();
+
+  const filteredSubcontractors = useMemo(() => {
+    const q = searchText.trim().toLowerCase();
+    if (!q) return subcontractors;
+    return subcontractors.filter((s) => s.name.toLowerCase().includes(q));
+  }, [subcontractors, searchText]);
 
   // For adding new category
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -257,13 +264,24 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
         </Button>
       </Flex>
 
+      <Flex gap={12} wrap="wrap" className="mb-4!">
+        <Input.Search
+          placeholder="Search by subcontractor name..."
+          allowClear
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+          style={{ width: 280 }}
+        />
+      </Flex>
+
       <Card
         className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
         styles={{ body: { padding: '8px 0' } }}
       >
         <Table
           className="mantis-table"
-          dataSource={subcontractors}
+          dataSource={filteredSubcontractors}
           columns={columns}
           rowKey="id"
           size="middle"

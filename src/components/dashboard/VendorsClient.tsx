@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Button, Card, Drawer, Flex, Form, Input, Popconfirm, Space, Table, Typography, App } from 'antd';
+import { Button, Card, Descriptions, Drawer, Flex, Form, Input, Popconfirm, Space, Table, Typography, App } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { DeleteOutlined, EditOutlined, PlusOutlined, TeamOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined, SearchOutlined, TeamOutlined } from '@ant-design/icons';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { createVendor, deleteVendor, updateVendor } from '@/actions/vendors';
@@ -34,8 +34,16 @@ type VendorsClientProps = {
 export function VendorsClient({ vendors }: VendorsClientProps) {
   const [open, setOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
+  const [viewingVendor, setViewingVendor] = useState<Vendor | null>(null);
+  const [searchText, setSearchText] = useState('');
   const [isPending, startTransition] = useTransition();
   const { message } = App.useApp();
+
+  const filteredVendors = useMemo(() => {
+    const q = searchText.trim().toLowerCase();
+    if (!q) return vendors;
+    return vendors.filter((v) => v.name.toLowerCase().includes(q));
+  }, [vendors, searchText]);
 
   const {
     control,
@@ -80,6 +88,10 @@ export function VendorsClient({ vendors }: VendorsClientProps) {
     setOpen(true);
   };
 
+  const handleView = (vendor: Vendor) => {
+    setViewingVendor(vendor);
+  };
+
   const handleDelete = (id: string) => {
     startTransition(async () => {
       try {
@@ -110,11 +122,6 @@ export function VendorsClient({ vendors }: VendorsClientProps) {
       render: (value) => value || '-',
     },
     {
-      title: 'Address',
-      dataIndex: 'address',
-      render: (value) => value || '-',
-    },
-    {
       title: 'Contact',
       key: 'contact',
       render: (_, record) => (
@@ -136,9 +143,15 @@ export function VendorsClient({ vendors }: VendorsClientProps) {
       title: 'Actions',
       key: 'actions',
       fixed: 'right',
-      width: 100,
+      width: 140,
       render: (_, record) => (
         <Space>
+          <Button
+            type="text"
+            icon={<EyeOutlined className="text-emerald-500" />}
+            title="View Details"
+            onClick={() => handleView(record)}
+          />
           <Button
             type="text"
             icon={<EditOutlined className="text-sky-500" />}
@@ -197,20 +210,55 @@ export function VendorsClient({ vendors }: VendorsClientProps) {
         </Button>
       </Flex>
 
+      <Flex gap={12} wrap="wrap" className="mb-4!">
+        <Input.Search
+          placeholder="Search by vendor name..."
+          allowClear
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+          style={{ width: 260 }}
+        />
+      </Flex>
+
       <Card
         className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
         styles={{ body: { padding: '8px 0' } }}
       >
         <Table
           className="mantis-table"
-          dataSource={vendors}
+          dataSource={filteredVendors}
           columns={columns}
           rowKey="id"
           size="middle"
-          scroll={{ x: 1000 }}
+          scroll={{ x: 800 }}
           pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} vendors` }}
         />
       </Card>
+
+      <Drawer
+        title="Vendor Details"
+        size="large"
+        open={!!viewingVendor}
+        onClose={() => setViewingVendor(null)}
+        destroyOnClose
+      >
+        {viewingVendor && (
+          <Descriptions column={1} bordered size="middle">
+            <Descriptions.Item label="Vendor Name">
+              <Typography.Text strong>{viewingVendor.name}</Typography.Text>
+            </Descriptions.Item>
+            <Descriptions.Item label="GST Number">{viewingVendor.gstNumber || '-'}</Descriptions.Item>
+            <Descriptions.Item label="State">{viewingVendor.state || '-'}</Descriptions.Item>
+            <Descriptions.Item label="Address" styles={{ content: { whiteSpace: 'pre-wrap' } }}>
+              {viewingVendor.address || '-'}
+            </Descriptions.Item>
+            <Descriptions.Item label="Contact Email">{viewingVendor.contactEmail || '-'}</Descriptions.Item>
+            <Descriptions.Item label="Contact Phone">{viewingVendor.contactPhone || '-'}</Descriptions.Item>
+            <Descriptions.Item label="Created">{formatDate(viewingVendor.createdAt)}</Descriptions.Item>
+          </Descriptions>
+        )}
+      </Drawer>
 
       <Drawer
         title={editingVendor ? 'Edit Vendor' : 'Add New Vendor'}

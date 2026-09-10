@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button, Card, Drawer, Flex, Form, Input, Popconfirm, Select, Space, Table, Typography, Upload, App, InputNumber, Image, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { RcFile } from 'antd/es/upload/interface';
-import { DeleteOutlined, EditOutlined, FilePdfOutlined, PlusOutlined, UploadOutlined, InboxOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, FilePdfOutlined, PlusOutlined, SearchOutlined, UploadOutlined, InboxOutlined } from '@ant-design/icons';
 import { Controller, useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { createMaterialReceived, updateMaterialReceived, deleteMaterialReceived, uploadMaterialFile, updateMaterialReceivedStatus } from '@/actions/material-received';
@@ -61,6 +61,7 @@ export function MaterialReceivedClient({ records, projects, itemDescriptions, pu
   const [photos, setPhotos] = useState<RcFile[]>([]);
   const [billFile, setBillFile] = useState<File | null>(null);
   const { message } = App.useApp();
+  const [searchText, setSearchText] = useState('');
 
   const {
     control,
@@ -188,6 +189,18 @@ export function MaterialReceivedClient({ records, projects, itemDescriptions, pu
     });
   };
 
+  const filteredRecords = useMemo(() => {
+    if (!searchText) return records;
+    const q = searchText.toLowerCase();
+    return records.filter((r) => {
+      const haystack = [r.mrNumber, r.purchaseOrder?.poNumber, r.purchaseOrderId]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [records, searchText]);
+
   const openCreate = () => {
     setEditing(null);
     setPhotos([]);
@@ -309,9 +322,20 @@ export function MaterialReceivedClient({ records, projects, itemDescriptions, pu
         )}
       </Flex>
 
+      <Flex gap={12} wrap="wrap" className="mb-6!">
+        <Input.Search
+          placeholder="Search MR number, PO number..."
+          allowClear
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+          style={{ width: 280 }}
+        />
+      </Flex>
+
       <Card className={cardClassName} styles={{ body: { padding: 0 } }}>
         <Table
-          dataSource={records}
+          dataSource={filteredRecords}
           columns={columns}
           rowKey="id"
           loading={isPending}
