@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { App, Button, Card, Col, DatePicker, Flex, Input, Modal, Row, Select, Space, Statistic, Table, Tabs, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -25,6 +25,11 @@ import {
 
 const { Title } = Typography;
 
+// Remembers which tab was open so clicking "View Details" (which navigates
+// away to a whole other page) and then coming back doesn't reset the tabs
+// back to "Expenses" — session-scoped, so it only follows this browser tab.
+const ACTIVE_TAB_STORAGE_KEY = 'approvals-active-tab';
+
 const APPROVAL_STATUS_OPTIONS = [
   { label: 'Pending', value: 'pending' },
   { label: 'Admin Approved', value: 'admin_approved' },
@@ -44,12 +49,24 @@ export function ApprovalsClient({ bills, expenses, dailyReports }: Props) {
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
-  const [activeTab, setActiveTab] = useState('expenses');
+  const [activeTab, setActiveTabState] = useState('expenses');
   const [rejectExpenseId, setRejectExpenseId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const { message } = App.useApp();
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
+
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
+      if (saved) setActiveTabState(saved);
+    } catch { /* sessionStorage unavailable — fall back to default tab */ }
+  }, []);
+
+  const setActiveTab = (key: string) => {
+    setActiveTabState(key);
+    try { sessionStorage.setItem(ACTIVE_TAB_STORAGE_KEY, key); } catch { /* ignore */ }
+  };
 
   const filteredExpenses = useMemo(() => {
     const from = dateRange[0]?.format('YYYY-MM-DD');

@@ -7,6 +7,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined, SearchOutlined, TeamOutlined } from '@ant-design/icons';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { useRouter } from 'next/navigation';
 import { createVendor, deleteVendor, updateVendor } from '@/actions/vendors';
 import type { Vendor } from '@/types/erp';
 import {
@@ -38,6 +39,7 @@ export function VendorsClient({ vendors }: VendorsClientProps) {
   const [searchText, setSearchText] = useState('');
   const [isPending, startTransition] = useTransition();
   const { message } = App.useApp();
+  const router = useRouter();
 
   const filteredVendors = useMemo(() => {
     const q = searchText.trim().toLowerCase();
@@ -89,7 +91,7 @@ export function VendorsClient({ vendors }: VendorsClientProps) {
   };
 
   const handleView = (vendor: Vendor) => {
-    setViewingVendor(vendor);
+    router.push(`/dashboard/vendors/${vendor.id}`);
   };
 
   const handleDelete = (id: string) => {
