@@ -47,6 +47,8 @@ const itemSchema = z.object({
 const peSchema = z.object({
   projectId: z.string().min(1, 'Select a project'),
   notes: z.string().optional(),
+  expectedDate: z.string().optional(),
+  paymentTerms: z.enum(['advance', 'credit', 'full_payment']).optional(),
   items: z.array(itemSchema).min(1, 'Add at least one item'),
 });
 
@@ -64,6 +66,31 @@ const STATUS_COLORS: Record<string, string> = {
   rejected: 'red',
 };
 
+const PAYMENT_TERMS_OPTIONS = [
+  { label: 'Advance', value: 'advance' },
+  { label: 'Credit', value: 'credit' },
+  { label: 'Full Payment', value: 'full_payment' },
+];
+
+const PAYMENT_TERMS_LABELS: Record<string, string> = {
+  advance: 'Advance',
+  credit: 'Credit',
+  full_payment: 'Full Payment',
+};
+
+export function formatDateTime(value?: string | null) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return new Intl.DateTimeFormat('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
 export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, vendors, purchaseOrders = [], payments = [] }: Props) {
   const [localDescriptions, setLocalDescriptions] = useState<ItemDescription[]>(itemDescriptions || []);
   const [inlineNewDesc, setInlineNewDesc] = useState('');
@@ -80,7 +107,9 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
   const { message } = App.useApp();
   const user = useAuthStore((s) => s.user);
   const isSiteEngineer = user?.role === 'site_engineer';
-  const availableProjects = isSiteEngineer && user?.projects
+  // Mirror the server POST/PUT permissions (admin, accounts_manager, purchase_team, site_engineer)
+  const canManageEnquiry = ['admin', 'accounts_manager', 'purchase_team', 'site_engineer'].includes(user?.role || '');
+  const availableProjects = user?.projects?.length
     ? projects.filter((p) => user.projects?.some((up) => up.id === p.id))
     : projects;
 
@@ -156,11 +185,15 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
   const [splitEnquiry, setSplitEnquiry] = useState<PurchaseEnquiry | null>(null);
   const [splitVendorId, setSplitVendorId] = useState('');
   const [splitItemIndices, setSplitItemIndices] = useState<number[]>([]);
+  const [splitExpectedDate, setSplitExpectedDate] = useState<dayjs.Dayjs | null>(null);
+  const [splitPaymentTerms, setSplitPaymentTerms] = useState<'advance' | 'credit' | 'full_payment' | undefined>(undefined);
 
   const openSplit = (record: PurchaseEnquiry) => {
     setSplitEnquiry(record);
     setSplitVendorId('');
     setSplitItemIndices([]);
+    setSplitExpectedDate(record.expectedDate ? dayjs(record.expectedDate) : null);
+    setSplitPaymentTerms((record.paymentTerms as 'advance' | 'credit' | 'full_payment' | null) || undefined);
     setSplitOpen(true);
   };
 
@@ -169,6 +202,8 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
     setSplitEnquiry(null);
     setSplitVendorId('');
     setSplitItemIndices([]);
+    setSplitExpectedDate(null);
+    setSplitPaymentTerms(undefined);
   };
 
   const generateSplitPdf = () => {
@@ -177,10 +212,25 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
     if (!splitItemIndices.length) { message.error('Select at least one item'); return; }
     const vendor = vendors.find((v) => v.id === splitVendorId);
     const items = splitItemIndices.map((idx) => splitEnquiry.items[idx]);
-    setPreviewEnquiry(splitEnquiry);
-    setPreviewItems(items);
-    setPreviewVendorName(vendor?.name || null);
-    closeSplit();
+    const expectedDate = splitExpectedDate ? splitExpectedDate.toISOString() : undefined;
+    startTransition(async () => {
+      try {
+        // Persist expected date & payment terms on the enquiry, then preview PDF
+        const updated = await updatePurchaseEnquiry(splitEnquiry.id, {
+          projectId: splitEnquiry.projectId,
+          notes: splitEnquiry.notes || '',
+          items: splitEnquiry.items,
+          ...(expectedDate ? { expectedDate } : {}),
+          ...(splitPaymentTerms ? { paymentTerms: splitPaymentTerms } : {}),
+        });
+        setPreviewEnquiry({ ...splitEnquiry, ...updated });
+        setPreviewItems(items);
+        setPreviewVendorName(vendor?.name || null);
+        closeSplit();
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : 'Failed to save enquiry details');
+      }
+    });
   };
 
   useEffect(() => { setIsClient(true); }, []);
@@ -196,6 +246,8 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
     defaultValues: {
       projectId: '',
       notes: '',
+      expectedDate: '',
+      paymentTerms: undefined,
       items: [{ description: '', quantity: 1, unit: 'nos' }],
     },
   });
@@ -207,6 +259,8 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
       reset({
         projectId: editing.projectId,
         notes: editing.notes || '',
+        expectedDate: editing.expectedDate || '',
+        paymentTerms: (editing.paymentTerms as 'advance' | 'credit' | 'full_payment' | undefined) || undefined,
         items: editing.items?.length ? editing.items.map((i) => ({ description: i.description, quantity: Number(i.quantity), unit: i.unit || 'nos' })) : [{ description: '', quantity: 1, unit: 'nos' }],
       });
     }
@@ -216,6 +270,8 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
     startTransition(async () => {
       try {
         const payload = { ...values } as Record<string, unknown>;
+        if (!payload.expectedDate) delete payload.expectedDate;
+        if (!payload.paymentTerms) delete payload.paymentTerms;
         if (editing) {
           await updatePurchaseEnquiry(editing.id, payload);
           message.success('Purchase enquiry updated');
@@ -319,6 +375,22 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
       },
     },
     {
+      title: 'Expected By',
+      key: 'expectedDate',
+      width: 160,
+      render: (_, r) => (
+        <Typography.Text className="text-xs">{formatDateTime(r.expectedDate)}</Typography.Text>
+      ),
+    },
+    {
+      title: 'Payment Terms',
+      key: 'paymentTerms',
+      width: 130,
+      render: (_, r) => (
+        r.paymentTerms ? <Tag color="blue">{PAYMENT_TERMS_LABELS[r.paymentTerms] || r.paymentTerms}</Tag> : <Typography.Text type="secondary">-</Typography.Text>
+      ),
+    },
+    {
       title: 'Created',
       dataIndex: 'createdAt',
       key: 'createdAt',
@@ -331,11 +403,12 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
       width: isSiteEngineer ? 160 : 120,
       render: (_, record) => (
         <Space>
-          {isSiteEngineer && (
+          {canManageEnquiry && (
             <Button
               type="link"
               size="small"
               icon={<EditOutlined />}
+              title="Edit enquiry"
               onClick={() => {
                 setEditing(record);
                 setOpen(true);
@@ -385,13 +458,13 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
         <Typography.Title level={3} className={pageTitleClassName}>
           <ShoppingCartOutlined style={{ marginBottom: 24 }} className={titleIconClassName} /> {isSiteEngineer ? 'Material Requirement' : 'Material Requirement Request'}
         </Typography.Title>
-        {isSiteEngineer && (
+        {canManageEnquiry && (
           <Button
             type="primary"
             icon={<PlusOutlined />}
             onClick={() => {
               setEditing(null);
-              reset({ projectId: '', notes: '', items: [{ description: '', quantity: 1, unit: 'nos' }] });
+              reset({ projectId: '', notes: '', expectedDate: '', paymentTerms: undefined, items: [{ description: '', quantity: 1, unit: 'nos' }] });
               setOpen(true);
             }}
           >
@@ -434,7 +507,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
         />
       </Card>
 
-      {isSiteEngineer && (
+      {canManageEnquiry && (
         <Drawer
           title={editing ? `Edit Enquiry — ${editing.enquiryNo}` : 'New Material Requirement'}
           size="large"
@@ -443,7 +516,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
             setOpen(false);
             setEditing(null);
           }}
-          destroyOnClose
+          destroyOnHidden
           extra={
             <Space>
               <Button onClick={() => { setOpen(false); setEditing(null); }}>Cancel</Button>
@@ -469,6 +542,39 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
                 </Form.Item>
               )}
             />
+
+            <Flex gap={16}>
+              <Controller
+                control={control}
+                name="expectedDate"
+                render={({ field }) => (
+                  <Form.Item label="Expected Date & Time" className="flex-1">
+                    <DatePicker
+                      showTime={{ format: 'hh:mm A', use12Hours: true }}
+                      format="DD-MM-YYYY hh:mm A"
+                      className="w-full"
+                      placeholder="When is this needed by?"
+                      value={field.value ? dayjs(field.value) : null}
+                      onChange={(d) => field.onChange(d ? d.toISOString() : '')}
+                    />
+                  </Form.Item>
+                )}
+              />
+              <Controller
+                control={control}
+                name="paymentTerms"
+                render={({ field }) => (
+                  <Form.Item label="Payment Terms" className="flex-1">
+                    <Select
+                      {...field}
+                      allowClear
+                      placeholder="Select payment terms"
+                      options={PAYMENT_TERMS_OPTIONS}
+                    />
+                  </Form.Item>
+                )}
+              />
+            </Flex>
 
             <Flex justify="space-between" align="center">
               <Typography.Text strong>Items</Typography.Text>
@@ -598,7 +704,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
         size="small"
         open={descOpen}
         onClose={() => setDescOpen(false)}
-        destroyOnClose
+        destroyOnHidden
         extra={
           <Button type="primary" loading={isPending} onClick={async () => {
             if (!newDesc.trim()) return;
@@ -670,11 +776,11 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
         size="large"
         open={splitOpen}
         onClose={closeSplit}
-        destroyOnClose
+        destroyOnHidden
         extra={
           <Space>
             <Button onClick={closeSplit}>Cancel</Button>
-            <Button type="primary" icon={<FilePdfOutlined />} onClick={generateSplitPdf}>Generate PDF</Button>
+            <Button type="primary" icon={<FilePdfOutlined />} loading={isPending} onClick={generateSplitPdf}>Generate PDF</Button>
           </Space>
         }
       >
@@ -694,6 +800,29 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
               style={{ width: '100%' }}
             />
           </Form.Item>
+
+          <Flex gap={16}>
+            <Form.Item label="Expected Date & Time" className="flex-1">
+              <DatePicker
+                showTime={{ format: 'hh:mm A', use12Hours: true }}
+                format="DD-MM-YYYY hh:mm A"
+                className="w-full"
+                placeholder="When is this needed by?"
+                value={splitExpectedDate}
+                onChange={setSplitExpectedDate}
+              />
+            </Form.Item>
+            <Form.Item label="Payment Terms" className="flex-1">
+              <Select
+                allowClear
+                placeholder="Select payment terms"
+                value={splitPaymentTerms}
+                onChange={setSplitPaymentTerms}
+                options={PAYMENT_TERMS_OPTIONS}
+                style={{ width: '100%' }}
+              />
+            </Form.Item>
+          </Flex>
 
           <div>
             <Typography.Text strong className="text-sm">Items for this vendor</Typography.Text>

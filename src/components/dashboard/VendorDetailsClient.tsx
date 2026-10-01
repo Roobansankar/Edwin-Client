@@ -131,11 +131,17 @@ export function VendorDetailsClient({ vendor, purchaseOrders }: VendorDetailsCli
       <Card className={cardClassName} title="Vendor Information">
         <Descriptions bordered column={{ xxl: 3, xl: 3, lg: 3, md: 2, sm: 1, xs: 1 }}>
           <Descriptions.Item label="GST Number">{vendor.gstNumber || '-'}</Descriptions.Item>
+          <Descriptions.Item label="Category">{vendor.category || '-'}</Descriptions.Item>
           <Descriptions.Item label="State">{vendor.state || '-'}</Descriptions.Item>
           <Descriptions.Item label="Contact Email">{vendor.contactEmail || '-'}</Descriptions.Item>
           <Descriptions.Item label="Contact Phone">{vendor.contactPhone || '-'}</Descriptions.Item>
           <Descriptions.Item label="Registered On">{formatDate(vendor.createdAt)}</Descriptions.Item>
           <Descriptions.Item label="Address" span={{ xxl: 3, xl: 3, lg: 3, md: 2, sm: 1, xs: 1 }}>{vendor.address || '-'}</Descriptions.Item>
+          <Descriptions.Item label="Bank Name">{vendor.bankName || '-'}</Descriptions.Item>
+          <Descriptions.Item label="Account Holder">{vendor.accountHolderName || '-'}</Descriptions.Item>
+          <Descriptions.Item label="Account Number">{vendor.accountNumber || '-'}</Descriptions.Item>
+          <Descriptions.Item label="IFSC Code">{vendor.ifscCode || '-'}</Descriptions.Item>
+          <Descriptions.Item label="Branch">{vendor.branch || '-'}</Descriptions.Item>
         </Descriptions>
       </Card>
 

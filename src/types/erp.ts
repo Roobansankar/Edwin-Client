@@ -105,14 +105,19 @@ export type Project = {
   updatedAt?: string;
 };
 
-export type Vendor = {
-  id: string;
+export type Vendor = {  id: string;
   name: string;
   address?: string | null;
   gstNumber?: string | null;
   state?: string | null;
   contactEmail?: string | null;
   contactPhone?: string | null;
+  category?: string | null;
+  bankName?: string | null;
+  accountHolderName?: string | null;
+  accountNumber?: string | null;
+  ifscCode?: string | null;
+  branch?: string | null;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -318,6 +323,8 @@ export type PurchaseEnquiry = {
   notes?: string | null;
   items: EnquiryItem[];
   status: string;
+  expectedDate?: string | null;
+  paymentTerms?: string | null;
   createdAt?: string;
 };
 
@@ -350,6 +357,8 @@ export type PurchaseOrder = {
   vendor?: Vendor;
   project?: Project;
   status: PurchaseOrderStatus;
+  expectedDate?: string | null;
+  paymentTerms?: string | null;
   totalAmount: number | string;
   gstPercent?: number | null;
   gstAmount?: number | null;
@@ -777,7 +786,7 @@ export type VendorQuotation = {
   project?: Project;
   vendor?: Vendor;
   materialRequirementId?: string | null;
-  materialRequirement?: { id: string; enquiryNo: string; project?: Project; items?: { description: string; quantity: number }[] };
+  materialRequirement?: { id: string; enquiryNo: string; project?: Project; items?: { description: string; quantity: number }[]; expectedDate?: string | null; paymentTerms?: string | null };
   items: { description: string; quantity: number; rate?: number }[];
   totalAmount?: number | null;
   gstPercent?: number | null;
@@ -787,6 +796,8 @@ export type VendorQuotation = {
   quotationUrl?: string | null;
   quotationKey?: string | null;
   status: string;
+  expectedDate?: string | null;
+  paymentTerms?: string | null;
   createdAt?: string;
 };
 
@@ -867,4 +878,22 @@ export type StaffAccessEntry = AppUser & {
     expiresAt: string;
     status: ProjectAccessStatus;
   } | null;
+};
+
+export type PurchaseTodo = {
+  id: string;
+  userId: string;
+  title: string;
+  description?: string | null;
+  dueDate?: string | null;
+  isDone: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type VendorCategory = {
+  id: string;
+  name: string;
+  createdAt?: string;
+  updatedAt?: string;
 };

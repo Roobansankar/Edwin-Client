@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition, useCallback } from 'react';
-import { Button, Card, DatePicker, Drawer, Flex, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Typography, Upload, App } from 'antd';
+import { Button, Card, DatePicker, Drawer, Flex, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, Typography, Upload, App } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DeleteOutlined, EditOutlined, EyeOutlined, FilePdfOutlined, HistoryOutlined, PlusOutlined, SearchOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -37,6 +37,32 @@ const STATUS_OPTIONS = [
 
 type PoItem = { description: string; quantity: number; unit: string; rate: number };
 type VendorPoSection = { vendorId: string; vendorName: string; items: PoItem[]; gstPercent: number; transportAmount: number };
+type PaymentTerms = 'advance' | 'credit' | 'full_payment';
+
+const PAYMENT_TERMS_OPTIONS = [
+  { label: 'Advance', value: 'advance' },
+  { label: 'Credit', value: 'credit' },
+  { label: 'Full Payment', value: 'full_payment' },
+];
+
+const PAYMENT_TERMS_LABELS: Record<string, string> = {
+  advance: 'Advance',
+  credit: 'Credit',
+  full_payment: 'Full Payment',
+};
+
+function formatDateTime(value?: string | null) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return new Intl.DateTimeFormat('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
 
 const approvedQuotations = (vqs: VendorQuotation[]) => vqs.filter((vq) => vq.status === 'approved');
 
@@ -55,6 +81,8 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
   const [selectedQuotationId, setSelectedQuotationId] = useState<string | null>(null);
   const [selectedMRNo, setSelectedMRNo] = useState<string | null>(null);
   const [projectId, setProjectId] = useState('');
+  const [poExpectedDate, setPoExpectedDate] = useState<string | null>(null);
+  const [poPaymentTerms, setPoPaymentTerms] = useState<PaymentTerms | undefined>(undefined);
   const [vendorSections, setVendorSections] = useState<VendorPoSection[]>([]);
 
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -136,6 +164,9 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
     setSelectedQuotationId(value);
     setSelectedMRNo(q.materialRequirement?.enquiryNo || null);
     setProjectId(q.projectId);
+    // Autofeed expected date & payment terms from the chosen quotation
+    setPoExpectedDate(q.expectedDate || q.materialRequirement?.expectedDate || null);
+    setPoPaymentTerms(((q.paymentTerms || q.materialRequirement?.paymentTerms) as PaymentTerms | null) || undefined);
     setVendorSections([quotationToSection(q)]);
   }, [peOptions]);
 
@@ -218,6 +249,8 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
             materialRequirementNo: selectedMRNo || undefined,
             gstPercent: section.gstPercent || undefined,
             transportAmount: section.transportAmount || undefined,
+            expectedDate: poExpectedDate || undefined,
+            paymentTerms: poPaymentTerms || undefined,
             items,
             billFileUrl,
             billFileKey,
@@ -238,6 +271,8 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
     setSelectedQuotationId(null);
     setSelectedMRNo(null);
     setProjectId('');
+    setPoExpectedDate(null);
+    setPoPaymentTerms(undefined);
     setVendorSections([]);
     setBillFile(null);
   };
@@ -259,6 +294,8 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
   const handleEdit = (po: PurchaseOrder) => {
     setEditingPo(po);
     setProjectId(po.projectId);
+    setPoExpectedDate(po.expectedDate || null);
+    setPoPaymentTerms((po.paymentTerms as PaymentTerms | null) || undefined);
     setVendorSections([
       {
         vendorId: po.vendorId,
@@ -303,6 +340,8 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
           projectId,
           gstPercent: section.gstPercent || undefined,
           transportAmount: section.transportAmount || undefined,
+          expectedDate: poExpectedDate || null,
+          paymentTerms: poPaymentTerms || null,
           items,
           billFileUrl,
           billFileKey,
@@ -333,6 +372,8 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
     { title: 'S.No', key: 'sno', width: 60, render: (_text, _record, index) => index + 1 },
     { title: 'PO Number', dataIndex: 'poNumber', sorter: (a, b) => a.poNumber.localeCompare(b.poNumber), render: (value: string) => <Typography.Text strong>{value}</Typography.Text> },
     { title: 'MR Ref', dataIndex: 'materialRequirementNo', sorter: (a, b) => (a.materialRequirementNo || '').localeCompare(b.materialRequirementNo || ''), render: (value?: string | null) => value || <Typography.Text type="secondary">-</Typography.Text> },
+    { title: 'Expected By', key: 'expectedDate', width: 160, render: (_, r) => <Typography.Text className="text-xs">{formatDateTime(r.expectedDate)}</Typography.Text> },
+    { title: 'Payment Terms', key: 'paymentTerms', width: 130, render: (_, r) => r.paymentTerms ? <Tag color="blue">{PAYMENT_TERMS_LABELS[r.paymentTerms] || r.paymentTerms}</Tag> : <Typography.Text type="secondary">-</Typography.Text> },
     { title: 'Vendor', dataIndex: ['vendor', 'name'], sorter: (a, b) => (a.vendor?.name || '').localeCompare(b.vendor?.name || ''), render: (_value, record) => record.vendor?.name || '-' },
     { title: 'Project', key: 'project', sorter: (a, b) => (a.project?.name || '').localeCompare(b.project?.name || ''), render: (_value, record) => record.project ? `${record.project.name} (${record.project.projectCode || 'No Code'})` : '-' },
     { title: 'Status', dataIndex: 'status', width: 150, filters: STATUS_OPTIONS.map((opt) => ({ text: opt.label, value: opt.value })), onFilter: (value, record) => record.status === value, render: (value: string, record) =>
@@ -360,7 +401,7 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
         <Button size="small" icon={<EyeOutlined />} onClick={() => setPreviewPo(record)}>Preview</Button>
       ) : null,
     },
-    { title: 'Created', dataIndex: 'createdAt', sorter: (a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime(), render: formatDate },
+    { title: 'PO Created Date', dataIndex: 'createdAt', sorter: (a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime(), render: formatDate },
     ...(canManagePo ? [{ title: 'Actions', key: 'actions', width: 100, render: (_: unknown, record: PurchaseOrder) => (
       <Space>
         <Button type="text" icon={<EditOutlined className="text-blue-500" />} title="Edit" onClick={() => handleEdit(record)} />
@@ -426,6 +467,8 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
                     <span>Vendor: {record.vendor?.name || '-'}</span>
                     {record.project && <span>Project: {record.project.name} ({record.project.projectCode || 'No Code'})</span>}
                     {record.materialRequirementNo && <span>MR Ref: {record.materialRequirementNo}</span>}
+                    {record.expectedDate && <span>Expected: {formatDateTime(record.expectedDate)}</span>}
+                    {record.paymentTerms && <span>Terms: {PAYMENT_TERMS_LABELS[record.paymentTerms] || record.paymentTerms}</span>}
                     <Flex justify="space-between" align="center" className="mt-1">
                       <Typography.Text strong>{formatCurrency(record.totalWithGst || record.totalAmount)}</Typography.Text>
                       <span>{record.createdAt ? formatDate(record.createdAt) : ''}</span>
@@ -532,6 +575,28 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
               />
             </Form.Item>
           )}
+
+          <Flex gap={16}>
+            <Form.Item label="Expected Date & Time" className="flex-1">
+              <DatePicker
+                showTime={{ format: 'hh:mm A', use12Hours: true }}
+                format="DD-MM-YYYY hh:mm A"
+                className="w-full"
+                placeholder="Autofilled from MR — change if needed"
+                value={poExpectedDate ? dayjs(poExpectedDate) : null}
+                onChange={(d) => setPoExpectedDate(d ? d.toISOString() : null)}
+              />
+            </Form.Item>
+            <Form.Item label="Payment Terms" className="flex-1">
+              <Select
+                allowClear
+                placeholder="Autofilled from MR — change if needed"
+                value={poPaymentTerms}
+                onChange={setPoPaymentTerms}
+                options={PAYMENT_TERMS_OPTIONS}
+              />
+            </Form.Item>
+          </Flex>
 
           {vendorSections.map((section, vIdx) => {
             const { basicAmount, gstAmount, totalWithGst } = calcSectionTotals(section);

@@ -177,6 +177,16 @@ export function PurchaseEnquiryPdf({ enquiry, items: itemsOverride, vendorName }
           <View style={styles.projectSection}>
             <Text style={styles.sectionLabel}>Enquiry Info</Text>
             <Text style={[styles.vendorText, { marginTop: 4 }]}>Total Items: {items.length}</Text>
+            {enquiry.expectedDate && (
+              <Text style={styles.vendorText}>
+                Expected By: {new Date(enquiry.expectedDate).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              </Text>
+            )}
+            {enquiry.paymentTerms && (
+              <Text style={styles.vendorText}>
+                Payment Terms: {enquiry.paymentTerms === 'full_payment' ? 'Full Payment' : enquiry.paymentTerms.charAt(0).toUpperCase() + enquiry.paymentTerms.slice(1)}
+              </Text>
+            )}
           </View>
         </View>
 

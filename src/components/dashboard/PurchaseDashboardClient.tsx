@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, Col, Row, Statistic, Table, Typography, Flex, Alert, Spin, Divider } from 'antd';
+import { Card, Col, Row, Statistic, Typography, Flex, Alert, Spin, Divider } from 'antd';
 import { ShoppingCartOutlined, InboxOutlined, FileTextOutlined, WarningOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { fetchPurchaseDashboard } from '@/lib/client-api';
 import { StatusTag, formatDate } from './ui';
@@ -31,25 +31,6 @@ export function PurchaseDashboardClient() {
   if (error) return <Alert type="error" message={error} showIcon />;
   if (!data) return null;
 
-  const poColumns = [
-    {
-      title: 'PO Number',
-      dataIndex: 'poNumber',
-      key: 'poNumber',
-      render: (text: string) => <Typography.Text strong>{text}</Typography.Text>,
-    },
-    {
-      title: 'Vendor',
-      dataIndex: 'vendorName',
-      key: 'vendorName',
-    },
-    {
-      title: 'Project',
-      dataIndex: 'projectName',
-      key: 'projectName',
-    },
-  ];
-
   return (
     <div className="space-y-6">
       <Typography.Title level={2}>Purchase Dashboard</Typography.Title>
@@ -63,22 +44,9 @@ export function PurchaseDashboardClient() {
           onClick={() => router.push('/dashboard/material-requirement')}
         >
           <Statistic
-            title={<span className="text-blue-400">Material Requirements</span>}
+            title={<span className="text-blue-400">Material Request</span>}
             value={data.kpis.materialRequirementCount}
             prefix={<FileTextOutlined className="mr-2" />}
-          />
-        </Card>
-        <Card
-          size="small"
-          variant="borderless"
-          hoverable
-          className="h-full bg-purple-500/10 border border-purple-500/20 cursor-pointer flex flex-col justify-center"
-          onClick={() => router.push('/dashboard/material-received')}
-        >
-          <Statistic
-            title={<span className="text-purple-400">Material Received</span>}
-            value={data.kpis.materialReceivedCount}
-            prefix={<InboxOutlined className="mr-2" />}
           />
         </Card>
         <Card
@@ -93,6 +61,19 @@ export function PurchaseDashboardClient() {
             value={data.kpis.activePOCount}
             prefix={<ShoppingCartOutlined className="mr-2" />}
             suffix="Approved"
+          />
+        </Card>
+        <Card
+          size="small"
+          variant="borderless"
+          hoverable
+          className="h-full bg-purple-500/10 border border-purple-500/20 cursor-pointer flex flex-col justify-center"
+          onClick={() => router.push('/dashboard/material-received')}
+        >
+          <Statistic
+            title={<span className="text-purple-400">Material Received</span>}
+            value={data.kpis.materialReceivedCount}
+            prefix={<InboxOutlined className="mr-2" />}
           />
         </Card>
         <Card
@@ -126,18 +107,7 @@ export function PurchaseDashboardClient() {
       </div>
 
       <Row gutter={[16, 16]}>
-        <Col xs={24} lg={16}>
-          <Card title="Active Purchase Orders (Approved, Awaiting Full Billing)" className="h-full border-[var(--border)]">
-            <Table
-              dataSource={data.pendingPOs}
-              columns={poColumns}
-              rowKey="id"
-              pagination={{ pageSize: 5 }}
-              size="middle"
-            />
-          </Card>
-        </Col>
-        <Col xs={24} lg={8}>
+        <Col xs={24}>
           <Card title="Recent Activity" className="h-full border-[var(--border)]">
             <Typography.Text strong className="mb-3 block">Latest Bills</Typography.Text>
             <div className="space-y-4">

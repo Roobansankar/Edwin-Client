@@ -2,13 +2,15 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import {
-  Button, Card, Checkbox, Drawer, Flex, Form, Input, InputNumber, Modal, Select, Space, Table, Tag, Typography, App, Upload,
+  Button, Card, Checkbox, DatePicker, Drawer, Flex, Form, Input, InputNumber, Modal, Select, Space, Table, Tag, Typography, App, Upload,
 } from 'antd';
+import dayjs from 'dayjs';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, UploadOutlined, DeleteOutlined, EyeOutlined, FileTextOutlined, EditOutlined, SearchOutlined } from '@ant-design/icons';
 import type { Project, Vendor, VendorQuotation, PurchaseEnquiry } from '@/types/erp';
 import { cardClassName, formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
 import { clientApiFetch } from '@/lib/client-api';
+import { useAuthStore } from '@/store/auth';
 
 type Props = {
   vendors: Vendor[];
@@ -16,7 +18,35 @@ type Props = {
 };
 
 type QuotationItem = { description: string; quantity: number; rate?: number };
-type VendorSection = { vendorId: string; itemIndices: number[]; itemRates: Record<number, number>; file: File | null; gstPercent: number | null; transportAmount: number | null };
+type PaymentTerms = 'advance' | 'credit' | 'full_payment';
+type VendorSection = { vendorId: string; itemIndices: number[]; itemRates: Record<number, number>; file: File | null; gstPercent: number | null; transportAmount: number | null; expectedDate: string | null; paymentTerms: PaymentTerms | undefined };
+
+const PAYMENT_TERMS_OPTIONS = [
+  { label: 'Advance', value: 'advance' },
+  { label: 'Credit', value: 'credit' },
+  { label: 'Full Payment', value: 'full_payment' },
+];
+
+const PAYMENT_TERMS_LABELS: Record<string, string> = {
+  advance: 'Advance',
+  credit: 'Credit',
+  full_payment: 'Full Payment',
+};
+
+function formatDateTime(value?: string | null) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return new Intl.DateTimeFormat('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
+const EMPTY_SECTION: VendorSection = { vendorId: '', itemIndices: [], itemRates: {}, file: null, gstPercent: null, transportAmount: null, expectedDate: null, paymentTerms: undefined };
 
 function calcGst(basicAmount: number | null, gstPercent: number | null, transportAmount: number | null = 0) {
   const basic = basicAmount || 0;
@@ -104,13 +134,15 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [searchText, setSearchText] = useState('');
   const { message } = App.useApp();
+  const user = useAuthStore((s) => s.user);
+  const isPurchaseTeam = user?.role === 'purchase_team';
 
   const [projectId, setProjectId] = useState('');
   const [selectedMR, setSelectedMR] = useState<string | null>(null);
   const [materialRequirements, setMaterialRequirements] = useState<PurchaseEnquiry[]>([]);
   const [mrItems, setMrItems] = useState<QuotationItem[]>([]);
   const [vendorSections, setVendorSections] = useState<VendorSection[]>([
-    { vendorId: '', itemIndices: [], itemRates: {}, file: null, gstPercent: null, transportAmount: null },
+    { ...EMPTY_SECTION },
   ]);
 
   const [editOpen, setEditOpen] = useState(false);
@@ -120,6 +152,8 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
   const [editItems, setEditItems] = useState<QuotationItem[]>([]);
   const [editGstPercent, setEditGstPercent] = useState<number | null>(null);
   const [editTransportAmount, setEditTransportAmount] = useState<number | null>(null);
+  const [editExpectedDate, setEditExpectedDate] = useState<string | null>(null);
+  const [editPaymentTerms, setEditPaymentTerms] = useState<PaymentTerms | undefined>(undefined);
   const [editFile, setEditFile] = useState<File | null>(null);
   const [editSaving, setEditSaving] = useState(false);
 
@@ -139,6 +173,8 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
   const [addVendorItemRates, setAddVendorItemRates] = useState<Record<number, number>>({});
   const [addVendorGstPercent, setAddVendorGstPercent] = useState<number | null>(null);
   const [addVendorTransportAmount, setAddVendorTransportAmount] = useState<number | null>(null);
+  const [addVendorExpectedDate, setAddVendorExpectedDate] = useState<string | null>(null);
+  const [addVendorPaymentTerms, setAddVendorPaymentTerms] = useState<PaymentTerms | undefined>(undefined);
   const [addVendorFile, setAddVendorFile] = useState<File | null>(null);
   const [addVendorSaving, setAddVendorSaving] = useState(false);
 
@@ -171,13 +207,13 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
     setProjectId('');
     setSelectedMR(null);
     setMrItems([]);
-    setVendorSections([{ vendorId: '', itemIndices: [], itemRates: {}, file: null, gstPercent: null, transportAmount: null }]);
+    setVendorSections([{ ...EMPTY_SECTION }]);
   };
 
   useEffect(() => { fetchData(); }, []);
 
   const addVendorSection = () => {
-    setVendorSections([...vendorSections, { vendorId: '', itemIndices: [], itemRates: {}, file: null, gstPercent: null, transportAmount: null }]);
+    setVendorSections([...vendorSections, { ...EMPTY_SECTION }]);
   };
 
   const removeVendorSection = (idx: number) => {
@@ -222,6 +258,18 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
     setVendorSections(copy);
   };
 
+  const setSectionExpectedDate = (sectionIdx: number, expectedDate: string | null) => {
+    const copy = [...vendorSections];
+    copy[sectionIdx].expectedDate = expectedDate;
+    setVendorSections(copy);
+  };
+
+  const setSectionPaymentTerms = (sectionIdx: number, paymentTerms: PaymentTerms | undefined) => {
+    const copy = [...vendorSections];
+    copy[sectionIdx].paymentTerms = paymentTerms;
+    setVendorSections(copy);
+  };
+
   const submit = () => {
     if (!projectId) { message.error('Select a project'); return; }
     if (vendorSections.some((s) => !s.vendorId)) { message.error('Select a vendor for each section'); return; }
@@ -246,6 +294,8 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
             totalAmount: calcSectionBasic(section.itemIndices, section.itemRates, mrItems) || undefined,
             gstPercent: section.gstPercent || undefined,
             transportAmount: section.transportAmount || undefined,
+            expectedDate: section.expectedDate || undefined,
+            paymentTerms: section.paymentTerms || undefined,
             materialRequirementId: selectedMR || undefined,
           };
           if (groupId) body.groupId = groupId;
@@ -281,6 +331,8 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
     setEditItems(record.items.map((i) => ({ description: i.description, quantity: i.quantity, rate: i.rate ? Number(i.rate) : undefined })));
     setEditGstPercent(record.gstPercent ? Number(record.gstPercent) : null);
     setEditTransportAmount(record.transportAmount ? Number(record.transportAmount) : null);
+    setEditExpectedDate(record.expectedDate || null);
+    setEditPaymentTerms((record.paymentTerms as PaymentTerms | null) || undefined);
     setEditFile(null);
     setEditOpen(true);
   };
@@ -293,6 +345,8 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
     setEditItems([]);
     setEditGstPercent(null);
     setEditTransportAmount(null);
+    setEditExpectedDate(null);
+    setEditPaymentTerms(undefined);
     setEditFile(null);
   };
 
@@ -324,6 +378,8 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
         totalAmount: editBasicAmount || undefined,
         gstPercent: editGstPercent || undefined,
         transportAmount: editTransportAmount || undefined,
+        expectedDate: editExpectedDate || null,
+        paymentTerms: editPaymentTerms || null,
       });
 
       if (editFile) {
@@ -355,6 +411,8 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
     setAddVendorItemRates({});
     setAddVendorGstPercent(null);
     setAddVendorTransportAmount(null);
+    setAddVendorExpectedDate(null);
+    setAddVendorPaymentTerms(undefined);
     setAddVendorFile(null);
     setAddVendorOpen(true);
   };
@@ -367,6 +425,8 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
     setAddVendorItemRates({});
     setAddVendorGstPercent(null);
     setAddVendorTransportAmount(null);
+    setAddVendorExpectedDate(null);
+    setAddVendorPaymentTerms(undefined);
     setAddVendorFile(null);
   };
 
@@ -402,6 +462,8 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
         totalAmount: calcSectionBasic(addVendorItemIndices, addVendorItemRates, addVendorGroup.items) || undefined,
         gstPercent: addVendorGstPercent || undefined,
         transportAmount: addVendorTransportAmount || undefined,
+        expectedDate: addVendorExpectedDate || undefined,
+        paymentTerms: addVendorPaymentTerms || undefined,
         materialRequirementId: addVendorGroup.materialRequirementId || undefined,
         groupId: addVendorGroup.groupId,
       });
@@ -509,6 +571,18 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
       ),
     },
     {
+      title: 'Expected By', key: 'expectedDate', width: 150,
+      render: (_, r) => (
+        <Typography.Text className="text-xs">{formatDateTime(r.expectedDate)}</Typography.Text>
+      ),
+    },
+    {
+      title: 'Payment Terms', key: 'paymentTerms', width: 130,
+      render: (_, r) => (
+        r.paymentTerms ? <Tag color="blue">{PAYMENT_TERMS_LABELS[r.paymentTerms] || r.paymentTerms}</Tag> : <Typography.Text type="secondary">-</Typography.Text>
+      ),
+    },
+    {
       title: 'Total Amount', key: 'totalAmount', width: 150, align: 'right',
       render: (_, r) => r.totalAmount ? (
         <Flex vertical gap={0} className="items-end">
@@ -569,16 +643,18 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
       render: (_, r) => (
         <Space size={0}>
           <Button type="link" size="small" icon={<EditOutlined />} onClick={() => openEdit(r)} />
-          <Button type="link" danger size="small" icon={<DeleteOutlined />} onClick={() => {
-            Modal.confirm({
-              title: 'Delete quotation?',
-              onOk: () => startTransition(async () => {
-                await apiDelete(`/vendor-quotations/${r.id}`);
-                message.success('Deleted');
-                fetchData();
-              }),
-            });
-          }} />
+          {!isPurchaseTeam && (
+            <Button type="link" danger size="small" icon={<DeleteOutlined />} onClick={() => {
+              Modal.confirm({
+                title: 'Delete quotation?',
+                onOk: () => startTransition(async () => {
+                  await apiDelete(`/vendor-quotations/${r.id}`);
+                  message.success('Deleted');
+                  fetchData();
+                }),
+              });
+            }} />
+          )}
         </Space>
       ),
     },
@@ -624,7 +700,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
         size="large"
         open={open}
         onClose={handleClose}
-        destroyOnClose
+        destroyOnHidden
         extra={
           <Space>
             <Button onClick={handleClose}>Cancel</Button>
@@ -646,11 +722,11 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
                 if (mr) {
                   setProjectId(mr.projectId);
                   setMrItems(mr.items.map((i) => ({ description: i.description, quantity: i.quantity })));
-                  setVendorSections([{ vendorId: '', itemIndices: [], itemRates: {}, file: null, gstPercent: null, transportAmount: null }]);
+                  setVendorSections([{ ...EMPTY_SECTION }]);
                 } else {
                   setMrItems([]);
                   setProjectId('');
-                  setVendorSections([{ vendorId: '', itemIndices: [], itemRates: {}, file: null, gstPercent: null, transportAmount: null }]);
+                  setVendorSections([{ ...EMPTY_SECTION }]);
                 }
               }}
               options={availableMrs.map((m) => ({
@@ -703,6 +779,29 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
                   options={vendors.map((v) => ({ value: v.id, label: v.name }))}
                   style={{ width: '100%' }}
                 />
+
+                <div className="flex flex-col gap-4 sm:flex-row">
+                  <Form.Item label="Expected Date & Time" className="mb-0 flex-1">
+                    <DatePicker
+                      showTime={{ format: 'hh:mm A', use12Hours: true }}
+                      format="DD-MM-YYYY hh:mm A"
+                      className="w-full"
+                      placeholder="When is this needed by?"
+                      value={section.expectedDate ? dayjs(section.expectedDate) : null}
+                      onChange={(d) => setSectionExpectedDate(sIdx, d ? d.toISOString() : null)}
+                    />
+                  </Form.Item>
+                  <Form.Item label="Payment Terms" className="mb-0 flex-1">
+                    <Select
+                      allowClear
+                      placeholder="Select payment terms"
+                      value={section.paymentTerms}
+                      onChange={(v) => setSectionPaymentTerms(sIdx, v)}
+                      options={PAYMENT_TERMS_OPTIONS}
+                      style={{ width: '100%' }}
+                    />
+                  </Form.Item>
+                </div>
 
                 <div>
                   <Typography.Text strong className="text-sm">Assign MR Items to this Vendor</Typography.Text>
@@ -786,7 +885,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
         size="large"
         open={editOpen}
         onClose={closeEdit}
-        destroyOnClose
+        destroyOnHidden
         extra={
           <Space>
             <Button onClick={closeEdit}>Cancel</Button>
@@ -818,6 +917,29 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
               style={{ width: '100%' }}
             />
           </Form.Item>
+
+          <div className="flex flex-col gap-4 sm:flex-row">
+            <Form.Item label="Expected Date & Time" className="mb-0 flex-1">
+              <DatePicker
+                showTime={{ format: 'hh:mm A', use12Hours: true }}
+                format="DD-MM-YYYY hh:mm A"
+                className="w-full"
+                placeholder="When is this needed by?"
+                value={editExpectedDate ? dayjs(editExpectedDate) : null}
+                onChange={(d) => setEditExpectedDate(d ? d.toISOString() : null)}
+              />
+            </Form.Item>
+            <Form.Item label="Payment Terms" className="mb-0 flex-1">
+              <Select
+                allowClear
+                placeholder="Select payment terms"
+                value={editPaymentTerms}
+                onChange={setEditPaymentTerms}
+                options={PAYMENT_TERMS_OPTIONS}
+                style={{ width: '100%' }}
+              />
+            </Form.Item>
+          </div>
 
           <div>
             <Typography.Text strong className="text-sm">Items</Typography.Text>
@@ -917,7 +1039,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
         size="large"
         open={addVendorOpen}
         onClose={closeAddVendor}
-        destroyOnClose
+        destroyOnHidden
         extra={
           <Space>
             <Button onClick={closeAddVendor}>Cancel</Button>
@@ -937,6 +1059,29 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
               style={{ width: '100%' }}
             />
           </Form.Item>
+
+          <div className="flex flex-col gap-4 sm:flex-row">
+            <Form.Item label="Expected Date & Time" className="mb-0 flex-1">
+              <DatePicker
+                showTime={{ format: 'hh:mm A', use12Hours: true }}
+                format="DD-MM-YYYY hh:mm A"
+                className="w-full"
+                placeholder="When is this needed by?"
+                value={addVendorExpectedDate ? dayjs(addVendorExpectedDate) : null}
+                onChange={(d) => setAddVendorExpectedDate(d ? d.toISOString() : null)}
+              />
+            </Form.Item>
+            <Form.Item label="Payment Terms" className="mb-0 flex-1">
+              <Select
+                allowClear
+                placeholder="Select payment terms"
+                value={addVendorPaymentTerms}
+                onChange={setAddVendorPaymentTerms}
+                options={PAYMENT_TERMS_OPTIONS}
+                style={{ width: '100%' }}
+              />
+            </Form.Item>
+          </div>
 
           <div>
             <Typography.Text strong className="text-sm">Assign Items to this Vendor</Typography.Text>

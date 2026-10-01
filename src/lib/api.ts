@@ -36,6 +36,8 @@ import type {
   SubcontractorWork,
   OfficeStaff,
   OfficeReport,
+  PurchaseTodo,
+  VendorCategory,
   StaffAccessEntry,
   ExpensePayment,
   UnpaidExpenseWeekSummary,
@@ -139,3 +141,5 @@ export const fetchSubcontractorPaymentRequests = (status?: string) =>
 export const fetchProjectAccessStaff = (projectId?: string) =>
   apiFetch<StaffAccessEntry[]>(`/project-access/staff${projectId ? `?projectId=${projectId}` : ''}`);
 export const fetchProjectAccessRecords = () => apiFetch<any[]>('/project-access');
+export const fetchMyTodos = () => apiFetch<PurchaseTodo[]>('/purchase-todos');
+export const fetchVendorCategories = () => apiFetch<VendorCategory[]>('/vendor-categories');

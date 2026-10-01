@@ -1,10 +1,14 @@
-import { fetchVendors } from '@/lib/api';
+import { fetchVendors, fetchVendorCategories } from '@/lib/api';
 import { VendorsClient } from '@/components/dashboard/VendorsClient';
 import { Alert } from 'antd';
 
 async function loadVendors() {
   try {
-    return await fetchVendors();
+    const [vendors, categories] = await Promise.all([
+      fetchVendors(),
+      fetchVendorCategories(),
+    ]);
+    return { vendors, categories };
   } catch (error) {
     console.error('Failed to fetch vendors:', error);
     return null;
@@ -12,9 +16,9 @@ async function loadVendors() {
 }
 
 export default async function VendorsPage() {
-  const vendors = await loadVendors();
+  const data = await loadVendors();
 
-  if (vendors === null) {
+  if (data === null) {
     return (
       <Alert
         message="Error"
@@ -25,5 +29,5 @@ export default async function VendorsPage() {
     );
   }
 
-  return <VendorsClient vendors={vendors} />;
+  return <VendorsClient vendors={data.vendors} categories={data.categories} />;
 }
