@@ -116,6 +116,16 @@ export function SubcontractorDetailsClient({ subcontractor, workOrders }: Subcon
         </Descriptions>
       </Card>
 
+      <Card className={cardClassName} title="Bank Details">
+        <Descriptions bordered column={{ xxl: 3, xl: 3, lg: 2, md: 2, sm: 1, xs: 1 }}>
+          <Descriptions.Item label="Bank Name">{subcontractor.bankName || '-'}</Descriptions.Item>
+          <Descriptions.Item label="Branch">{subcontractor.branch || '-'}</Descriptions.Item>
+          <Descriptions.Item label="Account Holder Name">{subcontractor.accountHolderName || '-'}</Descriptions.Item>
+          <Descriptions.Item label="Account Number">{subcontractor.accountNumber || '-'}</Descriptions.Item>
+          <Descriptions.Item label="IFSC Code">{subcontractor.ifscCode || '-'}</Descriptions.Item>
+        </Descriptions>
+      </Card>
+
       <Divider />
 
       <Flex align="center" gap={8} style={{ marginBottom: 16 }}>

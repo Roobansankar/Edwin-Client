@@ -132,6 +132,11 @@ export type Subcontractor = {
   email?: string | null;
   notes?: string | null;
   workCategory: WorkCategory;
+  bankName?: string | null;
+  accountHolderName?: string | null;
+  accountNumber?: string | null;
+  ifscCode?: string | null;
+  branch?: string | null;
   createdAt?: string;
   updatedAt?: string;
 };

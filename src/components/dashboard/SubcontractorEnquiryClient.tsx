@@ -145,6 +145,22 @@ export function SubcontractorEnquiryClient({ subcontractors, projects, workCateg
   const [addSubFile, setAddSubFile] = useState<File | null>(null);
   const [addSubSaving, setAddSubSaving] = useState(false);
 
+  // Picking a Work Category narrows each "Subcontractor" dropdown down to
+  // only subcontractors registered under that category - same idea across
+  // the New Enquiry form, Edit drawer, and Add Subcontractor drawer.
+  const sectionSubcontractorOptions = useMemo(
+    () => (workCategoryId ? subcontractors.filter((s) => s.workCategory?.id === workCategoryId) : subcontractors),
+    [subcontractors, workCategoryId],
+  );
+  const editSubcontractorOptions = useMemo(
+    () => (editWorkCategoryId ? subcontractors.filter((s) => s.workCategory?.id === editWorkCategoryId) : subcontractors),
+    [subcontractors, editWorkCategoryId],
+  );
+  const addSubSubcontractorOptions = useMemo(
+    () => (addSubGroup?.workCategoryId ? subcontractors.filter((s) => s.workCategory?.id === addSubGroup.workCategoryId) : subcontractors),
+    [subcontractors, addSubGroup],
+  );
+
   const fetchData = async () => {
     try {
       const enquiries = await clientApiFetch<SubcontractorEnquiry[]>('/subcontractor-enquiries');
@@ -552,7 +568,15 @@ export function SubcontractorEnquiryClient({ subcontractors, projects, workCateg
               showSearch
               optionFilterProp="label"
               value={workCategoryId || undefined}
-              onChange={setWorkCategoryId}
+              onChange={(v) => {
+                setWorkCategoryId(v);
+                // Clear any already-picked subcontractors that no longer
+                // belong to the newly selected category.
+                setSubSections((prev) => prev.map((s) => ({
+                  ...s,
+                  subcontractorId: subcontractors.find((sc) => sc.id === s.subcontractorId)?.workCategory?.id === v ? s.subcontractorId : '',
+                })));
+              }}
               options={workCategories.map((c) => ({ value: c.id, label: c.name }))}
               style={{ width: '100%' }}
             />
@@ -582,7 +606,8 @@ export function SubcontractorEnquiryClient({ subcontractors, projects, workCateg
                   optionFilterProp="label"
                   value={section.subcontractorId || undefined}
                   onChange={(v) => updateSection(sIdx, { subcontractorId: v })}
-                  options={subcontractors.map((s) => ({ value: s.id, label: s.name }))}
+                  options={sectionSubcontractorOptions.map((s) => ({ value: s.id, label: s.name }))}
+                  notFoundContent={workCategoryId ? 'No subcontractors in this category yet' : 'Select a work category first'}
                   style={{ width: '100%' }}
                 />
 
@@ -678,7 +703,12 @@ export function SubcontractorEnquiryClient({ subcontractors, projects, workCateg
               showSearch
               optionFilterProp="label"
               value={editWorkCategoryId || undefined}
-              onChange={setEditWorkCategoryId}
+              onChange={(v) => {
+                setEditWorkCategoryId(v);
+                if (subcontractors.find((sc) => sc.id === editSubcontractorId)?.workCategory?.id !== v) {
+                  setEditSubcontractorId('');
+                }
+              }}
               options={workCategories.map((c) => ({ value: c.id, label: c.name }))}
               style={{ width: '100%' }}
             />
@@ -691,7 +721,8 @@ export function SubcontractorEnquiryClient({ subcontractors, projects, workCateg
               optionFilterProp="label"
               value={editSubcontractorId || undefined}
               onChange={setEditSubcontractorId}
-              options={subcontractors.map((s) => ({ value: s.id, label: s.name }))}
+              options={editSubcontractorOptions.map((s) => ({ value: s.id, label: s.name }))}
+              notFoundContent={editWorkCategoryId ? 'No subcontractors in this category yet' : 'Select a work category first'}
               style={{ width: '100%' }}
             />
           </Form.Item>
@@ -777,7 +808,8 @@ export function SubcontractorEnquiryClient({ subcontractors, projects, workCateg
               optionFilterProp="label"
               value={addSubId || undefined}
               onChange={setAddSubId}
-              options={subcontractors.map((s) => ({ value: s.id, label: s.name }))}
+              options={addSubSubcontractorOptions.map((s) => ({ value: s.id, label: s.name }))}
+              notFoundContent="No subcontractors in this category yet"
               style={{ width: '100%' }}
             />
           </Form.Item>

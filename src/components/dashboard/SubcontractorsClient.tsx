@@ -27,6 +27,11 @@ const subcontractorSchema = z.object({
   phone: z.string().optional(),
   notes: z.string().optional(),
   workCategoryId: z.string().min(1, 'Work category is required'),
+  bankName: z.string().optional(),
+  accountHolderName: z.string().optional(),
+  accountNumber: z.string().optional(),
+  ifscCode: z.string().optional(),
+  branch: z.string().optional(),
 });
 
 type SubcontractorFormValues = z.infer<typeof subcontractorSchema>;
@@ -104,6 +109,11 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
       phone: '',
       notes: '',
       workCategoryId: '',
+      bankName: '',
+      accountHolderName: '',
+      accountNumber: '',
+      ifscCode: '',
+      branch: '',
     },
   });
 
@@ -117,6 +127,11 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
       setValue('phone', editingSubcontractor.phone || '');
       setValue('notes', editingSubcontractor.notes || '');
       setValue('workCategoryId', editingSubcontractor.workCategory?.id || '');
+      setValue('bankName', editingSubcontractor.bankName || '');
+      setValue('accountHolderName', editingSubcontractor.accountHolderName || '');
+      setValue('accountNumber', editingSubcontractor.accountNumber || '');
+      setValue('ifscCode', editingSubcontractor.ifscCode || '');
+      setValue('branch', editingSubcontractor.branch || '');
     } else {
       reset({
         name: '',
@@ -127,6 +142,11 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
         phone: '',
         notes: '',
         workCategoryId: '',
+        bankName: '',
+        accountHolderName: '',
+        accountNumber: '',
+        ifscCode: '',
+        branch: '',
       });
     }
   }, [editingSubcontractor, setValue, reset]);
@@ -428,6 +448,60 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
               )}
             />
           </div>
+
+          <Typography.Title level={5} className="mt-2!">Bank Details</Typography.Title>
+
+          <div className="flex flex-col gap-4 sm:flex-row sm:gap-4">
+            <Controller
+              control={control}
+              name="bankName"
+              render={({ field }) => (
+                <Form.Item label="Bank Name" className="flex-1">
+                  <Input {...field} placeholder="e.g. HDFC Bank" />
+                </Form.Item>
+              )}
+            />
+            <Controller
+              control={control}
+              name="branch"
+              render={({ field }) => (
+                <Form.Item label="Branch" className="flex-1">
+                  <Input {...field} placeholder="Branch name" />
+                </Form.Item>
+              )}
+            />
+          </div>
+
+          <div className="flex flex-col gap-4 sm:flex-row sm:gap-4">
+            <Controller
+              control={control}
+              name="accountHolderName"
+              render={({ field }) => (
+                <Form.Item label="Account Holder Name" className="flex-1">
+                  <Input {...field} placeholder="As per bank records" />
+                </Form.Item>
+              )}
+            />
+            <Controller
+              control={control}
+              name="accountNumber"
+              render={({ field }) => (
+                <Form.Item label="Account Number" className="flex-1">
+                  <Input {...field} placeholder="Account number" />
+                </Form.Item>
+              )}
+            />
+          </div>
+
+          <Controller
+            control={control}
+            name="ifscCode"
+            render={({ field }) => (
+              <Form.Item label="IFSC Code">
+                <Input {...field} placeholder="e.g. HDFC0001234" />
+              </Form.Item>
+            )}
+          />
 
           <Controller
             control={control}
