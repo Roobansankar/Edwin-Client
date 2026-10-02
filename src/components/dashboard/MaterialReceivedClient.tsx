@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Button, Card, Drawer, Flex, Form, Input, Popconfirm, Select, Space, Table, Typography, Upload, App, InputNumber, Image, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { RcFile } from 'antd/es/upload/interface';
-import { DeleteOutlined, EditOutlined, FilePdfOutlined, PlusOutlined, SearchOutlined, UploadOutlined, InboxOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, FilePdfOutlined, PlusOutlined, SearchOutlined, UploadOutlined, InboxOutlined, WarningOutlined } from '@ant-design/icons';
 import { Controller, useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { createMaterialReceived, updateMaterialReceived, deleteMaterialReceived, uploadMaterialFile, updateMaterialReceivedStatus } from '@/actions/material-received';
@@ -35,6 +35,7 @@ const mrSchema = z.object({
   purchaseOrderId: z.string().optional(),
   receivedDate: z.string().optional(),
   notes: z.string().optional(),
+  damageRemarks: z.string().optional(),
   items: z.array(itemSchema).min(1, 'Add at least one item'),
 });
 
@@ -76,6 +77,7 @@ export function MaterialReceivedClient({ records, projects, itemDescriptions, pu
       purchaseOrderId: '',
       receivedDate: '',
       notes: '',
+      damageRemarks: '',
       items: [{ description: '', quantity: 1 }],
     },
   });
@@ -121,6 +123,7 @@ export function MaterialReceivedClient({ records, projects, itemDescriptions, pu
         purchaseOrderId: editing.purchaseOrderId || '',
         receivedDate: editing.receivedDate || '',
         notes: editing.notes || '',
+        damageRemarks: editing.damageRemarks || '',
         items: editing.items?.length
           ? editing.items.map((i) => ({ description: i.description, quantity: Number(i.quantity) }))
           : [{ description: '', quantity: 1 }],
@@ -205,7 +208,7 @@ export function MaterialReceivedClient({ records, projects, itemDescriptions, pu
     setEditing(null);
     setPhotos([]);
     setBillFile(null);
-    reset({ projectId: '', purchaseOrderId: '', receivedDate: '', notes: '', items: [{ description: '', quantity: 1 }] });
+    reset({ projectId: '', purchaseOrderId: '', receivedDate: '', notes: '', damageRemarks: '', items: [{ description: '', quantity: 1 }] });
     setOpen(true);
   };
 
@@ -237,6 +240,20 @@ export function MaterialReceivedClient({ records, projects, itemDescriptions, pu
       ),
     },
     {
+      title: 'Damaged / Missing',
+      key: 'damageRemarks',
+      width: 180,
+      render: (_, r) =>
+        r.damageRemarks ? (
+          <Flex align="flex-start" gap={4}>
+            <WarningOutlined className="text-red-500 mt-0.5" />
+            <Typography.Text type="danger" className="text-xs">{r.damageRemarks}</Typography.Text>
+          </Flex>
+        ) : (
+          <Tag color="green">All Good</Tag>
+        ),
+    },
+    {
       title: 'Photos',
       key: 'photos',
       width: 140,
@@ -257,7 +274,7 @@ export function MaterialReceivedClient({ records, projects, itemDescriptions, pu
         ),
     },
     {
-      title: 'Bill',
+      title: 'Delivery Chalan',
       key: 'bill',
       width: 110,
       render: (_, r) =>
@@ -467,6 +484,20 @@ export function MaterialReceivedClient({ records, projects, itemDescriptions, pu
           </Button>
           {errors.items?.message && <Typography.Text type="danger">{errors.items.message}</Typography.Text>}
 
+          <Controller
+            control={control}
+            name="damageRemarks"
+            render={({ field }) => (
+              <Form.Item label="Damaged / Missing Items">
+                <Input.TextArea
+                  {...field}
+                  rows={3}
+                  placeholder="e.g. 2 bags of cement damaged, 5 nos missing — leave blank if everything was received in good condition and full quantity"
+                />
+              </Form.Item>
+            )}
+          />
+
           <Typography.Text strong>Photos</Typography.Text>
           <Upload
             multiple
@@ -504,13 +535,13 @@ export function MaterialReceivedClient({ records, projects, itemDescriptions, pu
             </Flex>
           )}
 
-          <Typography.Text strong>Bill / Invoice</Typography.Text>
+          <Typography.Text strong>Delivery Chalan</Typography.Text>
           <Upload accept=".pdf,.jpg,.jpeg,.png" showUploadList={false} beforeUpload={(file) => { setBillFile(file); return false; }} onRemove={() => setBillFile(null)}>
-            <Button icon={<FilePdfOutlined />}>{billFile ? billFile.name : existingBillUrl ? 'Replace bill' : 'Upload bill'}</Button>
+            <Button icon={<FilePdfOutlined />}>{billFile ? billFile.name : existingBillUrl ? 'Replace delivery chalan' : 'Upload delivery chalan'}</Button>
           </Upload>
           {billFile && <Typography.Text type="secondary" className="text-xs">{billFile.name}</Typography.Text>}
           {existingBillUrl && !billFile && (
-            <Button type="link" size="small" href={existingBillUrl} target="_blank">View uploaded bill</Button>
+            <Button type="link" size="small" href={existingBillUrl} target="_blank">View uploaded delivery chalan</Button>
           )}
 
           <Controller

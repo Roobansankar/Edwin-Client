@@ -47,7 +47,10 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
   const filteredSubcontractors = useMemo(() => {
     const q = searchText.trim().toLowerCase();
     if (!q) return subcontractors;
-    return subcontractors.filter((s) => s.name.toLowerCase().includes(q));
+    return subcontractors.filter((s) => {
+      const haystack = [s.name, s.workCategory?.name].filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(q);
+    });
   }, [subcontractors, searchText]);
 
   // For adding new category
@@ -266,7 +269,7 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
 
       <Flex gap={12} wrap="wrap" className="mb-4!">
         <Input.Search
-          placeholder="Search by subcontractor name..."
+          placeholder="Search by name or work category..."
           allowClear
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}

@@ -338,6 +338,7 @@ export type MaterialReceived = {
   purchaseOrder?: PurchaseOrder;
   receivedDate?: string | null;
   notes?: string | null;
+  damageRemarks?: string | null;
   items: EnquiryItem[];
   photoUrls: string[];
   photoKeys: string[];
