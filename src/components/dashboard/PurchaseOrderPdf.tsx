@@ -1,4 +1,4 @@
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 import type { PurchaseOrder } from '@/types/erp';
 import { formatDate } from './ui';
 
@@ -20,6 +20,43 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica',
     color: BLACK,
     lineHeight: 1.4,
+  },
+  letterhead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  logo: {
+    width: 52,
+    height: 52,
+    marginRight: 12,
+  },
+  letterheadText: {
+    flex: 1,
+  },
+  companyName: {
+    fontSize: 19,
+    fontFamily: 'Helvetica-Bold',
+    letterSpacing: 0.5,
+  },
+  companyTagline: {
+    fontSize: 8,
+    fontFamily: 'Helvetica-Bold',
+    color: DARK,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  companyContact: {
+    fontSize: 8,
+    color: GREY_700,
+    lineHeight: 1.5,
+  },
+  letterheadDivider: {
+    borderBottomWidth: 2,
+    borderBottomColor: DARK,
+    marginBottom: 14,
   },
   headerRow: {
     flexDirection: 'row',
@@ -259,6 +296,22 @@ export function PurchaseOrderPdf({ purchaseOrder }: Props) {
   return (
     <Document>
       <Page size="A4" style={styles.page}>
+        {/* Company letterhead */}
+        <View style={styles.letterhead}>
+          {/* react-pdf's Image, not an HTML img - no alt prop exists on it */}
+          {/* eslint-disable-next-line jsx-a11y/alt-text */}
+          <Image src="/logo.png" style={styles.logo} />
+          <View style={styles.letterheadText}>
+            <Text style={styles.companyName}>EDWIN CONSTRUCTION</Text>
+            <Text style={styles.companyTagline}>Civil Engineers & Contractors</Text>
+            <Text style={styles.companyContact}>
+              2/1-1A1 Rainbow Garden, Kamarajar Salai, Moovendar Nagar, Konam PO, Nagercoil - 629004, Kanyakumari Dist, Tamil Nadu, India
+            </Text>
+            <Text style={styles.companyContact}>GSTIN: 33AAFFE2810H1ZY</Text>
+          </View>
+        </View>
+        <View style={styles.letterheadDivider} />
+
         {/* Title + PO No / Date reference boxes */}
         <View style={styles.headerRow}>
           <Text style={styles.mainTitle}>PURCHASE ORDER</Text>

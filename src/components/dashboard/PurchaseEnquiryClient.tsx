@@ -47,6 +47,7 @@ const itemSchema = z.object({
 const peSchema = z.object({
   projectId: z.string().min(1, 'Select a project'),
   notes: z.string().optional(),
+  purposeOfMaterial: z.string().optional(),
   expectedDate: z.string().optional(),
   paymentTerms: z.enum(['advance', 'credit', 'full_payment']).optional(),
   items: z.array(itemSchema).min(1, 'Add at least one item'),
@@ -107,8 +108,13 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
   const { message } = App.useApp();
   const user = useAuthStore((s) => s.user);
   const isSiteEngineer = user?.role === 'site_engineer';
+  const isPurchaseTeam = user?.role === 'purchase_team';
   // Mirror the server POST/PUT permissions (admin, accounts_manager, purchase_team, site_engineer)
   const canManageEnquiry = ['admin', 'accounts_manager', 'purchase_team', 'site_engineer'].includes(user?.role || '');
+  // Purchase team reviews/edits existing material requirements here but
+  // doesn't originate new ones - that's the site engineer's / accounts'
+  // job - so hide just the "New Enquiry" creation button for them.
+  const canCreateEnquiry = canManageEnquiry && !isPurchaseTeam;
   const availableProjects = user?.projects?.length
     ? projects.filter((p) => user.projects?.some((up) => up.id === p.id))
     : projects;
@@ -246,6 +252,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
     defaultValues: {
       projectId: '',
       notes: '',
+      purposeOfMaterial: '',
       expectedDate: '',
       paymentTerms: undefined,
       items: [{ description: '', quantity: 1, unit: 'nos' }],
@@ -259,6 +266,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
       reset({
         projectId: editing.projectId,
         notes: editing.notes || '',
+        purposeOfMaterial: editing.purposeOfMaterial || '',
         expectedDate: editing.expectedDate || '',
         paymentTerms: (editing.paymentTerms as 'advance' | 'credit' | 'full_payment' | undefined) || undefined,
         items: editing.items?.length ? editing.items.map((i) => ({ description: i.description, quantity: Number(i.quantity), unit: i.unit || 'nos' })) : [{ description: '', quantity: 1, unit: 'nos' }],
@@ -320,6 +328,12 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
           ))}
         </Flex>
       ),
+    },
+    {
+      title: 'Purpose of Material',
+      key: 'purposeOfMaterial',
+      width: 180,
+      render: (_, r) => r.purposeOfMaterial || <Typography.Text type="secondary">-</Typography.Text>,
     },
     {
       title: 'Status',
@@ -391,7 +405,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
       ),
     },
     {
-      title: 'Created',
+      title: isPurchaseTeam ? 'Request Date' : 'Created',
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 110,
@@ -458,13 +472,13 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
         <Typography.Title level={3} className={pageTitleClassName}>
           <ShoppingCartOutlined style={{ marginBottom: 24 }} className={titleIconClassName} /> {isSiteEngineer ? 'Material Requirement' : 'Material Requirement Request'}
         </Typography.Title>
-        {canManageEnquiry && (
+        {canCreateEnquiry && (
           <Button
             type="primary"
             icon={<PlusOutlined />}
             onClick={() => {
               setEditing(null);
-              reset({ projectId: '', notes: '', expectedDate: '', paymentTerms: undefined, items: [{ description: '', quantity: 1, unit: 'nos' }] });
+              reset({ projectId: '', notes: '', purposeOfMaterial: '', expectedDate: '', paymentTerms: undefined, items: [{ description: '', quantity: 1, unit: 'nos' }] });
               setOpen(true);
             }}
           >
@@ -502,7 +516,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
           loading={isPending}
           size="middle"
           pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (total) => `${total} enquiries` }}
-          scroll={{ x: 1200 }}
+          scroll={{ x: 1380 }}
           locale={{ emptyText: isSiteEngineer ? 'No material requirements yet. Create one!' : 'No material requirement requests yet.' }}
         />
       </Card>
@@ -539,6 +553,16 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
                     optionFilterProp="label"
                     options={availableProjects.map((p) => ({ value: p.id, label: p.name }))}
                   />
+                </Form.Item>
+              )}
+            />
+
+            <Controller
+              control={control}
+              name="purposeOfMaterial"
+              render={({ field, fieldState }) => (
+                <Form.Item label="Purpose of Material" validateStatus={fieldState.error ? 'error' : undefined} help={fieldState.error?.message}>
+                  <Input.TextArea {...field} rows={2} placeholder="What is this material needed for?" />
                 </Form.Item>
               )}
             />

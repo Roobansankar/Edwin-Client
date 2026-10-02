@@ -70,6 +70,7 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
   const user = useAuthStore((s) => s.user);
   const canManagePo = user?.role === 'admin' || user?.role === 'purchase_team';
   const canUpdateStatus = canManagePo;
+  const isPurchaseTeam = user?.role === 'purchase_team';
   const [open, setOpen] = useState(false);
   const [editingPo, setEditingPo] = useState<PurchaseOrder | null>(null);
   const [descOpen, setDescOpen] = useState(false);
@@ -83,6 +84,7 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
   const [projectId, setProjectId] = useState('');
   const [poExpectedDate, setPoExpectedDate] = useState<string | null>(null);
   const [poPaymentTerms, setPoPaymentTerms] = useState<PaymentTerms | undefined>(undefined);
+  const [poRemarks, setPoRemarks] = useState('');
   const [vendorSections, setVendorSections] = useState<VendorPoSection[]>([]);
 
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -251,6 +253,7 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
             transportAmount: section.transportAmount || undefined,
             expectedDate: poExpectedDate || undefined,
             paymentTerms: poPaymentTerms || undefined,
+            remarks: poRemarks.trim() || undefined,
             items,
             billFileUrl,
             billFileKey,
@@ -273,6 +276,7 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
     setProjectId('');
     setPoExpectedDate(null);
     setPoPaymentTerms(undefined);
+    setPoRemarks('');
     setVendorSections([]);
     setBillFile(null);
   };
@@ -296,6 +300,7 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
     setProjectId(po.projectId);
     setPoExpectedDate(po.expectedDate || null);
     setPoPaymentTerms((po.paymentTerms as PaymentTerms | null) || undefined);
+    setPoRemarks(po.remarks || '');
     setVendorSections([
       {
         vendorId: po.vendorId,
@@ -342,6 +347,7 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
           transportAmount: section.transportAmount || undefined,
           expectedDate: poExpectedDate || null,
           paymentTerms: poPaymentTerms || null,
+          remarks: poRemarks.trim() || null,
           items,
           billFileUrl,
           billFileKey,
@@ -368,49 +374,54 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
     });
   };
 
-  const columns: ColumnsType<PurchaseOrder> = [
-    { title: 'S.No', key: 'sno', width: 60, render: (_text, _record, index) => index + 1 },
-    { title: 'PO Number', dataIndex: 'poNumber', sorter: (a, b) => a.poNumber.localeCompare(b.poNumber), render: (value: string) => <Typography.Text strong>{value}</Typography.Text> },
-    { title: 'MR Ref', dataIndex: 'materialRequirementNo', sorter: (a, b) => (a.materialRequirementNo || '').localeCompare(b.materialRequirementNo || ''), render: (value?: string | null) => value || <Typography.Text type="secondary">-</Typography.Text> },
-    { title: 'Expected By', key: 'expectedDate', width: 160, render: (_, r) => <Typography.Text className="text-xs">{formatDateTime(r.expectedDate)}</Typography.Text> },
-    { title: 'Payment Terms', key: 'paymentTerms', width: 130, render: (_, r) => r.paymentTerms ? <Tag color="blue">{PAYMENT_TERMS_LABELS[r.paymentTerms] || r.paymentTerms}</Tag> : <Typography.Text type="secondary">-</Typography.Text> },
-    { title: 'Vendor', dataIndex: ['vendor', 'name'], sorter: (a, b) => (a.vendor?.name || '').localeCompare(b.vendor?.name || ''), render: (_value, record) => record.vendor?.name || '-' },
-    { title: 'Project', key: 'project', sorter: (a, b) => (a.project?.name || '').localeCompare(b.project?.name || ''), render: (_value, record) => record.project ? `${record.project.name} (${record.project.projectCode || 'No Code'})` : '-' },
-    { title: 'Status', dataIndex: 'status', width: 150, filters: STATUS_OPTIONS.map((opt) => ({ text: opt.label, value: opt.value })), onFilter: (value, record) => record.status === value, render: (value: string, record) =>
-      canUpdateStatus ? (
-        <Select defaultValue={value} size="small" variant="borderless" className="w-full" onChange={(newStatus) => handleStatusChange(record.id, newStatus)} options={statusOptions} popupMatchSelectWidth={false} styles={{ popup: { root: { minWidth: 140 } } }} disabled={isPending} />
-      ) : (
-        <Typography.Text>{value.charAt(0).toUpperCase() + value.slice(1)}</Typography.Text>
-      ),
-    },
-    { title: 'GST', key: 'gst', align: 'right', width: 100, render: (_, r) => (r.gstPercent ? `${Number(r.gstPercent)}%` : '-') },
-    { title: 'Total w/ GST', key: 'totalWithGst', align: 'right', width: 130, sorter: (a, b) => Number(a.totalWithGst || 0) - Number(b.totalWithGst || 0), render: (_, r) => formatCurrency(r.totalWithGst || r.totalAmount) },
-    { title: 'Paid Amount', key: 'advanceAmount', align: 'right', width: 120, sorter: (a, b) => Number(a.advanceAmount || 0) - Number(b.advanceAmount || 0), render: (_, r) => r.advanceAmount ? formatCurrency(r.advanceAmount) : <Typography.Text type="secondary">-</Typography.Text> },
-    { title: 'Balance Total', key: 'balanceTotal', align: 'right', width: 130, sorter: (a, b) => (Number(a.totalWithGst || a.totalAmount) - Number(a.paidAmount || 0)) - (Number(b.totalWithGst || b.totalAmount) - Number(b.paidAmount || 0)), render: (_, r) => {
-      const balance = Number(r.totalWithGst || r.totalAmount) - Number(r.paidAmount || 0);
-      return <Typography.Text strong={balance > 0}>{formatCurrency(balance)}</Typography.Text>;
-    } },
-    { title: 'History', key: 'history', width: 90, render: (_, record) => (
-      <Button size="small" icon={<HistoryOutlined />} onClick={() => openHistory(record)}>History</Button>
-    ) },
-    { title: 'PO', key: 'billFile', width: 120, render: (_, record) =>
-      record.billFileUrl ? <Button type="link" size="small" icon={<FilePdfOutlined />} href={record.billFileUrl} target="_blank">View PO</Button> : <Typography.Text type="secondary">—</Typography.Text>,
-    },
-    { title: 'PO PDF', key: 'poPdf', width: 130, render: (_, record) =>
-      isClient ? (
-        <Button size="small" icon={<EyeOutlined />} onClick={() => setPreviewPo(record)}>Preview</Button>
-      ) : null,
-    },
-    { title: 'PO Created Date', dataIndex: 'createdAt', sorter: (a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime(), render: formatDate },
-    ...(canManagePo ? [{ title: 'Actions', key: 'actions', width: 100, render: (_: unknown, record: PurchaseOrder) => (
-      <Space>
-        <Button type="text" icon={<EditOutlined className="text-blue-500" />} title="Edit" onClick={() => handleEdit(record)} />
-        <Popconfirm title="Delete Purchase Order?" description="This will permanently delete this PO." onConfirm={() => handleDelete(record.id)} okText="Yes" cancelText="No" okButtonProps={{ danger: true }}>
-          <Button type="text" icon={<DeleteOutlined className="text-red-500" />} title="Delete" loading={isPending} />
-        </Popconfirm>
-      </Space>
-    )}] : []),
-  ];
+  const colSno: ColumnsType<PurchaseOrder>[number] = { title: 'S.No', key: 'sno', width: 60, render: (_text, _record, index) => index + 1 };
+  const colPoNumber: ColumnsType<PurchaseOrder>[number] = { title: 'PO Number', dataIndex: 'poNumber', sorter: (a, b) => a.poNumber.localeCompare(b.poNumber), render: (value: string) => <Typography.Text strong>{value}</Typography.Text> };
+  const colMrRef: ColumnsType<PurchaseOrder>[number] = { title: 'MR Ref', dataIndex: 'materialRequirementNo', sorter: (a, b) => (a.materialRequirementNo || '').localeCompare(b.materialRequirementNo || ''), render: (value?: string | null) => value || <Typography.Text type="secondary">-</Typography.Text> };
+  const colExpectedDate: ColumnsType<PurchaseOrder>[number] = { title: 'Expected By', key: 'expectedDate', width: 160, render: (_, r) => <Typography.Text className="text-xs">{formatDateTime(r.expectedDate)}</Typography.Text> };
+  const colPaymentTerms: ColumnsType<PurchaseOrder>[number] = { title: 'Payment Terms', key: 'paymentTerms', width: 130, render: (_, r) => r.paymentTerms ? <Tag color="blue">{PAYMENT_TERMS_LABELS[r.paymentTerms] || r.paymentTerms}</Tag> : <Typography.Text type="secondary">-</Typography.Text> };
+  const colVendor: ColumnsType<PurchaseOrder>[number] = { title: 'Vendor', dataIndex: ['vendor', 'name'], sorter: (a, b) => (a.vendor?.name || '').localeCompare(b.vendor?.name || ''), render: (_value, record) => record.vendor?.name || '-' };
+  const colProject: ColumnsType<PurchaseOrder>[number] = { title: 'Project', key: 'project', sorter: (a, b) => (a.project?.name || '').localeCompare(b.project?.name || ''), render: (_value, record) => record.project ? `${record.project.name} (${record.project.projectCode || 'No Code'})` : '-' };
+  const colStatus: ColumnsType<PurchaseOrder>[number] = { title: 'Status', dataIndex: 'status', width: 150, filters: STATUS_OPTIONS.map((opt) => ({ text: opt.label, value: opt.value })), onFilter: (value, record) => record.status === value, render: (value: string, record) =>
+    canUpdateStatus ? (
+      <Select defaultValue={value} size="small" variant="borderless" className="w-full" onChange={(newStatus) => handleStatusChange(record.id, newStatus)} options={statusOptions} popupMatchSelectWidth={false} styles={{ popup: { root: { minWidth: 140 } } }} disabled={isPending} />
+    ) : (
+      <Typography.Text>{value.charAt(0).toUpperCase() + value.slice(1)}</Typography.Text>
+    ),
+  };
+  const colGst: ColumnsType<PurchaseOrder>[number] = { title: 'GST', key: 'gst', align: 'right', width: 100, render: (_, r) => (r.gstPercent ? `${Number(r.gstPercent)}%` : '-') };
+  const colTotalWithGst: ColumnsType<PurchaseOrder>[number] = { title: 'Total Amount', key: 'totalWithGst', align: 'right', width: 130, sorter: (a, b) => Number(a.totalWithGst || 0) - Number(b.totalWithGst || 0), render: (_, r) => formatCurrency(r.totalWithGst || r.totalAmount) };
+  const colPaidAmount: ColumnsType<PurchaseOrder>[number] = { title: 'Paid Amount', key: 'advanceAmount', align: 'right', width: 120, sorter: (a, b) => Number(a.advanceAmount || 0) - Number(b.advanceAmount || 0), render: (_, r) => r.advanceAmount ? formatCurrency(r.advanceAmount) : <Typography.Text type="secondary">-</Typography.Text> };
+  const colBalanceTotal: ColumnsType<PurchaseOrder>[number] = { title: 'Balance Total', key: 'balanceTotal', align: 'right', width: 130, sorter: (a, b) => (Number(a.totalWithGst || a.totalAmount) - Number(a.paidAmount || 0)) - (Number(b.totalWithGst || b.totalAmount) - Number(b.paidAmount || 0)), render: (_, r) => {
+    const balance = Number(r.totalWithGst || r.totalAmount) - Number(r.paidAmount || 0);
+    return <Typography.Text strong={balance > 0}>{formatCurrency(balance)}</Typography.Text>;
+  } };
+  const colHistory: ColumnsType<PurchaseOrder>[number] = { title: 'History', key: 'history', width: 90, render: (_, record) => (
+    <Button size="small" icon={<HistoryOutlined />} onClick={() => openHistory(record)}>History</Button>
+  ) };
+  const colBillFile: ColumnsType<PurchaseOrder>[number] = { title: 'PO', key: 'billFile', width: 120, render: (_, record) =>
+    record.billFileUrl ? <Button type="link" size="small" icon={<FilePdfOutlined />} href={record.billFileUrl} target="_blank">View PO</Button> : <Typography.Text type="secondary">—</Typography.Text>,
+  };
+  const colPoPdf: ColumnsType<PurchaseOrder>[number] = { title: 'PO PDF', key: 'poPdf', width: 130, render: (_, record) =>
+    isClient ? (
+      <Button size="small" icon={<EyeOutlined />} onClick={() => setPreviewPo(record)}>Preview</Button>
+    ) : null,
+  };
+  const colCreatedDate: ColumnsType<PurchaseOrder>[number] = { title: 'PO Created Date', dataIndex: 'createdAt', sorter: (a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime(), render: formatDate };
+  const actionColumns: ColumnsType<PurchaseOrder> = canManagePo ? [{ title: 'Actions', key: 'actions', width: 100, render: (_: unknown, record: PurchaseOrder) => (
+    <Space>
+      <Button type="text" icon={<EditOutlined className="text-blue-500" />} title="Edit" onClick={() => handleEdit(record)} />
+      <Popconfirm title="Delete Purchase Order?" description="This will permanently delete this PO." onConfirm={() => handleDelete(record.id)} okText="Yes" cancelText="No" okButtonProps={{ danger: true }}>
+        <Button type="text" icon={<DeleteOutlined className="text-red-500" />} title="Delete" loading={isPending} />
+      </Popconfirm>
+    </Space>
+  )}] : [];
+
+  // Purchase team gets a simplified, purchasing-focused column set/order
+  // (no GST / Paid / Balance / Payment Terms breakdown - that's an accounts
+  // concern); admin and accounts_manager keep the full detailed table.
+  const columns: ColumnsType<PurchaseOrder> = isPurchaseTeam
+    ? [colSno, colMrRef, colPoNumber, colCreatedDate, colProject, colVendor, colBillFile, colPoPdf, colTotalWithGst, colStatus, ...actionColumns]
+    : [colSno, colPoNumber, colMrRef, colExpectedDate, colPaymentTerms, colVendor, colProject, colStatus, colGst, colTotalWithGst, colPaidAmount, colBalanceTotal, colHistory, colBillFile, colPoPdf, colCreatedDate, ...actionColumns];
 
   return (
     <div>
@@ -597,6 +608,15 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
               />
             </Form.Item>
           </Flex>
+
+          <Form.Item label="Remarks">
+            <Input.TextArea
+              rows={3}
+              placeholder="Any notes for this purchase order..."
+              value={poRemarks}
+              onChange={(e) => setPoRemarks(e.target.value)}
+            />
+          </Form.Item>
 
           {vendorSections.map((section, vIdx) => {
             const { basicAmount, gstAmount, totalWithGst } = calcSectionTotals(section);

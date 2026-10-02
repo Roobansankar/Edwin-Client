@@ -321,6 +321,7 @@ export type PurchaseEnquiry = {
   createdBy?: string;
   creator?: { id: string; name: string } | null;
   notes?: string | null;
+  purposeOfMaterial?: string | null;
   items: EnquiryItem[];
   status: string;
   expectedDate?: string | null;
@@ -369,6 +370,7 @@ export type PurchaseOrder = {
   items?: LineItem[];
   billFileUrl?: string | null;
   billFileKey?: string | null;
+  remarks?: string | null;
   createdAt?: string;
 };
 

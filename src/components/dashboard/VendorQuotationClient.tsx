@@ -571,18 +571,6 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
       ),
     },
     {
-      title: 'Expected By', key: 'expectedDate', width: 150,
-      render: (_, r) => (
-        <Typography.Text className="text-xs">{formatDateTime(r.expectedDate)}</Typography.Text>
-      ),
-    },
-    {
-      title: 'Payment Terms', key: 'paymentTerms', width: 130,
-      render: (_, r) => (
-        r.paymentTerms ? <Tag color="blue">{PAYMENT_TERMS_LABELS[r.paymentTerms] || r.paymentTerms}</Tag> : <Typography.Text type="secondary">-</Typography.Text>
-      ),
-    },
-    {
       title: 'Total Amount', key: 'totalAmount', width: 150, align: 'right',
       render: (_, r) => r.totalAmount ? (
         <Flex vertical gap={0} className="items-end">
@@ -609,6 +597,18 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
         ) : (
           <Typography.Text type="secondary">-</Typography.Text>
         ),
+    },
+    {
+      title: 'Expected By', key: 'expectedDate', width: 150,
+      render: (_, r) => (
+        <Typography.Text className="text-xs">{formatDateTime(r.expectedDate)}</Typography.Text>
+      ),
+    },
+    {
+      title: 'Payment Terms', key: 'paymentTerms', width: 130,
+      render: (_, r) => (
+        r.paymentTerms ? <Tag color="blue">{PAYMENT_TERMS_LABELS[r.paymentTerms] || r.paymentTerms}</Tag> : <Typography.Text type="secondary">-</Typography.Text>
+      ),
     },
     { title: 'Status', key: 'status', width: 120, render: (_, r) => (
       <Select
