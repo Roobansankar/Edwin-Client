@@ -83,6 +83,7 @@ const navigationSections: Array<{ title: string; items: NavItem[]; allowedRoles?
       { key: '/dashboard/purchase-orders', icon: <FileProtectOutlined />, label: 'Purchase Orders', allowedRoles: ['purchase_team', 'accounts_manager'] },
       { key: '/dashboard/material-received', icon: <InboxOutlined />, label: 'Material Received', allowedRoles: ['site_engineer', 'purchase_team'] },
       { key: '/dashboard/subcontractors', icon: <TeamOutlined />, label: 'Subcontractors', allowedRoles: ['purchase_team'] },
+      { key: '/dashboard/subcontractor-enquiry', icon: <AuditOutlined />, label: 'Sub Contractor Enquiry', allowedRoles: ['purchase_team'] },
       { key: '/dashboard/subcontract-work-orders', icon: <FileTextOutlined />, label: 'Subcontract WO', allowedRoles: ['purchase_team'] },
       { key: '/dashboard/purchase-ledger', icon: <BankOutlined />, label: 'Ledger', allowedRoles: ['purchase_team'] },
       { key: '/dashboard/my-todos', icon: <FormOutlined />, label: 'My Todo List', allowedRoles: ['purchase_team'] },

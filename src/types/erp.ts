@@ -804,6 +804,29 @@ export type VendorQuotation = {
   createdAt?: string;
 };
 
+export type SubcontractorEnquiry = {
+  id: string;
+  groupId: string;
+  scrNo: string;
+  projectId: string;
+  project?: Project;
+  workCategoryId: string;
+  workCategory?: WorkCategory;
+  subcontractorId: string;
+  subcontractor?: Subcontractor;
+  scopeOfWork?: string | null;
+  totalAmount?: number | null;
+  gstPercent?: number | null;
+  gstAmount?: number | null;
+  totalWithGst?: number | null;
+  quotationUrl?: string | null;
+  quotationKey?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  status: string;
+  createdAt?: string;
+};
+
 export type ProjectTimesheetSummary = {
   userId: string;
   name: string;
