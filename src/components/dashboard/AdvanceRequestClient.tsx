@@ -16,8 +16,6 @@ import {
   titleIconClassName,
 } from './ui';
 
-const ordinal = (n: number) => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`);
-
 type Props = {
   projects: Project[];
   advanceRequests: AdvanceRequest[];
@@ -171,12 +169,8 @@ export function AdvanceRequestClient({ projects, advanceRequests, purchaseOrders
         const balance = poTotal - paid;
         return (
           <Flex vertical gap={4}>
-            {poPayments.length === 0 ? (
+            {poPayments.length === 0 && (
               <Typography.Text type="secondary" className="text-xs">No payments yet</Typography.Text>
-            ) : (
-              poPayments.slice(0, 2).map((p, i) => (
-                <Typography.Text key={p.id} className="text-xs">{ordinal(i + 1)} Payment: {formatCurrency(p.amount)}</Typography.Text>
-              ))
             )}
             <Typography.Text strong className="text-xs">Balance: {formatCurrency(balance)}</Typography.Text>
             {poPayments.length > 0 && (
