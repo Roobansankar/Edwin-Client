@@ -42,7 +42,7 @@ import type { EmployeeQuery } from '@/types/erp';
 const { Sider, Content, Header } = Layout;
 const { Text } = Typography;
 
-const SIDEBAR_WIDTH = 280;
+const SIDEBAR_WIDTH = 300;
 const COLLAPSED_WIDTH = 60;
 
 type NavItem = {

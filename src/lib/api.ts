@@ -23,6 +23,7 @@ import type {
   Drawing,
   PurchaseOrder,
   PurchaseBill,
+  BillTrail,
   PurchaseEnquiry,
   MaterialReceived,
   ProjectDetails,
@@ -107,6 +108,7 @@ export const fetchInvoices = (projectId?: string) =>
 export const fetchInvoice = (id: string) => apiFetch<SalesInvoice>(`/invoices/${id}`);
 export const fetchBills = () => apiFetch<PurchaseBill[]>('/bills');
 export const fetchBill = (id: string) => apiFetch<PurchaseBill>(`/bills/${id}`);
+export const fetchBillTrail = (id: string) => apiFetch<BillTrail>(`/bills/${id}/trail`);
 export const fetchExpenses = (params?: string) => apiFetch<PagedResponse<Expense>>(`/expenses${params ? `?${params}` : ''}`);
 export const fetchExpenseSummary = () => apiFetch<ExpenseSummary[]>('/expenses/summary');
 export const fetchExpensePayments = () => apiFetch<ExpensePayment[]>('/expense-payments');

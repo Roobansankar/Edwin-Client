@@ -1,9 +1,9 @@
 'use client';
 
 import { App, Button, Card, Flex, Table, Typography, Tag } from 'antd';
-import { ArrowLeftOutlined, FilePdfOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, ArrowRightOutlined, FilePdfOutlined, CameraOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
-import type { PurchaseBill } from '@/types/erp';
+import type { PurchaseBill, BillTrail } from '@/types/erp';
 import {
   StatusTag,
   formatCurrency,
@@ -12,9 +12,40 @@ import {
 
 type Props = {
   bill: PurchaseBill | null;
+  trail?: BillTrail | null;
 };
 
-export function BillDetailClient({ bill }: Props) {
+// One stage in the MR -> Enquiry -> PO -> Material Received -> Vendor Bill
+// chain shown at the top of the page.
+function TrailStage({
+  label,
+  refNo,
+  sub,
+  status,
+  action,
+  muted,
+}: {
+  label: string;
+  refNo?: string | null;
+  sub?: string | null;
+  status?: string | null;
+  action?: React.ReactNode;
+  muted?: boolean;
+}) {
+  return (
+    <Card size="small" className={`min-w-44 flex-1 border! border-[var(--border)]! ${muted ? 'opacity-50' : ''}`}>
+      <Typography.Text type="secondary" className="text-[10px] uppercase tracking-wide block">{label}</Typography.Text>
+      <Typography.Text strong className="block">{refNo || '-'}</Typography.Text>
+      {sub && <Typography.Text type="secondary" className="text-xs block">{sub}</Typography.Text>}
+      <Flex align="center" justify="space-between" className="mt-1!">
+        {status ? <StatusTag value={status} /> : <span />}
+        {action}
+      </Flex>
+    </Card>
+  );
+}
+
+export function BillDetailClient({ bill, trail }: Props) {
   const router = useRouter();
 
   if (!bill) {
@@ -26,6 +57,9 @@ export function BillDetailClient({ bill }: Props) {
   }
 
   const po = bill.purchaseOrder;
+  const mr = trail?.materialRequirement;
+  const vq = trail?.vendorQuotation;
+  const mrReceived = trail?.materialReceived || [];
 
   return (
     <div>
@@ -40,6 +74,63 @@ export function BillDetailClient({ bill }: Props) {
       </Flex>
 
       <Flex gap={16} vertical>
+        <Card size="small" title="Document Trail — MR → Enquiry → PO → Material Received → Vendor Bill">
+          <Flex gap={8} align="stretch" wrap="wrap">
+            <TrailStage
+              label="Material Requirement"
+              refNo={mr?.enquiryNo}
+              sub={mr?.project?.name}
+              status={mr?.status}
+              muted={!mr}
+            />
+            <Flex align="center"><ArrowRightOutlined className="text-[var(--text-very-muted)]" /></Flex>
+            <TrailStage
+              label="Enquiry (Quotation)"
+              refNo={vq ? vq.vendor?.name || '-' : null}
+              sub={vq ? formatCurrency(vq.totalWithGst || vq.totalAmount || 0) : null}
+              status={vq?.status}
+              muted={!vq}
+              action={vq?.quotationUrl ? (
+                <Button type="link" size="small" icon={<FilePdfOutlined />} href={vq.quotationUrl} target="_blank" />
+              ) : undefined}
+            />
+            <Flex align="center"><ArrowRightOutlined className="text-[var(--text-very-muted)]" /></Flex>
+            <TrailStage
+              label="Purchase Order"
+              refNo={po?.poNumber}
+              sub={po ? formatCurrency(po.totalWithGst || po.totalAmount) : null}
+              status={po?.status}
+              muted={!po}
+              action={po?.billFileUrl ? (
+                <Button type="link" size="small" icon={<FilePdfOutlined />} href={po.billFileUrl} target="_blank" />
+              ) : undefined}
+            />
+            <Flex align="center"><ArrowRightOutlined className="text-[var(--text-very-muted)]" /></Flex>
+            <TrailStage
+              label={`Material Received${mrReceived.length > 1 ? ` (${mrReceived.length})` : ''}`}
+              refNo={mrReceived[0]?.mrNumber}
+              sub={mrReceived[0]?.receivedDate ? formatDate(mrReceived[0].receivedDate) : null}
+              status={mrReceived[0]?.status}
+              muted={mrReceived.length === 0}
+              action={mrReceived[0]?.billUrl ? (
+                <Button type="link" size="small" icon={<FilePdfOutlined />} href={mrReceived[0].billUrl} target="_blank" />
+              ) : mrReceived[0]?.photoUrls?.length ? (
+                <Button type="link" size="small" icon={<CameraOutlined />} href={mrReceived[0].photoUrls[0]} target="_blank" />
+              ) : undefined}
+            />
+            <Flex align="center"><ArrowRightOutlined className="text-[var(--text-very-muted)]" /></Flex>
+            <TrailStage
+              label="Vendor Bill"
+              refNo={bill.billNumber}
+              sub={formatCurrency(bill.amount)}
+              status={bill.status}
+              action={bill.billFileUrl ? (
+                <Button type="link" size="small" icon={<FilePdfOutlined />} href={bill.billFileUrl} target="_blank" />
+              ) : undefined}
+            />
+          </Flex>
+        </Card>
+
         <Card size="small" title="Bill Information">
           <table className="w-full text-sm">
             <tbody>

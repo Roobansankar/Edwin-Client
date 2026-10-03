@@ -580,6 +580,13 @@ export type PurchaseBill = {
   updatedAt: string;
 };
 
+export type BillTrail = {
+  bill: PurchaseBill;
+  materialRequirement: PurchaseEnquiry | null;
+  vendorQuotation: VendorQuotation | null;
+  materialReceived: MaterialReceived[];
+};
+
 export type Payment = {
   id: string;
   paymentType: PaymentType;

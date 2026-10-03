@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { App, Button, Card, DatePicker, Drawer, Flex, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Typography, Upload, Divider } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { DeleteOutlined, EditOutlined, EyeOutlined, FileDoneOutlined, PlusOutlined, HistoryOutlined, SearchOutlined, UploadOutlined, FileTextOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, EyeOutlined, FileDoneOutlined, PlusOutlined, HistoryOutlined, SearchOutlined, UploadOutlined, FileTextOutlined, FileExcelOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { Controller, useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { createBill, updateBill, deleteBill, uploadBillFile } from '@/actions/invoices';
 import { createPayment } from '@/actions/payments';
 import { getApiBaseUrl } from '@/lib/api-url';
+import { exportToExcel } from '@/lib/excel';
 import type { Vendor, Project, PurchaseBill, PurchaseOrder } from '@/types/erp';
 import { PaymentMode, BillStatus } from '@/types/erp';
 import {
@@ -22,8 +23,11 @@ import {
   pageHeaderClassName,
   pageTitleClassName,
   secondaryTextClassName,
+  titleCase,
   titleIconClassName,
 } from './ui';
+
+const ordinal = (n: number) => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`);
 
 const billItemSchema = z.object({
   poItemId: z.string(),
@@ -340,28 +344,26 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
       render: (_text, _record, index) => index + 1,
     },
     {
-      title: 'Bill Number',
-      dataIndex: 'billNumber',
-      render: (value: string) => <Typography.Text strong>{value}</Typography.Text>,
-    },
-    {
-      title: 'Purchase Order',
+      title: 'PO No',
       key: 'purchaseOrder',
       render: (_value, record) => record.purchaseOrder ? (
         <Typography.Text>{record.purchaseOrder.poNumber}</Typography.Text>
       ) : '-',
     },
     {
+      title: 'Bill No',
+      dataIndex: 'billNumber',
+      render: (value: string) => <Typography.Text strong>{value}</Typography.Text>,
+    },
+    {
+      title: 'Bill Date',
+      dataIndex: 'billDate',
+      render: formatDate,
+    },
+    {
       title: 'Vendor',
       dataIndex: ['vendor', 'name'],
       render: (_value, record) => record.vendor?.name || '-',
-    },
-    {
-      title: 'GST',
-      key: 'gst',
-      align: 'right',
-      width: 90,
-      render: (_, record) => (record.gstPercent ? `${Number(record.gstPercent)}%` : '-'),
     },
     {
       title: 'Total Amount',
@@ -374,22 +376,53 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
       dataIndex: 'billFileUrl',
       width: 60,
       render: (url) => url ? (
-        <Button 
-          type="text" 
-          icon={<FileTextOutlined className="text-blue-500" />} 
+        <Button
+          type="text"
+          icon={<FileTextOutlined className="text-blue-500" />}
+          title="Vendor Bill"
           onClick={() => window.open(`${getApiBaseUrl().replace('/api/v1', '')}${url}`, '_blank')}
         />
       ) : '-',
     },
     {
+      title: 'Amount Paid',
+      dataIndex: 'paidAmount',
+      align: 'right',
+      width: 120,
+      render: (value) => Number(value) > 0 ? formatCurrency(value) : <Typography.Text type="secondary">-</Typography.Text>,
+    },
+    {
+      title: 'History',
+      key: 'history',
+      width: 170,
+      render: (_, record) => {
+        const payments = [...(record.payments || [])].sort(
+          (a, b) => new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime(),
+        );
+        const balance = Number(record.amount) - Number(record.paidAmount || 0);
+        return (
+          <Flex vertical gap={0}>
+            {payments.length === 0 ? (
+              <Typography.Text type="secondary" className="text-xs">No payments yet</Typography.Text>
+            ) : (
+              payments.slice(0, 2).map((p, i) => (
+                <Typography.Text key={p.id} className="text-xs">{ordinal(i + 1)} Paid: {formatCurrency(p.amount)}</Typography.Text>
+              ))
+            )}
+            <Typography.Text strong className="text-xs">Balance: {formatCurrency(balance)}</Typography.Text>
+            {canManagePayments && payments.length > 0 && (
+              <Button type="link" size="small" icon={<HistoryOutlined />} className="px-0! h-auto! justify-start!" onClick={() => setHistoryBill(record)}>
+                {payments.length > 2 ? `View all (${payments.length})` : 'View'}
+              </Button>
+            )}
+          </Flex>
+        );
+      },
+    },
+    {
       title: 'Status',
       dataIndex: 'status',
       render: (value) => <StatusTag value={value} />,
-    },
-    {
-      title: 'Bill Date',
-      dataIndex: 'billDate',
-      render: formatDate,
     },
     {
       title: 'Actions',
@@ -400,7 +433,7 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
             size="small"
             icon={<EyeOutlined />}
             onClick={() => router.push(`/dashboard/accounts/bills/${record.id}`)}
-            title="View Details"
+            title="View Details — MR, Enquiry, PO, Material Received, Vendor Bill"
           />
           {record.status === 'pending' && (
             <>
@@ -429,9 +462,9 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
             </>
           )}
           {canManagePayments && (
-            <Button 
-              size="small" 
-              type="primary" 
+            <Button
+              size="small"
+              type="primary"
               disabled={record.status === 'approved'}
               onClick={() => {
                 setPaymentBill(record);
@@ -441,18 +474,39 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
               Cash Outflow
             </Button>
           )}
-          {canManagePayments && (
-            <Button
-              size="small"
-              icon={<HistoryOutlined />}
-              onClick={() => setHistoryBill(record)}
-              title="Payment History"
-            />
-          )}
         </Space>
       ),
     },
   ];
+
+  const handleExportExcel = () => {
+    exportToExcel({
+      filename: 'Vendor-Bills',
+      sheetName: 'Vendor Bills',
+      headers: [
+        'S.No', 'PO No', 'Bill No', 'Bill Date', 'Vendor', 'Total Amount',
+        'Amount Paid', 'Balance', '1st Paid', '2nd Paid', 'Status',
+      ],
+      rows: filteredBills.map((b, i) => {
+        const payments = [...(b.payments || [])].sort(
+          (x, y) => new Date(x.paymentDate).getTime() - new Date(y.paymentDate).getTime(),
+        );
+        return [
+          i + 1,
+          b.purchaseOrder?.poNumber || '-',
+          b.billNumber,
+          b.billDate ? formatDate(b.billDate) : '-',
+          b.vendor?.name || '-',
+          Number(b.amount || 0),
+          Number(b.paidAmount || 0),
+          Number(b.amount || 0) - Number(b.paidAmount || 0),
+          payments[0] ? Number(payments[0].amount) : 0,
+          payments[1] ? Number(payments[1].amount) : 0,
+          titleCase(b.status),
+        ];
+      }),
+    });
+  };
 
   return (
     <div>
@@ -460,11 +514,16 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
         <Typography.Title level={3} className={pageTitleClassName}>
           <FileDoneOutlined className={titleIconClassName} /> Vendor Bills
         </Typography.Title>
-        {canRecordBill && (
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>
-            Record Bill
+        <Space>
+          <Button icon={<FileExcelOutlined />} onClick={handleExportExcel}>
+            Export to Excel
           </Button>
-        )}
+          {canRecordBill && (
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>
+              Record Bill
+            </Button>
+          )}
+        </Space>
       </Flex>
 
       <Flex gap={12} wrap="wrap" className="mb-6!">
@@ -490,7 +549,7 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
           columns={columns}
           rowKey="id"
           size="middle"
-          scroll={{ x: 1000 }}
+          scroll={{ x: 1350 }}
           pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} bills` }}
         />
       </Card>
