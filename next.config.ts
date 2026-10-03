@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "15mb",
     },
-    optimizePackageImports: ["@ant-design/icons", "antd"],
+    optimizePackageImports: [],
   },
 
   async headers() {
