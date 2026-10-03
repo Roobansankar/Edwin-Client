@@ -28,6 +28,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           colorBorder: isDark ? 'rgba(148,163,184,0.18)' : 'rgba(0,0,0,0.06)',
           colorBorderSecondary: isDark ? 'rgba(148,163,184,0.14)' : 'rgba(0,0,0,0.04)',
           fontFamily: 'var(--app-font)',
+          fontSize: 15,
           borderRadius: 8,
         },
         components: {

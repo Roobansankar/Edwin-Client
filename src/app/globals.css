@@ -106,7 +106,7 @@ body {
   background: transparent !important;
   border-bottom: 1px solid var(--border) !important;
   color: var(--text-secondary) !important;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   padding: 12px 16px !important;
 }
