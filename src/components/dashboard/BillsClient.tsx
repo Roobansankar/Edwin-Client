@@ -458,7 +458,7 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
     <div>
       <Flex justify="space-between" align="center" className={pageHeaderClassName} gap={16} wrap="wrap">
         <Typography.Title level={3} className={pageTitleClassName}>
-          <FileDoneOutlined className={titleIconClassName} /> Purchase Bills
+          <FileDoneOutlined className={titleIconClassName} /> Vendor Bills
         </Typography.Title>
         {canRecordBill && (
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>

@@ -113,7 +113,7 @@ const navigationSections: Array<{ title: string; items: NavItem[]; allowedRoles?
     items: [
       { key: '/dashboard/accounts', icon: <BankOutlined />, label: 'Accounts', allowedRoles: ['admin', 'accounts_manager'] },
       { key: '/dashboard/accounts/invoices', icon: <FileProtectOutlined />, label: 'Invoices', allowedRoles: ['admin', 'accounts_manager'] },
-      { key: '/dashboard/accounts/bills', icon: <FileDoneOutlined />, label: 'Purchase Bills', allowedRoles: ['admin', 'accounts_manager', 'purchase_team'] },
+      { key: '/dashboard/accounts/bills', icon: <FileDoneOutlined />, label: 'Vendor Bills', allowedRoles: ['admin', 'accounts_manager', 'purchase_team'] },
       { key: '/dashboard/timesheet-attendance', icon: <CalendarOutlined />, label: 'Timesheet', allowedRoles: ['accounts_manager'] },
       { key: '/dashboard/site-engineer-attendance', icon: <TeamOutlined />, label: 'Timesheet Approvals', allowedRoles: ['admin'] },
       { key: '/dashboard/approvals', icon: <SafetyCertificateOutlined />, label: 'Approvals', allowedRoles: ['admin', 'accounts_manager'] },

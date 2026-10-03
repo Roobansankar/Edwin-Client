@@ -3,19 +3,21 @@ import {
   fetchSubcontractors,
   fetchWorkCategories,
   fetchSubcontractWorkOrders,
+  fetchSubcontractorEnquiries,
 } from '@/lib/api';
 import { SubcontractWorkOrdersClient } from '@/components/dashboard/SubcontractWorkOrdersClient';
 import { Alert } from 'antd';
 
 async function loadData() {
   try {
-    const [workOrders, projects, subcontractors, workCategories] = await Promise.all([
+    const [workOrders, projects, subcontractors, workCategories, subcontractorEnquiries] = await Promise.all([
       fetchSubcontractWorkOrders(),
       fetchProjects(),
       fetchSubcontractors(),
       fetchWorkCategories(),
+      fetchSubcontractorEnquiries(),
     ]);
-    return { workOrders, projects, subcontractors, workCategories };
+    return { workOrders, projects, subcontractors, workCategories, subcontractorEnquiries };
   } catch (error) {
     console.error('Failed to fetch data for subcontract work orders:', error);
     return null;
@@ -42,6 +44,7 @@ export default async function SubcontractWorkOrdersPage() {
       projects={data.projects}
       subcontractors={data.subcontractors}
       workCategories={data.workCategories}
+      subcontractorEnquiries={data.subcontractorEnquiries}
     />
   );
 }

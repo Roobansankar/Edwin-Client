@@ -144,6 +144,7 @@ export type Subcontractor = {
 export type SubcontractWorkOrder = {
   id: string;
   woNumber: string;
+  scrNo?: string | null;
   projectId: string;
   subcontractorId: string;
   workCategoryId: string;

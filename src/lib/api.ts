@@ -10,6 +10,7 @@ import type {
   Vendor,
   VendorQuotation,
   Subcontractor,
+  SubcontractorEnquiry,
   SubcontractWorkOrder,
   SiteEngineer,
   AccountsManager,
@@ -84,6 +85,7 @@ export const fetchProjectDetails = (id: string) => apiFetch<ProjectDetails>(`/pr
 export const fetchWorkOrders = (params?: string) => apiFetch<PagedResponse<WorkOrder>>(`/work-orders${params ? `?${params}` : ''}`);
 export const fetchSubcontractWorkOrders = (subcontractorId?: string) =>
   apiFetch<SubcontractWorkOrder[]>(`/subcontract-work-orders${subcontractorId ? `?subcontractorId=${subcontractorId}` : ''}`);
+export const fetchSubcontractorEnquiries = () => apiFetch<SubcontractorEnquiry[]>('/subcontractor-enquiries');
 export const fetchVendors = () => apiFetch<Vendor[]>('/vendors');
 export const fetchSubcontractors = () => apiFetch<Subcontractor[]>('/subcontractors');
 export const fetchSubcontractorWorks = () => apiFetch<SubcontractorWork[]>('/subcontractor-work');

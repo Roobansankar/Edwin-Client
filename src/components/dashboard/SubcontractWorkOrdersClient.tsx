@@ -33,7 +33,6 @@ import {
   FileExcelOutlined,
   FileUnknownOutlined,
   UploadOutlined,
-  HistoryOutlined,
   CloseOutlined,
   SearchOutlined,
 } from '@ant-design/icons';
@@ -50,7 +49,7 @@ import {
 } from '@/actions/subcontract-work-orders';
 import { createWorkCategory, deleteWorkCategory } from '@/actions/work-categories';
 import { createPayment } from '@/actions/payments';
-import type { SubcontractWorkOrder, Project, Subcontractor, WorkCategory, Payment } from '@/types/erp';
+import type { SubcontractWorkOrder, Project, Subcontractor, WorkCategory, Payment, SubcontractorEnquiry } from '@/types/erp';
 import { SubcontractWorkOrderPdf } from './SubcontractWorkOrderPdf';
 import {
   formatCurrency,
@@ -80,6 +79,7 @@ type SubcontractWorkOrdersClientProps = {
   projects: Project[];
   subcontractors: Subcontractor[];
   workCategories: WorkCategory[];
+  subcontractorEnquiries: SubcontractorEnquiry[];
 };
 
 const STATUS_OPTIONS = [
@@ -102,6 +102,7 @@ export function SubcontractWorkOrdersClient({
   projects,
   subcontractors,
   workCategories,
+  subcontractorEnquiries,
 }: SubcontractWorkOrdersClientProps) {
   const [open, setOpen] = useState(false);
   const [editingSwo, setEditingSwo] = useState<SubcontractWorkOrder | null>(null);
@@ -131,6 +132,23 @@ export function SubcontractWorkOrdersClient({
     }
     return `${prefix}${String(maxSeq + 1).padStart(3, '0')}`;
   }, [workOrders]);
+
+  // Which approved subcontractor enquiries have already been turned into a
+  // WO (keyed by scrNo + subcontractorId, since one enquiry group can hold
+  // several subcontractors' quotes - converting one shouldn't hide the rest).
+  const usedEnquiryKeys = useMemo(
+    () => new Set(workOrders.filter((wo) => wo.scrNo).map((wo) => `${wo.scrNo}|${wo.subcontractorId}`)),
+    [workOrders],
+  );
+  const approvedEnquiryOptions = useMemo(
+    () => subcontractorEnquiries.filter((e) => e.status === 'approved' && !usedEnquiryKeys.has(`${e.scrNo}|${e.subcontractorId}`)),
+    [subcontractorEnquiries, usedEnquiryKeys],
+  );
+  const [selectedEnquiryId, setSelectedEnquiryId] = useState<string | null>(null);
+  const selectedEnquiry = useMemo(
+    () => approvedEnquiryOptions.find((e) => e.id === selectedEnquiryId) || null,
+    [approvedEnquiryOptions, selectedEnquiryId],
+  );
 
   const filteredWorkOrders = useMemo(() => {
     if (!searchText) return workOrders;
@@ -239,25 +257,6 @@ export function SubcontractWorkOrdersClient({
     });
   };
 
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [historySwo, setHistorySwo] = useState<SubcontractWorkOrder | null>(null);
-  const [historyPayments, setHistoryPayments] = useState<Payment[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-
-  const openHistory = async (swo: SubcontractWorkOrder) => {
-    setHistorySwo(swo);
-    setHistoryOpen(true);
-    setHistoryLoading(true);
-    try {
-      const res = await fetch(`/api/backend/payments?subcontractWorkOrderId=${swo.id}`);
-      if (res.ok) {
-        const data = await res.json();
-        setHistoryPayments(data?.data || []);
-      }
-    } catch { /* silent */ }
-    finally { setHistoryLoading(false); }
-  };
-
   useEffect(() => {
     setIsClient(true);
   }, []);
@@ -325,8 +324,26 @@ export function SubcontractWorkOrdersClient({
       setSwoPayments([]);
       setPaymentAmount(null);
       setPaymentReference('');
+      setSelectedEnquiryId(null);
     }
   }, [editingSwo, setValue, reset]);
+
+  // Picking an approved Subcontractor Enquiry autofills the project,
+  // subcontractor, category, amount, GST and time period from that quote -
+  // same "pick an approved quote" pattern Purchase Orders uses for Vendor
+  // Quotations. Fields stay editable afterward if adjustment is needed.
+  const handleEnquirySelect = (enquiryId: string) => {
+    setSelectedEnquiryId(enquiryId);
+    const enquiry = approvedEnquiryOptions.find((e) => e.id === enquiryId);
+    if (!enquiry) return;
+    setValue('projectId', enquiry.projectId);
+    setValue('subcontractorId', enquiry.subcontractorId);
+    setValue('workCategoryId', enquiry.workCategoryId);
+    setValue('amount', Number(enquiry.totalAmount) || 0);
+    setValue('gstPercentage', Number(enquiry.gstPercent) || 0);
+    setValue('startDate', enquiry.startDate ? dayjs(enquiry.startDate) : undefined);
+    setValue('endDate', enquiry.endDate ? dayjs(enquiry.endDate) : undefined);
+  };
 
   const handleEdit = (swo: SubcontractWorkOrder) => {
     setEditingSwo(swo);
@@ -369,11 +386,25 @@ export function SubcontractWorkOrdersClient({
       render: (_, __, index) => index + 1,
     },
     {
-      title: 'WO Number',
+      title: 'SCR No',
+      dataIndex: 'scrNo',
+      key: 'scrNo',
+      width: 130,
+      render: (value?: string | null) => value || <Typography.Text type="secondary">-</Typography.Text>,
+    },
+    {
+      title: 'WO No',
       dataIndex: 'woNumber',
       key: 'woNumber',
       width: 140,
       render: (text) => <Typography.Text strong>{text}</Typography.Text>,
+    },
+    {
+      title: 'Date',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      width: 110,
+      render: (v?: string) => formatDate(v),
     },
     {
       title: 'Project',
@@ -394,12 +425,12 @@ export function SubcontractWorkOrdersClient({
       width: 130,
     },
     {
-      title: 'Amount',
-      dataIndex: 'amount',
-      key: 'amount',
-      align: 'right',
-      width: 110,
-      render: (value: number | string) => formatCurrency(value),
+      title: 'Description',
+      dataIndex: 'description',
+      key: 'description',
+      width: 160,
+      ellipsis: true,
+      render: (val) => val || '-',
     },
     {
       title: 'Total Amount',
@@ -408,39 +439,6 @@ export function SubcontractWorkOrdersClient({
       align: 'right',
       width: 130,
       render: (value: number | string) => <Typography.Text strong>{formatCurrency(value)}</Typography.Text>,
-    },
-    {
-      title: 'Paid',
-      key: 'paidAmount',
-      align: 'right',
-      width: 110,
-      render: (_, record) => record.paidAmount ? formatCurrency(record.paidAmount) : <Typography.Text type="secondary">-</Typography.Text>,
-    },
-    {
-      title: 'Balance',
-      key: 'balance',
-      align: 'right',
-      width: 110,
-      render: (_, record) => {
-        const balance = Number(record.totalAmount) - Number(record.paidAmount || 0);
-        return <Typography.Text strong={balance > 0}>{formatCurrency(balance)}</Typography.Text>;
-      },
-    },
-    {
-      title: 'History',
-      key: 'history',
-      width: 90,
-      render: (_, record) => (
-        <Button size="small" icon={<HistoryOutlined />} onClick={() => openHistory(record)}>History</Button>
-      ),
-    },
-    {
-      title: 'Description',
-      dataIndex: 'description',
-      key: 'description',
-      width: 160,
-      ellipsis: true,
-      render: (val) => val || '-',
     },
     {
       title: 'Work Order',
@@ -494,17 +492,6 @@ export function SubcontractWorkOrdersClient({
       ),
     },
     {
-      title: 'Date Range',
-      key: 'dates',
-      width: 160,
-      render: (_, record) => (
-        <Typography.Text className="text-xs">
-          {record.startDate ? dayjs(record.startDate).format('DD/MM/YY') : '-'} to{' '}
-          {record.endDate ? dayjs(record.endDate).format('DD/MM/YY') : '-'}
-        </Typography.Text>
-      ),
-    },
-    {
       title: 'Actions',
       key: 'actions',
       width: 100,
@@ -552,6 +539,9 @@ export function SubcontractWorkOrdersClient({
           payload.workorderKey = uploadedFile.workorderKey;
         }
 
+        const scrNo = selectedEnquiry?.scrNo || editingSwo?.scrNo;
+        if (scrNo) payload.scrNo = scrNo;
+
         if (editingSwo) {
           await updateSubcontractWorkOrder(editingSwo.id, payload);
           message.success('Work order updated');
@@ -562,6 +552,7 @@ export function SubcontractWorkOrdersClient({
         setOpen(false);
         setEditingSwo(null);
         setUploadedFile(null);
+        setSelectedEnquiryId(null);
       } catch (error) {
         message.error(error instanceof Error ? error.message : 'Failed to save');
       }
@@ -600,7 +591,7 @@ export function SubcontractWorkOrdersClient({
           columns={columns}
           rowKey="id"
           size="middle"
-          scroll={{ x: 1900 }}
+          scroll={{ x: 1560 }}
           pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} work orders` }}
         />
       </Card>
@@ -628,6 +619,41 @@ export function SubcontractWorkOrdersClient({
               disabled
             />
           </Form.Item>
+
+          {!editingSwo && approvedEnquiryOptions.length > 0 && (
+            <Form.Item label="SCR No" className="mb-6 rounded-lg border border-blue-500/20 bg-blue-500/5 p-4">
+              <Select
+                allowClear
+                showSearch
+                placeholder="Search SCR No or subcontractor..."
+                optionFilterProp="label"
+                value={selectedEnquiryId || undefined}
+                onChange={(v) => { if (v) handleEnquirySelect(v); else setSelectedEnquiryId(null); }}
+                options={approvedEnquiryOptions.map((e) => ({
+                  value: e.id,
+                  label: `${e.scrNo} — ${e.subcontractor?.name || ''} (${e.project?.name || 'Unknown project'})`,
+                })).sort((a, b) => a.label.localeCompare(b.label))}
+              />
+            </Form.Item>
+          )}
+
+          {selectedEnquiry && (
+            <Form.Item label="Quotation Reference" className="mb-6">
+              <Flex align="center" gap={16} wrap="wrap">
+                <Typography.Text>
+                  Quoted Total (incl. GST):{' '}
+                  <Typography.Text strong>
+                    {selectedEnquiry.totalAmount ? formatCurrency(selectedEnquiry.totalWithGst || selectedEnquiry.totalAmount) : 'Not entered'}
+                  </Typography.Text>
+                </Typography.Text>
+                {selectedEnquiry.quotationUrl && (
+                  <Button size="small" icon={<FilePdfOutlined />} href={selectedEnquiry.quotationUrl} target="_blank">
+                    View Quotation
+                  </Button>
+                )}
+              </Flex>
+            </Form.Item>
+          )}
 
           <Controller
             control={control}
@@ -898,28 +924,6 @@ export function SubcontractWorkOrdersClient({
             </PDFViewer>
           )}
         </div>
-      </Modal>
-
-      <Modal
-        title={historySwo ? `Payment History — ${historySwo.woNumber}` : 'Payment History'}
-        open={historyOpen}
-        onCancel={() => { setHistoryOpen(false); setHistorySwo(null); setHistoryPayments([]); }}
-        footer={null}
-      >
-        <Table
-          dataSource={historyPayments}
-          rowKey="id"
-          size="small"
-          loading={historyLoading}
-          pagination={false}
-          locale={{ emptyText: 'No payments recorded yet' }}
-          columns={[
-            { title: 'Date', dataIndex: 'paymentDate', render: formatDate },
-            { title: 'Amount', dataIndex: 'amount', align: 'right', render: (v: number | string) => formatCurrency(v) },
-            { title: 'Mode', dataIndex: 'paymentMode', render: (v: string) => v?.toUpperCase() },
-            { title: 'Reference', dataIndex: 'referenceNumber', render: (v?: string | null) => v || '-' },
-          ]}
-        />
       </Modal>
     </div>
   );
