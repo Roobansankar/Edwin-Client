@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
-import { Card, Table, Typography, Tag, Space, Flex, Button, Drawer, Form, Input, InputNumber, Select, DatePicker, Row, Col, Statistic, Tabs, Modal } from 'antd';
+import { App, Card, Table, Typography, Tag, Space, Flex, Button, Drawer, Form, Input, InputNumber, Select, DatePicker, Row, Col, Statistic, Tabs, Modal } from 'antd';
 import { CreditCardOutlined, PlusOutlined, ArrowDownOutlined, ArrowUpOutlined, SearchOutlined, HistoryOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -55,6 +55,7 @@ type PaymentsClientProps = {
 export function PaymentsClient({ payments, summary, projects, vendors, purchaseOrders, advanceRequests, subcontractWorkOrders, subcontractorPaymentRequests }: PaymentsClientProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const { message } = App.useApp();
 
   useEffect(() => {
     // Automatically sync missing expenses when page loads
@@ -77,10 +78,11 @@ export function PaymentsClient({ payments, summary, projects, vendors, purchaseO
     startTransition(async () => {
       try {
         await createPayment(values);
+        message.success('Payment recorded successfully');
         reset();
         setOpen(false);
       } catch (error) {
-        console.error(error);
+        message.error(error instanceof Error ? error.message : 'Failed to record payment');
       }
     });
   };

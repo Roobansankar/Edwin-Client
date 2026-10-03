@@ -14,7 +14,7 @@ async function loadPageData(): Promise<PageData> {
   try {
     const [bills, expensesResult, dailyReports] = await Promise.all([
       fetchBills(),
-      fetchExpenses(),
+      fetchExpenses('limit=5000'),
       fetchDailyLabourReports(),
     ]);
     return { bills, expenses: expensesResult.data, dailyReports };

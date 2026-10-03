@@ -10,7 +10,7 @@ async function loadPageData() {
       fetchItemDescriptions(),
       fetchVendors(),
       fetchPurchaseOrders(),
-      fetchPayments(),
+      fetchPayments('limit=5000'),
     ]);
     const payments = Array.isArray(paymentsRes) ? paymentsRes : (paymentsRes as any)?.data || [];
     return { enquiries, projects, itemDescriptions, vendors, purchaseOrders, payments };
