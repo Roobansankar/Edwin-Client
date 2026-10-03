@@ -24,6 +24,8 @@ import type {
   PurchaseOrder,
   PurchaseBill,
   BillTrail,
+  SubcontractorBill,
+  SubcontractorBillTrail,
   PurchaseEnquiry,
   MaterialReceived,
   ProjectDetails,
@@ -109,6 +111,10 @@ export const fetchInvoice = (id: string) => apiFetch<SalesInvoice>(`/invoices/${
 export const fetchBills = () => apiFetch<PurchaseBill[]>('/bills');
 export const fetchBill = (id: string) => apiFetch<PurchaseBill>(`/bills/${id}`);
 export const fetchBillTrail = (id: string) => apiFetch<BillTrail>(`/bills/${id}/trail`);
+export const fetchSubcontractorBills = () => apiFetch<SubcontractorBill[]>('/subcontractor-bills');
+export const fetchSubcontractorBill = (id: string) => apiFetch<SubcontractorBill>(`/subcontractor-bills/${id}`);
+export const fetchSubcontractorBillTrail = (id: string) =>
+  apiFetch<SubcontractorBillTrail>(`/subcontractor-bills/${id}/trail`);
 export const fetchExpenses = (params?: string) => apiFetch<PagedResponse<Expense>>(`/expenses${params ? `?${params}` : ''}`);
 export const fetchExpenseSummary = () => apiFetch<ExpenseSummary[]>('/expenses/summary');
 export const fetchExpensePayments = () => apiFetch<ExpensePayment[]>('/expense-payments');

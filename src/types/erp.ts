@@ -587,6 +587,35 @@ export type BillTrail = {
   materialReceived: MaterialReceived[];
 };
 
+export type SubcontractorBill = {
+  id: string;
+  billNumber: string;
+  subcontractorId: string;
+  subcontractor?: Subcontractor;
+  subcontractWorkOrderId?: string | null;
+  subcontractWorkOrder?: SubcontractWorkOrder;
+  projectId?: string | null;
+  project?: Project;
+  amount: number | string;
+  gstPercent?: number | string | null;
+  gstAmount?: number | string | null;
+  status: BillStatus;
+  paidAmount: number | string;
+  billDate: string;
+  dueDate?: string | null;
+  billFileUrl?: string | null;
+  billFileKey?: string | null;
+  notes?: string | null;
+  payments?: Payment[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SubcontractorBillTrail = {
+  bill: SubcontractorBill;
+  subcontractWorkOrder: SubcontractWorkOrder | null;
+};
+
 export type Payment = {
   id: string;
   paymentType: PaymentType;
@@ -596,6 +625,8 @@ export type Payment = {
   purchaseOrder?: PurchaseOrder;
   subcontractWorkOrderId?: string | null;
   subcontractWorkOrder?: SubcontractWorkOrder;
+  subcontractorBillId?: string | null;
+  subcontractorBill?: SubcontractorBill;
   advanceRequestId?: string | null;
   advanceRequest?: AdvanceRequest;
   subcontractorPaymentRequestId?: string | null;
