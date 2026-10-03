@@ -21,7 +21,10 @@ export async function createPayment(data: Record<string, unknown>) {
       headers,
       body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error('Failed to record payment');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to record payment' }));
+      throw new Error(error.message || 'Failed to record payment');
+    }
     revalidatePath('/dashboard/accounts/bills');
     revalidatePath('/dashboard/accounts/subcontractor-bills');
     revalidatePath('/dashboard/accounts/invoices');

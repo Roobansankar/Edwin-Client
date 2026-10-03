@@ -109,7 +109,10 @@ export function ExpenseForm({ projects, trades, expenseTypes, initialValues, onS
         if (values.tradeId) formData.append('tradeId', values.tradeId);
         if (values.remarks) formData.append('remarks', values.remarks);
         if (values.paidBy) formData.append('paidBy', values.paidBy);
-        if (values.status) formData.append('status', values.status);
+        // Status isn't editable here - sending it back on an edit makes the
+        // API treat a plain edit as a status change, which only admin and
+        // accounts are allowed to make.
+        if (values.status && !initialValues?.id) formData.append('status', values.status);
         
         // Add files
         fileList.forEach((file) => {

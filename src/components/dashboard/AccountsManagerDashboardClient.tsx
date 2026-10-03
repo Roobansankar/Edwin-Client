@@ -1,22 +1,30 @@
 'use client';
 
-import { Alert, Button, Card, Col, Row, Skeleton, Table, Typography, Tag, Space } from 'antd';
-import type { ColumnsType } from 'antd/es/table';
+import { Alert, Button, Card, Col, Row, Skeleton, Typography } from 'antd';
 import {
   ReloadOutlined,
   ArrowUpOutlined,
   ArrowDownOutlined,
-  HistoryOutlined,
   FileTextOutlined,
-  ShoppingCartOutlined
+  ShoppingCartOutlined,
+  SolutionOutlined,
+  TeamOutlined,
+  WalletOutlined
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import type { AccountsDashboardData } from '@/types/erp';
+import type { AccountsDashboardData, PayableCategory } from '@/types/erp';
 import { clientApiFetch } from '@/lib/client-api';
-import { cardClassName, formatCurrency, formatDate, secondaryTextClassName } from './ui';
+import { cardClassName, formatCurrency, secondaryTextClassName } from './ui';
 
-type RecentPayment = AccountsDashboardData['recentPayments'][number];
+// One card per payable category. `href` is the page where that category
+// gets paid; `unit` labels the count shown under the amount.
+const PAYABLE_CARDS: Array<{ key: PayableCategory; title: string; icon: React.ReactNode; unit: string; href: string }> = [
+  { key: 'labour', title: 'Labour Payable', icon: <TeamOutlined />, unit: 'pending weekly payments', href: '/dashboard/labour-payments' },
+  { key: 'material', title: 'Material Payable', icon: <ShoppingCartOutlined />, unit: 'pending POs', href: '/dashboard/accounts/bills' },
+  { key: 'subcontractor', title: 'Sub Contractor Payable', icon: <SolutionOutlined />, unit: 'pending work orders', href: '/dashboard/subcontractor-payment-requests' },
+  { key: 'expenses', title: 'Expenses Payable', icon: <WalletOutlined />, unit: 'pending weekly payments', href: '/dashboard/expense-payments' },
+];
 
 async function loadAccountsDashboard(): Promise<AccountsDashboardData> {
   return await clientApiFetch<AccountsDashboardData>('/dashboard/accounts');
@@ -29,7 +37,16 @@ function DashboardSkeleton() {
         <Skeleton.Input active size="large" className="w-64!" />
         <Skeleton.Button active />
       </div>
-      <Row gutter={[16, 16]} className="mb-6">
+      <Row gutter={[16, 16]} className="mb-4">
+        {[0, 1, 2].map((item) => (
+          <Col key={item} xs={24} sm={12} md={8}>
+            <Card className={cardClassName}>
+              <Skeleton active paragraph={{ rows: 1 }} />
+            </Card>
+          </Col>
+        ))}
+      </Row>
+      <Row gutter={[16, 16]}>
         {[0, 1, 2, 3].map((item) => (
           <Col key={item} xs={24} sm={12} lg={6}>
             <Card className={cardClassName}>
@@ -38,9 +55,6 @@ function DashboardSkeleton() {
           </Col>
         ))}
       </Row>
-      <Card className={cardClassName}>
-        <Skeleton active paragraph={{ rows: 8 }} />
-      </Card>
     </div>
   );
 }
@@ -64,45 +78,12 @@ export function AccountsManagerDashboardClient() {
   }
 
   const kpis = data?.kpis;
-  const recentPayments = data?.recentPayments || [];
 
-  const paymentColumns: ColumnsType<RecentPayment> = [
-    {
-      title: 'Date',
-      dataIndex: 'date',
-      key: 'date',
-      render: (v) => formatDate(v),
-      width: 120,
-    },
-    {
-      title: 'Party',
-      dataIndex: 'party',
-      key: 'party',
-      render: (v) => <Typography.Text strong>{v || '-'}</Typography.Text>,
-    },
-    {
-      title: 'Type',
-      dataIndex: 'type',
-      key: 'type',
-      render: (v) => <Tag color={v === 'revenue' ? 'green' : 'blue'}>{String(v).toUpperCase()}</Tag>,
-      width: 120,
-    },
-    {
-      title: 'Mode',
-      dataIndex: 'mode',
-      key: 'mode',
-      render: (v) => <Tag>{String(v).toUpperCase()}</Tag>,
-      width: 100,
-    },
-    {
-      title: 'Amount',
-      dataIndex: 'amount',
-      key: 'amount',
-      align: 'right',
-      render: (v) => <Typography.Text strong>{formatCurrency(v)}</Typography.Text>,
-      width: 150,
-    },
-  ];
+  // Material is the long-standing Total Payables figure, so it still has a
+  // value when the API response carries no per-category breakdown.
+  const payableFor = (category: PayableCategory) =>
+    kpis?.payableByCategory?.[category]
+    ?? (category === 'material' && kpis ? { amount: kpis.totalPayable, count: kpis.pendingBillCount } : undefined);
 
   return (
     <div>
@@ -134,8 +115,8 @@ export function AccountsManagerDashboardClient() {
         </Button>
       </div>
 
-      <Row gutter={[16, 16]} className="mb-6">
-        <Col xs={24} sm={12} lg={6}>
+      <Row gutter={[16, 16]} className="mb-4">
+        <Col xs={24} sm={12} md={8}>
           <Card
             hoverable
             className="rounded-xl! border! border-emerald-500/20! bg-linear-to-br! from-emerald-500/15! to-emerald-500/5! cursor-pointer"
@@ -153,25 +134,7 @@ export function AccountsManagerDashboardClient() {
             </div>
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card
-            hoverable
-            className="rounded-xl! border! border-rose-500/20! bg-linear-to-br! from-rose-500/15! to-rose-500/5! cursor-pointer"
-            onClick={() => router.push('/dashboard/accounts/bills')}
-          >
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-rose-500/20 text-rose-500 text-xl">
-                <ShoppingCartOutlined />
-              </div>
-              <div>
-                <Typography.Text className={secondaryTextClassName}>Total Payables</Typography.Text>
-                <div className="text-2xl font-bold text-[var(--text-primary)]">{formatCurrency(kpis?.totalPayable || 0)}</div>
-                <Typography.Text type="secondary" className="text-xs">{kpis?.pendingBillCount} pending POs</Typography.Text>
-              </div>
-            </div>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
+        <Col xs={24} sm={12} md={8}>
           <Card
             hoverable
             className="rounded-xl! border! border-blue-500/20! bg-linear-to-br! from-blue-500/15! to-blue-500/5! cursor-pointer"
@@ -182,14 +145,14 @@ export function AccountsManagerDashboardClient() {
                 <ArrowUpOutlined />
               </div>
               <div>
-                <Typography.Text className={secondaryTextClassName}>Month Inflow</Typography.Text>
-                <div className="text-2xl font-bold text-[var(--text-primary)]">{formatCurrency(kpis?.monthInflow || 0)}</div>
-                <Typography.Text type="secondary" className="text-xs">Current month collections</Typography.Text>
+                <Typography.Text className={secondaryTextClassName}>Inflow</Typography.Text>
+                <div className="text-2xl font-bold text-[var(--text-primary)]">{kpis ? formatCurrency(kpis.monthInflow) : '—'}</div>
+                <Typography.Text type="secondary" className="text-xs">{kpis ? 'Current month collections' : 'Not available'}</Typography.Text>
               </div>
             </div>
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
+        <Col xs={24} sm={12} md={8}>
           <Card
             hoverable
             className="rounded-xl! border! border-amber-500/20! bg-linear-to-br! from-amber-500/15! to-amber-500/5! cursor-pointer"
@@ -200,37 +163,42 @@ export function AccountsManagerDashboardClient() {
                 <ArrowDownOutlined />
               </div>
               <div>
-                <Typography.Text className={secondaryTextClassName}>Month Outflow</Typography.Text>
-                <div className="text-2xl font-bold text-[var(--text-primary)]">{formatCurrency(kpis?.monthOutflow || 0)}</div>
-                <Typography.Text type="secondary" className="text-xs">Current month payments</Typography.Text>
+                <Typography.Text className={secondaryTextClassName}>Outflow</Typography.Text>
+                <div className="text-2xl font-bold text-[var(--text-primary)]">{kpis ? formatCurrency(kpis.monthOutflow) : '—'}</div>
+                <Typography.Text type="secondary" className="text-xs">{kpis ? 'Current month payments' : 'Not available'}</Typography.Text>
               </div>
             </div>
           </Card>
         </Col>
       </Row>
 
-      <Card 
-        title={
-          <Space>
-            <HistoryOutlined />
-            <Typography.Text strong>Recent Payments</Typography.Text>
-          </Space>
-        } 
-        className={cardClassName}
-      >
-        <Table
-          dataSource={recentPayments}
-          columns={paymentColumns}
-          rowKey="id"
-          pagination={{ pageSize: 10 }}
-          size="middle"
-          onRow={() => ({
-            onClick: () => router.push('/dashboard/payments'),
-            style: { cursor: 'pointer' },
-          })}
-          locale={{ emptyText: 'No recent payments' }}
-        />
-      </Card>
+      <Row gutter={[16, 16]}>
+        {PAYABLE_CARDS.map((card) => {
+          const payable = payableFor(card.key);
+          return (
+            <Col key={card.key} xs={24} sm={12} lg={6}>
+              <Card
+                hoverable
+                className="rounded-xl! border! border-rose-500/20! bg-linear-to-br! from-rose-500/15! to-rose-500/5! cursor-pointer"
+                onClick={() => router.push(card.href)}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-rose-500/20 text-rose-500 text-xl">
+                    {card.icon}
+                  </div>
+                  <div>
+                    <Typography.Text className={secondaryTextClassName}>{card.title}</Typography.Text>
+                    <div className="text-2xl font-bold text-[var(--text-primary)]">{payable ? formatCurrency(payable.amount) : '—'}</div>
+                    <Typography.Text type="secondary" className="text-xs">
+                      {payable ? `${payable.count} ${card.unit}` : 'Not available'}
+                    </Typography.Text>
+                  </div>
+                </div>
+              </Card>
+            </Col>
+          );
+        })}
+      </Row>
     </div>
   );
 }

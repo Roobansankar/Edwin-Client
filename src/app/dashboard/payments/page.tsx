@@ -5,7 +5,7 @@ import { fetchPayments, fetchPaymentsSummary, fetchProjects, fetchVendors, fetch
 async function loadPageData() {
   try {
     const [paymentsRes, summary, projects, vendors, purchaseOrders, advanceRequests, subcontractWorkOrders, subcontractorPaymentRequests] = await Promise.all([
-      fetchPayments(),
+      fetchPayments('limit=5000'),
       fetchPaymentsSummary(),
       fetchProjects(),
       fetchVendors(),
