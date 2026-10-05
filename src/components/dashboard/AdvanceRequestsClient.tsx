@@ -1,27 +1,33 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
-import { App, Button, Card, Col, DatePicker, Drawer, Flex, Form, Input, InputNumber, Popconfirm, Row, Select, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { useRouter } from 'next/navigation';
+import { App, Button, Card, Col, DatePicker, Descriptions, Drawer, Flex, Form, Input, InputNumber, Popconfirm, Row, Select, Space, Statistic, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { CheckOutlined, CloseOutlined, DollarOutlined, FilePdfOutlined, SearchOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { respondAdvanceRequest } from '@/actions/advance-requests';
 import { createPayment } from '@/actions/payments';
-import type { AdvanceRequest } from '@/types/erp';
+import type { AdvanceRequest, Payment, PurchaseBill } from '@/types/erp';
 import { useAuthStore } from '@/store/auth';
 import { cardClassName, formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
 
+// Status shown in the table. A request stays 'admin_approved' in the database
+// (Purchase Order advances depend on that), and it is shown as Paid once the
+// payments recorded against it cover the full amount.
 const STATUS_COLORS: Record<string, string> = {
   pending: 'orange',
   accepted: 'blue',
-  admin_approved: 'green',
+  admin_approved: 'gold',
+  paid: 'success',
   rejected: 'red',
 };
 
 const STATUS_LABELS: Record<string, string> = {
   pending: 'PENDING',
   accepted: 'ACCEPTED BY ACCOUNTS',
-  admin_approved: 'ADMIN APPROVED',
+  admin_approved: 'PAYMENT PENDING',
+  paid: 'PAID',
   rejected: 'REJECTED',
 };
 
@@ -29,13 +35,28 @@ const STATUS_OPTIONS = [
   { label: 'All', value: '' },
   { label: 'Pending', value: 'pending' },
   { label: 'Accepted by Accounts', value: 'accepted' },
-  { label: 'Admin Approved', value: 'admin_approved' },
+  { label: 'Payment Pending', value: 'admin_approved' },
+  { label: 'Paid', value: 'paid' },
   { label: 'Rejected', value: 'rejected' },
 ];
 
-type Props = { requests: AdvanceRequest[] };
+type Props = {
+  requests: AdvanceRequest[];
+  bills: PurchaseBill[];
+  payments: Payment[];
+};
 
-export function AdvanceRequestsClient({ requests }: Props) {
+type RequestRow = {
+  request: AdvanceRequest;
+  paid: number;
+  balance: number;
+  payDate: string | null;
+  billNo: string;
+  displayStatus: string;
+};
+
+export function AdvanceRequestsClient({ requests, bills, payments }: Props) {
+  const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [searchText, setSearchText] = useState('');
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
@@ -44,18 +65,55 @@ export function AdvanceRequestsClient({ requests }: Props) {
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.role === 'admin';
 
+  const rows = useMemo<RequestRow[]>(() => {
+    const paidById = new Map<string, { total: number; lastDate: string | null }>();
+    for (const p of payments) {
+      if (!p.advanceRequestId) continue;
+      const current = paidById.get(p.advanceRequestId) || { total: 0, lastDate: null };
+      current.total += Number(p.amount || 0);
+      const date = p.paymentDate ? p.paymentDate.split('T')[0] : null;
+      if (date && (!current.lastDate || date > current.lastDate)) current.lastDate = date;
+      paidById.set(p.advanceRequestId, current);
+    }
+
+    const billNumbersByPo = new Map<string, string[]>();
+    for (const b of bills) {
+      if (!b.purchaseOrderId) continue;
+      const list = billNumbersByPo.get(b.purchaseOrderId) || [];
+      list.push(b.billNumber);
+      billNumbersByPo.set(b.purchaseOrderId, list);
+    }
+
+    return requests.map((request) => {
+      const payment = paidById.get(request.id);
+      const paid = payment?.total || 0;
+      const balance = Number(request.amount || 0) - paid;
+      const isPaid = request.status === 'admin_approved' && paid > 0 && balance <= 0;
+      const billNumbers = request.purchaseOrderId ? billNumbersByPo.get(request.purchaseOrderId) : undefined;
+      return {
+        request,
+        paid,
+        balance,
+        payDate: payment?.lastDate || null,
+        billNo: billNumbers?.join(', ') || '-',
+        displayStatus: isPaid ? 'paid' : request.status,
+      };
+    });
+  }, [requests, payments, bills]);
+
   const filtered = useMemo(() => {
     const from = dateRange[0]?.format('YYYY-MM-DD');
     const to = dateRange[1]?.format('YYYY-MM-DD');
-    return requests.filter((r) => {
-      if (statusFilter && r.status !== statusFilter) return false;
+    return rows.filter((row) => {
+      const r = row.request;
+      if (statusFilter && row.displayStatus !== statusFilter) return false;
       if (from && to) {
         const created = r.createdAt ? r.createdAt.split('T')[0] : '';
         if (created < from || created > to) return false;
       }
       if (searchText) {
         const q = searchText.toLowerCase();
-        const haystack = [r.purchaseOrder?.poNumber, r.vendor?.name, r.project?.name, r.materialRequirementNo]
+        const haystack = [r.purchaseOrder?.poNumber, r.vendor?.name, r.project?.name, r.materialRequirementNo, row.billNo]
           .filter(Boolean)
           .join(' ')
           .toLowerCase();
@@ -63,16 +121,16 @@ export function AdvanceRequestsClient({ requests }: Props) {
       }
       return true;
     });
-  }, [requests, statusFilter, searchText, dateRange]);
+  }, [rows, statusFilter, searchText, dateRange]);
 
   const counts = useMemo(
     () => ({
-      pending: requests.filter((r) => r.status === 'pending').length,
-      accepted: requests.filter((r) => r.status === 'accepted').length,
-      adminApproved: requests.filter((r) => r.status === 'admin_approved').length,
-      rejected: requests.filter((r) => r.status === 'rejected').length,
+      pending: rows.filter((r) => r.displayStatus === 'pending').length,
+      accepted: rows.filter((r) => r.displayStatus === 'accepted').length,
+      paymentPending: rows.filter((r) => r.displayStatus === 'admin_approved').length,
+      paid: rows.filter((r) => r.displayStatus === 'paid').length,
     }),
-    [requests],
+    [rows],
   );
 
   const handleRespond = (id: string, action: 'accepted' | 'admin_approved' | 'rejected') => {
@@ -92,16 +150,16 @@ export function AdvanceRequestsClient({ requests }: Props) {
     });
   };
 
-  const [payTarget, setPayTarget] = useState<AdvanceRequest | null>(null);
+  const [payTarget, setPayTarget] = useState<RequestRow | null>(null);
   const [payAmount, setPayAmount] = useState(0);
   const [payDate, setPayDate] = useState(dayjs());
   const [payMode, setPayMode] = useState('upi');
   const [payRef, setPayRef] = useState('');
   const [payNotes, setPayNotes] = useState('');
 
-  const openPay = (record: AdvanceRequest) => {
-    setPayTarget(record);
-    setPayAmount(Number(record.amount));
+  const openPay = (row: RequestRow) => {
+    setPayTarget(row);
+    setPayAmount(Math.max(row.balance, 0));
     setPayDate(dayjs());
     setPayMode('upi');
     setPayRef('');
@@ -110,136 +168,128 @@ export function AdvanceRequestsClient({ requests }: Props) {
 
   const submitPayment = () => {
     if (!payTarget) return;
+    const target = payTarget.request;
     startTransition(async () => {
       try {
         await createPayment({
           paymentType: 'material',
-          advanceRequestId: payTarget.id,
-          purchaseOrderId: payTarget.purchaseOrderId || undefined,
-          vendorId: payTarget.vendorId,
-          projectId: payTarget.projectId,
+          advanceRequestId: target.id,
+          purchaseOrderId: target.purchaseOrderId || undefined,
+          vendorId: target.vendorId,
+          projectId: target.projectId,
           amount: payAmount,
           paymentDate: payDate.format('YYYY-MM-DD'),
           paymentMode: payMode,
           referenceNumber: payRef || undefined,
           notes: payNotes || undefined,
         });
-        message.success('Payment recorded — see it on the Payments (Master Ledger) page');
+        message.success('Payment completed. Status set to Paid once the full amount is paid');
         setPayTarget(null);
+        router.refresh();
       } catch (error) {
+        // Failed payments leave the request as Payment Pending.
         message.error(error instanceof Error ? error.message : 'Failed to record payment');
       }
     });
   };
 
-  const columns: ColumnsType<AdvanceRequest> = [
-    { title: '#', key: 'sno', width: 40, align: 'center', render: (_, __, i) => i + 1 },
-    { title: 'PO Number', key: 'po', width: 110, render: (_, record) => record.purchaseOrder?.poNumber || <Typography.Text type="secondary">-</Typography.Text> },
-    { title: 'Vendor', key: 'vendor', width: 120, ellipsis: true, render: (_, record) => record.vendor?.name || record.vendorId },
-    { title: 'Project', key: 'project', width: 120, ellipsis: true, render: (_, record) => record.project?.name || '-' },
-    { title: 'MR Ref', key: 'mrRef', width: 80, render: (_, record) => {
-      const mrRef = record.materialRequirementNo || record.purchaseOrder?.materialRequirementNo;
-      return mrRef || <Typography.Text type="secondary">-</Typography.Text>;
-    } },
-    { title: 'Amount', dataIndex: 'amount', width: 100, align: 'right', render: (value: number | string) => <Typography.Text strong>{formatCurrency(value)}</Typography.Text> },
-    { title: 'PO Total', key: 'poTotal', width: 100, align: 'right', render: (_, record) => {
-      const poTotal = record.purchaseOrder ? (record.purchaseOrder.totalWithGst || record.purchaseOrder.totalAmount) : record.vendorQuotation?.totalAmount;
-      return poTotal ? formatCurrency(poTotal) : <Typography.Text type="secondary">-</Typography.Text>;
-    } },
-    { title: 'PO Doc', key: 'poDocument', width: 60, align: 'center', render: (_, record) => {
-      const url = record.purchaseOrder?.billFileUrl || record.vendorQuotation?.quotationUrl;
-      return url ? (
-        <Button type="link" size="small" icon={<FilePdfOutlined />} href={url} target="_blank" className="p-0!">
-          View
-        </Button>
-      ) : <Typography.Text type="secondary">-</Typography.Text>;
-    } },
-    { title: 'Notes', dataIndex: 'notes', width: 120, ellipsis: true, render: (value?: string | null) => value || '-' },
-    { title: 'Requested', dataIndex: 'createdAt', width: 90, render: formatDate },
-    {
-      title: 'Status',
-      key: 'status',
-      width: 130,
-      render: (_, record) => <Tag color={STATUS_COLORS[record.status] || 'default'} className="m-0!">{STATUS_LABELS[record.status] || record.status.toUpperCase()}</Tag>,
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      width: 160,
-      render: (_, record) => {
-        if (record.status === 'pending') {
-          return (
-            <Flex gap={6} wrap="wrap">
-              <Popconfirm
-                title="Accept vendor payment request?"
-                description={`Marks the ${formatCurrency(record.amount)} request as accepted — it will still need final admin approval.`}
-                onConfirm={() => handleRespond(record.id, 'accepted')}
-                okText="Yes, accept"
-                cancelText="No"
-              >
-                <Button size="small" type="primary" ghost icon={<CheckOutlined />} loading={isPending}>
-                  Accept
-                </Button>
-              </Popconfirm>
-              <Popconfirm
-                title="Reject this request?"
-                onConfirm={() => handleRespond(record.id, 'rejected')}
-                okText="Yes"
-                cancelText="No"
-                okButtonProps={{ danger: true }}
-              >
-                <Button size="small" danger icon={<CloseOutlined />} loading={isPending}>
-                  Reject
-                </Button>
-              </Popconfirm>
-            </Flex>
-          );
-        }
-        if (record.status === 'accepted') {
-          if (!isAdmin) {
-            return <Typography.Text type="secondary" className="text-xs whitespace-nowrap">Awaiting admin</Typography.Text>;
-          }
-          return (
-            <Flex gap={6} wrap="wrap">
-              <Popconfirm
-                title="Give final approval?"
-                description={`Marks the ${formatCurrency(record.amount)} request as fully approved — it will count toward the vendor's advance on Purchase Orders.`}
-                onConfirm={() => handleRespond(record.id, 'admin_approved')}
-                okText="Yes, approve"
-                cancelText="No"
-              >
-                <Button size="small" type="primary" ghost icon={<CheckOutlined />} loading={isPending}>
-                  Approve
-                </Button>
-              </Popconfirm>
-              <Popconfirm
-                title="Reject this request?"
-                onConfirm={() => handleRespond(record.id, 'rejected')}
-                okText="Yes"
-                cancelText="No"
-                okButtonProps={{ danger: true }}
-              >
-                <Button size="small" danger icon={<CloseOutlined />} loading={isPending}>
-                  Reject
-                </Button>
-              </Popconfirm>
-            </Flex>
-          );
-        }
-        if (record.status === 'admin_approved') {
-          return (
-            <Button size="small" type="primary" icon={<DollarOutlined />} onClick={() => openPay(record)}>
-              Pay
+  const renderActions = (row: RequestRow) => {
+    const record = row.request;
+    if (record.status === 'pending') {
+      return (
+        <Flex gap={6} wrap="wrap">
+          <Popconfirm
+            title="Accept vendor payment request?"
+            description={`Marks the ${formatCurrency(record.amount)} request as accepted — it will still need final admin approval.`}
+            onConfirm={() => handleRespond(record.id, 'accepted')}
+            okText="Yes, accept"
+            cancelText="No"
+          >
+            <Button size="small" type="primary" ghost icon={<CheckOutlined />} loading={isPending}>
+              Accept
             </Button>
-          );
-        }
-        return (
-          <Typography.Text type="secondary" className="text-xs whitespace-nowrap">
-            {record.respondedAt ? formatDate(record.respondedAt) : '-'}
-          </Typography.Text>
-        );
-      },
+          </Popconfirm>
+          <Popconfirm
+            title="Reject this request?"
+            onConfirm={() => handleRespond(record.id, 'rejected')}
+            okText="Yes"
+            cancelText="No"
+            okButtonProps={{ danger: true }}
+          >
+            <Button size="small" danger icon={<CloseOutlined />} loading={isPending}>
+              Reject
+            </Button>
+          </Popconfirm>
+        </Flex>
+      );
+    }
+    if (record.status === 'accepted') {
+      if (!isAdmin) {
+        return <Typography.Text type="secondary" className="text-xs whitespace-nowrap">Awaiting admin</Typography.Text>;
+      }
+      return (
+        <Flex gap={6} wrap="wrap">
+          <Popconfirm
+            title="Give final approval?"
+            description={`Marks the ${formatCurrency(record.amount)} request as fully approved — it will count toward the vendor's advance on Purchase Orders.`}
+            onConfirm={() => handleRespond(record.id, 'admin_approved')}
+            okText="Yes, approve"
+            cancelText="No"
+          >
+            <Button size="small" type="primary" ghost icon={<CheckOutlined />} loading={isPending}>
+              Approve
+            </Button>
+          </Popconfirm>
+          <Popconfirm
+            title="Reject this request?"
+            onConfirm={() => handleRespond(record.id, 'rejected')}
+            okText="Yes"
+            cancelText="No"
+            okButtonProps={{ danger: true }}
+          >
+            <Button size="small" danger icon={<CloseOutlined />} loading={isPending}>
+              Reject
+            </Button>
+          </Popconfirm>
+        </Flex>
+      );
+    }
+    if (record.status === 'admin_approved') {
+      if (row.displayStatus === 'paid') {
+        return <Typography.Text type="secondary">-</Typography.Text>;
+      }
+      return (
+        <Button size="small" type="primary" icon={<DollarOutlined />} onClick={() => openPay(row)}>
+          Record Payment
+        </Button>
+      );
+    }
+    return (
+      <Typography.Text type="secondary" className="text-xs whitespace-nowrap">
+        {record.respondedAt ? formatDate(record.respondedAt) : '-'}
+      </Typography.Text>
+    );
+  };
+
+  const columns: ColumnsType<RequestRow> = [
+    { title: 'S.No', key: 'sno', width: 70, align: 'right', render: (_, __, i) => i + 1 },
+    { title: 'Date', key: 'date', width: 100, render: (_, r) => (r.request.createdAt ? dayjs(r.request.createdAt).format('DD-MMM') : '-') },
+    { title: 'Vendor Name', key: 'vendor', width: 200, ellipsis: true, render: (_, r) => r.request.vendor?.name || r.request.vendorId },
+    { title: 'Bill No', key: 'billNo', width: 130, render: (_, r) => r.billNo },
+    {
+      title: 'Amount', key: 'amount', width: 130, align: 'right',
+      render: (_, r) => <Typography.Text strong>{formatCurrency(r.request.amount)}</Typography.Text>,
     },
+    { title: 'Pay Date', key: 'payDate', width: 110, align: 'right', render: (_, r) => (r.payDate ? dayjs(r.payDate).format('DD-MMM') : '-') },
+    {
+      title: 'Status', key: 'status', width: 180,
+      render: (_, r) => (
+        <Tag color={STATUS_COLORS[r.displayStatus] || 'default'} className="m-0!">
+          {STATUS_LABELS[r.displayStatus] || r.displayStatus.toUpperCase()}
+        </Tag>
+      ),
+    },
+    { title: 'Action', key: 'actions', width: 200, render: (_, r) => renderActions(r) },
   ];
 
   return (
@@ -253,38 +303,22 @@ export function AdvanceRequestsClient({ requests }: Props) {
       <Row gutter={[12, 12]}>
         <Col xs={12} sm={6}>
           <Card size="small" className={`${cardClassName} !border-amber-500/30 !bg-amber-500/5`}>
-            <Statistic
-              title={<span className="text-xs">Pending</span>}
-              value={counts.pending}
-              valueStyle={{ color: '#fa8c16' }}
-            />
+            <Statistic title={<span className="text-xs">Pending</span>} value={counts.pending} valueStyle={{ color: '#fa8c16' }} />
           </Card>
         </Col>
         <Col xs={12} sm={6}>
           <Card size="small" className={`${cardClassName} !border-blue-500/30 !bg-blue-500/5`}>
-            <Statistic
-              title={<span className="text-xs">Accepted</span>}
-              value={counts.accepted}
-              valueStyle={{ color: '#1677ff' }}
-            />
+            <Statistic title={<span className="text-xs">Accepted</span>} value={counts.accepted} valueStyle={{ color: '#1677ff' }} />
+          </Card>
+        </Col>
+        <Col xs={12} sm={6}>
+          <Card size="small" className={`${cardClassName} !border-yellow-500/30 !bg-yellow-500/5`}>
+            <Statistic title={<span className="text-xs">Payment Pending</span>} value={counts.paymentPending} valueStyle={{ color: '#d48806' }} />
           </Card>
         </Col>
         <Col xs={12} sm={6}>
           <Card size="small" className={`${cardClassName} !border-green-500/30 !bg-green-500/5`}>
-            <Statistic
-              title={<span className="text-xs">Admin Approved</span>}
-              value={counts.adminApproved}
-              valueStyle={{ color: '#52c41a' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card size="small" className={`${cardClassName} !border-red-500/30 !bg-red-500/5`}>
-            <Statistic
-              title={<span className="text-xs">Rejected</span>}
-              value={counts.rejected}
-              valueStyle={{ color: '#ff4d4f' }}
-            />
+            <Statistic title={<span className="text-xs">Paid</span>} value={counts.paid} valueStyle={{ color: '#52c41a' }} />
           </Card>
         </Col>
       </Row>
@@ -292,15 +326,15 @@ export function AdvanceRequestsClient({ requests }: Props) {
       <Card className={cardClassName}>
         <Flex justify="flex-end" align="center" className="mb-3! gap-3!" wrap="wrap">
           <Typography.Text type="secondary" className="text-xs">
-            {filtered.length} of {requests.length} requests
+            {filtered.length} of {rows.length} requests
           </Typography.Text>
           <Input.Search
-            placeholder="Search PO, vendor, project..."
+            placeholder="Search bill, PO, vendor, project..."
             allowClear
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
-            style={{ width: 200 }}
+            style={{ width: 220 }}
           />
           <DatePicker.RangePicker
             value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
@@ -322,16 +356,46 @@ export function AdvanceRequestsClient({ requests }: Props) {
         <Table
           dataSource={filtered}
           columns={columns}
-          rowKey="id"
+          rowKey={(row) => row.request.id}
           pagination={{ pageSize: 10, showSizeChanger: false, showTotal: (total) => `Total ${total} requests` }}
           scroll={{ x: 1100 }}
           locale={{ emptyText: 'No vendor payment requests found' }}
           size="middle"
+          expandable={{
+            expandedRowRender: (row) => {
+              const r = row.request;
+              const poTotal = r.purchaseOrder ? (r.purchaseOrder.totalWithGst || r.purchaseOrder.totalAmount) : r.vendorQuotation?.totalAmount;
+              const docUrl = r.purchaseOrder?.billFileUrl || r.vendorQuotation?.quotationUrl;
+              return (
+                <Descriptions
+                  size="small"
+                  column={{ xs: 1, md: 2 }}
+                  items={[
+                    { key: 'project', label: 'Project', children: r.project?.name || '-' },
+                    { key: 'mr', label: 'MR Ref', children: r.materialRequirementNo || r.purchaseOrder?.materialRequirementNo || '-' },
+                    { key: 'po', label: 'PO Number', children: r.purchaseOrder?.poNumber || '-' },
+                    { key: 'poTotal', label: 'PO Total', children: poTotal ? formatCurrency(poTotal) : '-' },
+                    { key: 'paid', label: 'Paid so far', children: formatCurrency(row.paid) },
+                    { key: 'balance', label: 'Balance', children: formatCurrency(Math.max(row.balance, 0)) },
+                    { key: 'notes', label: 'Notes', children: r.notes || '-' },
+                    {
+                      key: 'doc', label: 'PO Document',
+                      children: docUrl ? (
+                        <Button type="link" size="small" icon={<FilePdfOutlined />} href={docUrl} target="_blank" className="p-0!">
+                          View
+                        </Button>
+                      ) : '-',
+                    },
+                  ]}
+                />
+              );
+            },
+          }}
         />
       </Card>
 
       <Drawer
-        title={payTarget ? `Record Payment — ${payTarget.vendor?.name || ''}` : 'Record Payment'}
+        title={payTarget ? `Record Payment — ${payTarget.request.vendor?.name || ''}` : 'Record Payment'}
         width={420}
         open={!!payTarget}
         onClose={() => setPayTarget(null)}
@@ -347,18 +411,25 @@ export function AdvanceRequestsClient({ requests }: Props) {
         {payTarget && (
           <Form layout="vertical">
             <Form.Item label="Vendor">
-              <Input value={payTarget.vendor?.name || '-'} disabled />
+              <Input value={payTarget.request.vendor?.name || '-'} disabled />
             </Form.Item>
             <Form.Item label="Project">
-              <Input value={payTarget.project?.name || '-'} disabled />
+              <Input value={payTarget.request.project?.name || '-'} disabled />
             </Form.Item>
-            {payTarget.purchaseOrder?.poNumber && (
+            {payTarget.request.purchaseOrder?.poNumber && (
               <Form.Item label="PO Number">
-                <Input value={payTarget.purchaseOrder.poNumber} disabled />
+                <Input value={payTarget.request.purchaseOrder.poNumber} disabled />
               </Form.Item>
             )}
-            <Form.Item label="Amount Paid" required>
-              <InputNumber className="w-full" prefix="₹" min={1} value={payAmount} onChange={(v) => setPayAmount(Number(v) || 0)} />
+            <Form.Item label={`Amount Paid (balance ${formatCurrency(Math.max(payTarget.balance, 0))})`} required>
+              <InputNumber
+                className="w-full"
+                prefix="₹"
+                min={1}
+                max={Math.max(payTarget.balance, 0)}
+                value={payAmount}
+                onChange={(v) => setPayAmount(Number(v) || 0)}
+              />
             </Form.Item>
             <Row gutter={16}>
               <Col span={12}>

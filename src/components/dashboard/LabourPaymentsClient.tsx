@@ -1,139 +1,150 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
-import { App, Button, Card, Col, DatePicker, Flex, Input, Row, Select, Space, Statistic, Table, Typography } from 'antd';
+import { useRouter } from 'next/navigation';
+import { App, Button, Card, Col, DatePicker, Flex, Input, Modal, Row, Space, Statistic, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DollarOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { createLabourPayment, updateLabourPaymentStatus } from '@/actions/labour-payments';
 import type { LabourPayment, UnpaidLabourWeekSummary } from '@/types/erp';
-import { cardClassName, formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
+import {
+  cardClassName,
+  formatCurrency,
+  mutedTextClassName,
+  pageHeaderClassName,
+  pageTitleClassName,
+  titleIconClassName,
+  weekRangeLabel,
+} from './ui';
 
 type Props = {
   payments: LabourPayment[];
   unpaidSummary: UnpaidLabourWeekSummary[];
 };
 
-const STATUS_OPTIONS = [
-  { label: 'Pending', value: 'pending' },
-  { label: 'Paid', value: 'paid' },
-];
-
-function weekLabel(weekStart: string, weekEnd: string) {
-  return `${dayjs(weekStart).format('DD MMM')} – ${dayjs(weekEnd).format('DD MMM YYYY')}`;
-}
+// One row per approved week that has not been paid yet, plus every recorded
+// payment. Only 'paid' is final: Record Payment is what moves a row to Paid.
+type LabourRow = {
+  key: string;
+  weekStart: string;
+  weekEnd: string;
+  userId: string;
+  userName: string;
+  amount: number;
+  status: 'pending' | 'paid';
+  payDate: string | null;
+  // Set for a payment record that already exists (still pending).
+  recordId?: string;
+};
 
 export function LabourPaymentsClient({ payments, unpaidSummary }: Props) {
+  const router = useRouter();
   const { message } = App.useApp();
   const [isPending, startTransition] = useTransition();
-
-  const [userId, setUserId] = useState<string | undefined>();
-  const [weekKey, setWeekKey] = useState<string | undefined>();
+  const [payRow, setPayRow] = useState<LabourRow | null>(null);
   const [paymentDate, setPaymentDate] = useState(dayjs());
-  const [status, setStatus] = useState<'pending' | 'paid'>('pending');
   const [notes, setNotes] = useState('');
 
-  const userOptions = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const row of unpaidSummary) map.set(row.userId, row.userName);
-    return Array.from(map, ([value, label]) => ({ value, label }));
-  }, [unpaidSummary]);
+  const rows = useMemo<LabourRow[]>(() => {
+    const unpaid: LabourRow[] = unpaidSummary.map((row) => ({
+      key: `unpaid-${row.userId}-${row.weekStart}`,
+      weekStart: row.weekStart,
+      weekEnd: row.weekEnd,
+      userId: row.userId,
+      userName: row.userName,
+      amount: Number(row.totalAmount || 0),
+      status: 'pending',
+      payDate: null,
+    }));
+    const recorded: LabourRow[] = payments.map((p) => ({
+      key: `record-${p.id}`,
+      weekStart: p.weekStart,
+      weekEnd: p.weekEnd,
+      userId: p.userId,
+      userName: p.userName,
+      amount: Number(p.amount || 0),
+      status: p.status === 'paid' ? 'paid' : 'pending',
+      payDate: p.paymentDate,
+      recordId: p.status === 'paid' ? undefined : p.id,
+    }));
+    return [...unpaid, ...recorded].sort(
+      (a, b) =>
+        (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1) ||
+        b.weekStart.localeCompare(a.weekStart) ||
+        a.userName.localeCompare(b.userName),
+    );
+  }, [payments, unpaidSummary]);
 
-  const weeksForUser = useMemo(
-    () => unpaidSummary.filter((row) => row.userId === userId),
-    [unpaidSummary, userId],
+  const pendingTotal = useMemo(
+    () => rows.filter((r) => r.status === 'pending').reduce((sum, r) => sum + r.amount, 0),
+    [rows],
+  );
+  const paidTotal = useMemo(
+    () => rows.filter((r) => r.status === 'paid').reduce((sum, r) => sum + r.amount, 0),
+    [rows],
   );
 
-  const weekOptions = useMemo(
-    () =>
-      weeksForUser.map((row) => ({
-        value: `${row.weekStart}|${row.weekEnd}`,
-        label: `${weekLabel(row.weekStart, row.weekEnd)} — ${formatCurrency(row.totalAmount)} (${row.entryCount} entr${row.entryCount > 1 ? 'ies' : 'y'})`,
-      })),
-    [weeksForUser],
-  );
-
-  const selectedWeek = useMemo(() => {
-    if (!weekKey) return undefined;
-    const [weekStart, weekEnd] = weekKey.split('|');
-    return weeksForUser.find((row) => row.weekStart === weekStart && row.weekEnd === weekEnd);
-  }, [weekKey, weeksForUser]);
-
-  const resetForm = () => {
-    setUserId(undefined);
-    setWeekKey(undefined);
+  const openRecord = (row: LabourRow) => {
     setPaymentDate(dayjs());
-    setStatus('pending');
     setNotes('');
+    setPayRow(row);
   };
 
   const handleRecordPayment = () => {
-    if (!userId || !selectedWeek) {
-      message.error('Select a site engineer and a week first');
-      return;
-    }
+    if (!payRow) return;
+    const row = payRow;
     startTransition(async () => {
       try {
-        await createLabourPayment({
-          userId,
-          weekStart: selectedWeek.weekStart,
-          weekEnd: selectedWeek.weekEnd,
-          paymentDate: paymentDate.format('YYYY-MM-DD'),
-          status,
-          notes: notes || undefined,
-        });
-        message.success('Payment recorded');
-        resetForm();
+        if (row.recordId) {
+          // A record created before this flow: just mark it paid.
+          await updateLabourPaymentStatus(row.recordId, 'paid');
+        } else {
+          await createLabourPayment({
+            userId: row.userId,
+            weekStart: row.weekStart,
+            weekEnd: row.weekEnd,
+            paymentDate: paymentDate.format('YYYY-MM-DD'),
+            status: 'paid',
+            notes: notes.trim() || undefined,
+          });
+        }
+        message.success('Payment completed. Status set to Paid');
+        setPayRow(null);
+        router.refresh();
       } catch (error) {
+        // Failed payments stay Pending so they can be recorded again.
         message.error(error instanceof Error ? error.message : 'Failed to record payment');
       }
     });
   };
 
-  const handleStatusChange = (id: string, newStatus: string) => {
-    startTransition(async () => {
-      try {
-        await updateLabourPaymentStatus(id, newStatus as 'pending' | 'paid');
-        message.success('Status updated');
-      } catch (error) {
-        message.error(error instanceof Error ? error.message : 'Failed to update status');
-      }
-    });
-  };
-
-  const totalPending = useMemo(
-    () => unpaidSummary.reduce((sum, row) => sum + Number(row.totalAmount), 0),
-    [unpaidSummary],
-  );
-  const totalPaidRecorded = useMemo(
-    () => payments.filter((p) => p.status === 'paid').reduce((sum, p) => sum + Number(p.amount), 0),
-    [payments],
-  );
-
-  const columns: ColumnsType<LabourPayment> = [
-    { title: '#', key: 'sno', width: 50, render: (_, __, i) => i + 1 },
-    { title: 'Site Engineer', dataIndex: 'userName', render: (v: string) => <Typography.Text strong>{v}</Typography.Text> },
-    { title: 'Week', key: 'week', render: (_, record) => weekLabel(record.weekStart, record.weekEnd) },
-    { title: 'Amount', dataIndex: 'amount', align: 'right', render: formatCurrency },
-    { title: 'Pay Date', dataIndex: 'paymentDate', render: formatDate },
+  const columns: ColumnsType<LabourRow> = [
+    { title: 'S.No', key: 'sno', width: 70, align: 'right', render: (_, __, i) => i + 1 },
+    { title: 'Week', key: 'week', width: 160, render: (_, r) => weekRangeLabel(r.weekStart) },
+    { title: 'Team', dataIndex: 'userName', key: 'team', width: 200, render: (v: string) => <Typography.Text strong>{v}</Typography.Text> },
+    { title: 'Amount', key: 'amount', align: 'right', width: 140, render: (_, r) => formatCurrency(r.amount) },
     {
-      title: 'Status',
-      key: 'status',
-      width: 140,
-      render: (_, record) => (
-        <Select
-          value={record.status}
-          size="small"
-          variant="borderless"
-          className="w-full"
-          onChange={(newStatus) => handleStatusChange(record.id, newStatus)}
-          options={STATUS_OPTIONS}
-          popupMatchSelectWidth={false}
-          disabled={isPending}
-        />
+      title: 'Pay Date', key: 'payDate', align: 'right', width: 130,
+      render: (_, r) => (r.payDate ? dayjs(r.payDate).format('DD-MMM') : '-'),
+    },
+    {
+      title: 'Status', key: 'status', width: 130,
+      render: (_, r) => (
+        <Tag color={r.status === 'paid' ? 'success' : 'gold'}>{r.status === 'paid' ? 'Paid' : 'Pending'}</Tag>
       ),
     },
-    { title: 'Notes', dataIndex: 'notes', ellipsis: true, render: (v?: string | null) => v || '-' },
+    {
+      title: 'Action', key: 'action', width: 170,
+      render: (_, r) =>
+        r.status === 'pending' ? (
+          <Button type="primary" size="small" disabled={isPending} onClick={() => openRecord(r)}>
+            Record Payment
+          </Button>
+        ) : (
+          <Typography.Text type="secondary">-</Typography.Text>
+        ),
+    },
   ];
 
   return (
@@ -148,8 +159,8 @@ export function LabourPaymentsClient({ payments, unpaidSummary }: Props) {
         <Col xs={24} sm={12}>
           <Card className={cardClassName} variant="borderless">
             <Statistic
-              title="Admin-Approved, Unpaid"
-              value={totalPending}
+              title="Pending"
+              value={pendingTotal}
               precision={2}
               styles={{ content: { color: '#d97706' } }}
               formatter={(val) => formatCurrency(val as number)}
@@ -159,8 +170,8 @@ export function LabourPaymentsClient({ payments, unpaidSummary }: Props) {
         <Col xs={24} sm={12}>
           <Card className={cardClassName} variant="borderless">
             <Statistic
-              title="Paid So Far"
-              value={totalPaidRecorded}
+              title="Paid"
+              value={paidTotal}
               precision={2}
               styles={{ content: { color: '#059669' } }}
               formatter={(val) => formatCurrency(val as number)}
@@ -170,90 +181,56 @@ export function LabourPaymentsClient({ payments, unpaidSummary }: Props) {
       </Row>
 
       <Card
-        title={<Typography.Text strong>Record a Payment</Typography.Text>}
-        className={`${cardClassName} mb-4`}
-      >
-        <Row gutter={[12, 12]} align="bottom">
-          <Col xs={24} sm={8}>
-            <Typography.Text type="secondary" className="mb-1 block text-xs uppercase">Site Engineer</Typography.Text>
-            <Select
-              showSearch
-              placeholder="Select site engineer"
-              className="w-full"
-              value={userId}
-              onChange={(val) => {
-                setUserId(val);
-                setWeekKey(undefined);
-              }}
-              options={userOptions}
-              filterOption={(input, option) => String(option?.label || '').toLowerCase().includes(input.toLowerCase())}
-              notFoundContent="No admin-approved unpaid trade entries"
-            />
-          </Col>
-          <Col xs={24} sm={8}>
-            <Typography.Text type="secondary" className="mb-1 block text-xs uppercase">Week</Typography.Text>
-            <Select
-              placeholder={userId ? 'Select week' : 'Select a site engineer first'}
-              className="w-full"
-              value={weekKey}
-              onChange={setWeekKey}
-              options={weekOptions}
-              disabled={!userId}
-            />
-          </Col>
-          <Col xs={24} sm={8}>
-            <Typography.Text type="secondary" className="mb-1 block text-xs uppercase">Pay Date</Typography.Text>
-            <DatePicker
-              className="w-full"
-              value={paymentDate}
-              onChange={(d) => d && setPaymentDate(d)}
-              format="DD-MM-YYYY"
-            />
-          </Col>
-          <Col xs={24} sm={8}>
-            <Typography.Text type="secondary" className="mb-1 block text-xs uppercase">Status</Typography.Text>
-            <Select className="w-full" value={status} onChange={setStatus} options={STATUS_OPTIONS} />
-          </Col>
-          <Col xs={24} sm={16}>
-            <Typography.Text type="secondary" className="mb-1 block text-xs uppercase">Notes</Typography.Text>
-            <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
-          </Col>
-        </Row>
-
-        {selectedWeek && (
-          <Space className="mt-3">
-            <Typography.Text type="secondary">Amount to pay:</Typography.Text>
-            <Typography.Text strong className="text-lg text-emerald-600">
-              {formatCurrency(selectedWeek.totalAmount)}
-            </Typography.Text>
-            <Typography.Text type="secondary" className="text-xs">
-              ({selectedWeek.entryCount} admin-approved trade entr{selectedWeek.entryCount > 1 ? 'ies' : 'y'})
-            </Typography.Text>
-          </Space>
-        )}
-
-        <Flex justify="end" className="mt-4!">
-          <Button type="primary" loading={isPending} disabled={!selectedWeek} onClick={handleRecordPayment}>
-            Record Payment
-          </Button>
-        </Flex>
-      </Card>
-
-      <Card
         className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
         styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
       >
         <Table
           className="mantis-table"
-          dataSource={payments}
+          dataSource={rows}
           columns={columns}
-          rowKey="id"
+          rowKey="key"
           size="middle"
-          scroll={{ x: 900 }}
-          pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} payments` }}
-          locale={{ emptyText: 'No labour payments recorded yet' }}
+          scroll={{ x: 1000 }}
+          pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} rows` }}
+          locale={{ emptyText: 'No approved labour weeks yet' }}
         />
       </Card>
+
+      <Modal
+        title={payRow ? `Record Payment — ${payRow.userName}` : 'Record Payment'}
+        open={!!payRow}
+        onCancel={() => setPayRow(null)}
+        onOk={handleRecordPayment}
+        okText="Record Payment"
+        confirmLoading={isPending}
+        destroyOnHidden
+      >
+        {payRow && (
+          <Space orientation="vertical" size="middle" className="w-full">
+            <Typography.Text>
+              {weekRangeLabel(payRow.weekStart)} · Amount: <Typography.Text strong>{formatCurrency(payRow.amount)}</Typography.Text>
+            </Typography.Text>
+            {!payRow.recordId && (
+              <>
+                <div>
+                  <Typography.Text className={mutedTextClassName}>Pay date</Typography.Text>
+                  <DatePicker
+                    className="w-full"
+                    value={paymentDate}
+                    onChange={(d) => d && setPaymentDate(d)}
+                    format="DD-MM-YYYY"
+                    allowClear={false}
+                  />
+                </div>
+                <div>
+                  <Typography.Text className={mutedTextClassName}>Notes</Typography.Text>
+                  <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
+                </div>
+              </>
+            )}
+          </Space>
+        )}
+      </Modal>
     </div>
   );
 }

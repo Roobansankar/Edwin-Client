@@ -401,6 +401,8 @@ export type Expense = {
   rejectionReason?: string | null;
   createdBy?: string | null;
   creator?: { id: string; name: string; role: string };
+  // Set once the expense is included in a weekly expense payment.
+  expensePaymentId?: string | null;
   createdAt?: string;
 };
 

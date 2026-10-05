@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { App, Button, Card, Col, DatePicker, Flex, Input, Modal, Row, Select, Space, Statistic, Table, Tabs, Tag, Typography } from 'antd';
+import type { TableProps } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
   CalendarOutlined, CameraOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, EyeOutlined, FileDoneOutlined, FilePdfOutlined, FilterOutlined, SearchOutlined, WalletOutlined
@@ -23,6 +24,8 @@ import {
   pageHeaderClassName,
   pageTitleClassName,
   titleIconClassName,
+  weekRangeLabel,
+  weekStartOf,
 } from './ui';
 
 const { Title } = Typography;
@@ -46,6 +49,34 @@ type Props = {
   expenses: Expense[];
   dailyReports: DailyLabourReport[];
 };
+
+// One row of the weekly Expenses view: everything one person raised in one
+// week for one project.
+type ExpenseWeekRow = {
+  key: string;
+  weekStart: string;
+  name: string;
+  role: string;
+  projectName: string;
+  expenses: Expense[];
+};
+
+// Rejected expenses are not part of what gets paid.
+function expenseWeekAmount(expenses: Expense[]) {
+  return expenses
+    .filter((e) => e.status !== 'rejected')
+    .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+}
+
+// Payment is tracked by expensePaymentId: an admin-approved expense without one
+// is still waiting to be paid.
+function expenseWeekStatus(expenses: Expense[]): { label: string; color: string } {
+  if (expenses.some((e) => e.status === 'pending')) return { label: 'Pending Approval', color: 'warning' };
+  if (expenses.some((e) => e.status === 'admin_approved' && !e.expensePaymentId)) return { label: 'Payment Pending', color: 'gold' };
+  if (expenses.every((e) => e.status === 'rejected')) return { label: 'Rejected', color: 'error' };
+  if (expenses.every((e) => e.status === 'rejected' || e.expensePaymentId)) return { label: 'Paid', color: 'success' };
+  return { label: 'Approved', color: 'processing' };
+}
 
 export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, expenses, dailyReports }: Props) {
   const router = useRouter();
@@ -94,6 +125,26 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
       return true;
     });
   }, [expenses, dateRange, searchText, statusFilter]);
+
+  // Expenses grouped by week (Monday to Sunday), person and project, newest week first.
+  const expenseWeekRows = useMemo<ExpenseWeekRow[]>(() => {
+    const groups = new Map<string, ExpenseWeekRow>();
+    for (const e of filteredExpenses) {
+      const weekStart = weekStartOf(e.expenseDate)?.format('YYYY-MM-DD') || '';
+      const name = e.creator?.name || '-';
+      const projectName = e.project?.name || '-';
+      const key = `${weekStart}|${e.createdBy || e.creator?.id || name}|${e.projectId || projectName}`;
+      const group = groups.get(key);
+      if (group) {
+        group.expenses.push(e);
+      } else {
+        groups.set(key, { key, weekStart, name, role: e.creator?.role || '', projectName, expenses: [e] });
+      }
+    }
+    return [...groups.values()].sort(
+      (a, b) => b.weekStart.localeCompare(a.weekStart) || a.name.localeCompare(b.name),
+    );
+  }, [filteredExpenses]);
 
   const filteredBills = useMemo(() => {
     const from = dateRange[0]?.format('YYYY-MM-DD');
@@ -327,6 +378,55 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
     },
   ];
 
+  // Weekly view of the Expenses tab. Each week expands to its individual
+  // expenses, which keep the status dropdown for approving / rejecting.
+  const expenseWeekColumns: ColumnsType<ExpenseWeekRow> = [
+    { title: 'S.No', key: 'sno', width: 70, render: (_, __, i) => i + 1 },
+    { title: 'Week', key: 'week', width: 150, render: (_, r) => weekRangeLabel(r.weekStart) },
+    {
+      title: 'Name', key: 'name', width: 200,
+      render: (_, r) => (
+        <Space orientation="vertical" size={0}>
+          <Typography.Text strong>{r.name}</Typography.Text>
+          {r.role && (
+            <Typography.Text type="secondary" className="text-[10px] uppercase">
+              {r.role.replace('_', ' ')}
+            </Typography.Text>
+          )}
+        </Space>
+      ),
+    },
+    { title: 'Project', key: 'project', width: 200, render: (_, r) => r.projectName },
+    { title: 'Amount', key: 'amount', width: 140, align: 'right', render: (_, r) => formatCurrency(expenseWeekAmount(r.expenses)) },
+    {
+      title: 'Status', key: 'status', width: 170,
+      render: (_, r) => {
+        const status = expenseWeekStatus(r.expenses);
+        return <Tag color={status.color}>{status.label}</Tag>;
+      },
+    },
+  ];
+
+  const expenseDetailColumns = expenseColumns.filter(
+    (c) => c.key !== 'sno' && c.key !== 'creator' && c.key !== 'project',
+  );
+
+  const expenseWeekTableProps = {
+    rowKey: 'key',
+    expandable: {
+      expandedRowRender: (row: ExpenseWeekRow) => (
+        <Table
+          size="small"
+          rowKey="id"
+          dataSource={row.expenses}
+          columns={expenseDetailColumns}
+          pagination={false}
+          scroll={{ x: 1100 }}
+        />
+      ),
+    },
+  };
+
   // Work-order view: what was requested against the WO, with its payments.
   const subcontractorBillColumns: ColumnsType<SubcontractorBill> = [
     { title: 'S.No', key: 'sno', width: 60, render: (_, __, i) => i + 1 },
@@ -501,6 +601,7 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
     columns: ColumnsType<any>,
     emptyText: string,
     scrollX = 1300,
+    tableProps: { rowKey?: string; expandable?: TableProps<ExpenseWeekRow>['expandable'] } = {},
   ) => (
     <>
       <Row gutter={16} className="mb-4">
@@ -545,6 +646,7 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
           dataSource={dataSource} columns={columns} rowKey="id"
           pagination={{ pageSize: 10 }} scroll={{ x: scrollX }}
           locale={{ emptyText }}
+          {...tableProps}
         />
       </div>
     </>
@@ -586,7 +688,7 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
             {
               key: 'expenses',
               label: <span><WalletOutlined /> Expenses</span>,
-              children: renderContent(expenseCounts, filteredExpenses, expenseColumns, 'No expenses pending approval'),
+              children: renderContent(expenseCounts, expenseWeekRows, expenseWeekColumns, 'No expenses found', 900, expenseWeekTableProps),
             },
           ]}
         />

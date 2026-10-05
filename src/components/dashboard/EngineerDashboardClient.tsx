@@ -3,11 +3,11 @@
 import { useRouter } from 'next/navigation';
 import { Alert, Button, Card, Col, Progress, Row, Skeleton, Space, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { CheckCircleOutlined, CloseCircleOutlined, ProjectOutlined, ReloadOutlined, ShoppingCartOutlined, FileTextOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, ProjectOutlined, ReloadOutlined, ShoppingCartOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import type { DashboardData, DashboardProject } from '@/types/erp';
 import { clientApiFetch } from '@/lib/client-api';
-import { cardClassName, secondaryTextClassName } from './ui';
+import { KpiCard, cardClassName, mutedTextClassName, pageTitleClassName } from './ui';
 
 const emptyDashboard: DashboardData = {
   totalProjects: 0,
@@ -101,9 +101,14 @@ export function EngineerDashboardClient() {
       )}
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <Typography.Title level={3} className="m-0! text-[var(--text-primary)]!">
-          My Dashboard
-        </Typography.Title>
+        <div>
+          <Typography.Title level={3} className={pageTitleClassName}>
+            My Dashboard
+          </Typography.Title>
+          <Typography.Text className={mutedTextClassName}>
+            Your assigned projects, material requirements and timesheets
+          </Typography.Text>
+        </div>
         <Button
           icon={<ReloadOutlined />}
           onClick={() => void refetch()}
@@ -114,82 +119,42 @@ export function EngineerDashboardClient() {
       </div>
 
       <Row gutter={[16, 16]} className="mb-6">
-        <Col xs={24} sm={12} lg={8}>
-          <Card
-            hoverable
-            className="rounded-xl! border! border-blue-500/20! bg-linear-to-br! from-blue-500/15! to-blue-500/5! cursor-pointer"
+        <Col xs={24} sm={12} lg={6}>
+          <KpiCard
+            tone="blue"
+            title="Assigned Projects"
+            value={data.totalProjects}
+            icon={<ProjectOutlined className="text-blue-500" />}
             onClick={() => router.push('/dashboard/my-projects')}
-          >
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-500/20 text-blue-500 text-xl">
-                <ProjectOutlined />
-              </div>
-              <div>
-                <Typography.Text className={secondaryTextClassName}>Assigned Projects</Typography.Text>
-                <div className="text-2xl font-bold text-[var(--text-primary)]">{data.totalProjects}</div>
-              </div>
-            </div>
-          </Card>
+          />
         </Col>
-        <Col xs={24} sm={12} lg={8}>
-          <Card
-            hoverable
-            className="rounded-xl! border! border-amber-500/20! bg-linear-to-br! from-amber-500/15! to-amber-500/5! cursor-pointer"
+        <Col xs={24} sm={12} lg={6}>
+          <KpiCard
+            tone="amber"
+            title="Material Requirements"
+            value={data.materialRequirementCounts?.total ?? 0}
+            icon={<ShoppingCartOutlined className="text-amber-500" />}
             onClick={() => router.push('/dashboard/material-requirement')}
-          >
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-500/20 text-amber-500 text-xl">
-                <ShoppingCartOutlined />
-              </div>
-              <div>
-                <Typography.Text className={secondaryTextClassName}>Material Requirements</Typography.Text>
-                <div className="text-2xl font-bold text-[var(--text-primary)]">{data.materialRequirementCounts?.total ?? 0}</div>
-              </div>
-            </div>
-          </Card>
+          />
         </Col>
-        <Col xs={24} sm={12} lg={8}>
-          <Card
-            hoverable
-            className="rounded-xl! border! border-emerald-500/20! bg-linear-to-br! from-emerald-500/15! to-emerald-500/5! cursor-pointer"
+        <Col xs={24} sm={12} lg={6}>
+          <KpiCard
+            tone="green"
+            title="MR Approved"
+            value={data.materialRequirementCounts?.approved ?? 0}
+            icon={<CheckCircleOutlined className="text-emerald-500" />}
+            note={`${data.materialRequirementCounts?.pending ?? 0} pending · ${data.materialRequirementCounts?.rejected ?? 0} rejected`}
             onClick={() => router.push('/dashboard/material-requirement')}
-          >
-            <Typography.Text className={secondaryTextClassName}>MR Status</Typography.Text>
-            <div className="mt-2 flex flex-wrap items-center gap-4">
-              <div className="flex items-center gap-2">
-                <CheckCircleOutlined className="text-emerald-500" />
-                <span className="text-lg font-bold text-[var(--text-primary)]">{data.materialRequirementCounts?.approved ?? 0}</span>
-                <span className={secondaryTextClassName}>Approved</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CloseCircleOutlined className="text-red-500" />
-                <span className="text-lg font-bold text-[var(--text-primary)]">{data.materialRequirementCounts?.rejected ?? 0}</span>
-                <span className={secondaryTextClassName}>Rejected</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <ShoppingCartOutlined className="text-orange-500" />
-                <span className="text-lg font-bold text-[var(--text-primary)]">{data.materialRequirementCounts?.pending ?? 0}</span>
-                <span className={secondaryTextClassName}>Pending</span>
-              </div>
-            </div>
-          </Card>
+          />
         </Col>
-        <Col xs={24} sm={12} lg={8}>
-          <Card
-            hoverable
-            className="rounded-xl! border! border-violet-500/20! bg-linear-to-br! from-violet-500/15! to-violet-500/5! cursor-pointer"
+        <Col xs={24} sm={12} lg={6}>
+          <KpiCard
+            tone="violet"
+            title="Timesheets (This Month)"
+            value={data.timesheetCounts?.total ?? 0}
+            icon={<FileTextOutlined className="text-violet-500" />}
             onClick={() => router.push('/dashboard/timesheet-attendance')}
-          >
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-violet-500/20 text-violet-500 text-xl">
-                <FileTextOutlined />
-              </div>
-              <div>
-                <Typography.Text className={secondaryTextClassName}>Timesheets (This Month)</Typography.Text>
-                <div className="text-2xl font-bold text-[var(--text-primary)]">{data.timesheetCounts?.total ?? 0}</div>
-              </div>
-            </div>
-          </Card>
+          />
         </Col>
       </Row>
 

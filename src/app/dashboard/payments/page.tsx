@@ -1,10 +1,10 @@
 import { Alert } from 'antd';
 import { PaymentsClient } from '@/components/dashboard/PaymentsClient';
-import { fetchPayments, fetchPaymentsSummary, fetchProjects, fetchVendors, fetchPurchaseOrders, fetchAdvanceRequests, fetchSubcontractWorkOrders, fetchSubcontractorPaymentRequests } from '@/lib/api';
+import { fetchPayments, fetchPaymentsSummary, fetchProjects, fetchVendors, fetchPurchaseOrders, fetchAdvanceRequests, fetchSubcontractWorkOrders, fetchSubcontractorPaymentRequests, fetchUnpaidLabourWeeklySummary, fetchUnpaidExpenseWeeklySummary } from '@/lib/api';
 
 async function loadPageData() {
   try {
-    const [paymentsRes, summary, projects, vendors, purchaseOrders, advanceRequests, subcontractWorkOrders, subcontractorPaymentRequests] = await Promise.all([
+    const [paymentsRes, summary, projects, vendors, purchaseOrders, advanceRequests, subcontractWorkOrders, subcontractorPaymentRequests, unpaidLabourSummary, unpaidExpenseSummary] = await Promise.all([
       fetchPayments('limit=5000'),
       fetchPaymentsSummary(),
       fetchProjects(),
@@ -13,6 +13,8 @@ async function loadPageData() {
       fetchAdvanceRequests('admin_approved'),
       fetchSubcontractWorkOrders(),
       fetchSubcontractorPaymentRequests('admin_approved'),
+      fetchUnpaidLabourWeeklySummary(),
+      fetchUnpaidExpenseWeeklySummary(),
     ]);
 
     // Server-side normalization
@@ -29,6 +31,8 @@ async function loadPageData() {
       advanceRequests,
       subcontractWorkOrders,
       subcontractorPaymentRequests,
+      unpaidLabourSummary,
+      unpaidExpenseSummary,
     };
   } catch (error) {
     console.error('Payments Page Error:', error);
@@ -41,13 +45,18 @@ async function loadPageData() {
       advanceRequests: [],
       subcontractWorkOrders: [],
       subcontractorPaymentRequests: [],
+      unpaidLabourSummary: [],
+      unpaidExpenseSummary: [],
       error: error instanceof Error ? error.message : 'Unable to load payments data',
     };
   }
 }
 
 export default async function PaymentsPage() {
-  const { payments, summary, projects, vendors, purchaseOrders, advanceRequests, subcontractWorkOrders, subcontractorPaymentRequests, error } = await loadPageData();
+  const {
+    payments, summary, projects, vendors, purchaseOrders, advanceRequests, subcontractWorkOrders,
+    subcontractorPaymentRequests, unpaidLabourSummary, unpaidExpenseSummary, error,
+  } = await loadPageData();
 
   return (
     <>
@@ -61,6 +70,8 @@ export default async function PaymentsPage() {
         advanceRequests={advanceRequests}
         subcontractWorkOrders={subcontractWorkOrders}
         subcontractorPaymentRequests={subcontractorPaymentRequests}
+        unpaidLabourSummary={unpaidLabourSummary}
+        unpaidExpenseSummary={unpaidExpenseSummary}
       />
     </>
   );

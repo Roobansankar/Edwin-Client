@@ -30,7 +30,15 @@ import {
 } from 'recharts';
 import type { DashboardData, DashboardProject, ExpenseSummary } from '@/types/erp';
 import { clientApiFetch } from '@/lib/client-api';
-import { cardClassName, formatCurrency, mutedTextClassName, secondaryTextClassName, titleCase } from './ui';
+import {
+  cardClassName,
+  formatCurrency,
+  kpiCardClassNames,
+  mutedTextClassName,
+  secondaryTextClassName,
+  statisticClassNames,
+  titleCase,
+} from './ui';
 
 type DashboardQueryData = {
   data: DashboardData;
@@ -47,15 +55,6 @@ const emptyDashboard: DashboardData = {
 
 const chartColors = ['#3b82f6', '#10b981', '#f59e0b', '#a855f7', '#ec4899', '#06b6d4'];
 const chartHeight = 300;
-
-const statisticClassNames = { content: 'text-[var(--text-primary)]! font-bold!' };
-
-const kpiCardClassNames = {
-  blue: 'rounded-xl! border! border-blue-500/20! bg-linear-to-br! from-blue-500/15! to-blue-500/5!',
-  green: 'rounded-xl! border! border-emerald-500/20! bg-linear-to-br! from-emerald-500/15! to-emerald-500/5!',
-  amber: 'rounded-xl! border! border-amber-500/20! bg-linear-to-br! from-amber-500/15! to-amber-500/5!',
-  violet: 'rounded-xl! border! border-violet-500/20! bg-linear-to-br! from-violet-500/15! to-violet-500/5!',
-};
 
 function ChartFrame({ children }: { children: (width: number, height: number) => ReactNode }) {
   const frameRef = useRef<HTMLDivElement>(null);

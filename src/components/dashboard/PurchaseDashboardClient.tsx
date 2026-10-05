@@ -2,10 +2,17 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, Col, Row, Statistic, Typography, Flex, Alert, Spin, Divider } from 'antd';
+import { Alert, Card, Col, Divider, Flex, Row, Spin, Typography } from 'antd';
 import { ShoppingCartOutlined, InboxOutlined, FileTextOutlined, WarningOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { fetchPurchaseDashboard } from '@/lib/client-api';
-import { StatusTag, formatDate } from './ui';
+import {
+  KpiCard,
+  cardClassName,
+  mutedTextClassName,
+  pageTitleClassName,
+  StatusTag,
+  formatDate,
+} from './ui';
 
 export function PurchaseDashboardClient() {
   const router = useRouter();
@@ -32,112 +39,104 @@ export function PurchaseDashboardClient() {
   if (!data) return null;
 
   return (
-    <div className="space-y-6">
-      <Typography.Title level={2}>Purchase Dashboard</Typography.Title>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card
-          size="small"
-          variant="borderless"
-          hoverable
-          className="h-full bg-blue-500/10 border border-blue-500/20 cursor-pointer flex flex-col justify-center"
-          onClick={() => router.push('/dashboard/material-requirement')}
-        >
-          <Statistic
-            title={<span className="text-blue-400">Material Request</span>}
-            value={data.kpis.materialRequirementCount}
-            prefix={<FileTextOutlined className="mr-2" />}
-          />
-        </Card>
-        <Card
-          size="small"
-          variant="borderless"
-          hoverable
-          className="h-full bg-green-500/10 border border-green-500/20 cursor-pointer flex flex-col justify-center"
-          onClick={() => router.push('/dashboard/purchase-orders')}
-        >
-          <Statistic
-            title={<span className="text-green-400">Active POs</span>}
-            value={data.kpis.activePOCount}
-            prefix={<ShoppingCartOutlined className="mr-2" />}
-            suffix="Approved"
-          />
-        </Card>
-        <Card
-          size="small"
-          variant="borderless"
-          hoverable
-          className="h-full bg-purple-500/10 border border-purple-500/20 cursor-pointer flex flex-col justify-center"
-          onClick={() => router.push('/dashboard/material-received')}
-        >
-          <Statistic
-            title={<span className="text-purple-400">Material Received</span>}
-            value={data.kpis.materialReceivedCount}
-            prefix={<InboxOutlined className="mr-2" />}
-          />
-        </Card>
-        <Card
-          size="small"
-          variant="borderless"
-          hoverable
-          className="h-full bg-amber-500/10 border border-amber-500/20 cursor-pointer flex flex-col justify-center"
-          onClick={() => router.push('/dashboard/purchase-orders')}
-        >
-          <Statistic
-            title={<span className="text-amber-400">Pending POs</span>}
-            value={data.kpis.pendingPOCount}
-            prefix={<ClockCircleOutlined className="mr-2" />}
-            suffix="Awaiting Approval"
-          />
-        </Card>
-        <Card
-          size="small"
-          variant="borderless"
-          hoverable
-          className="h-full bg-orange-500/10 border border-orange-500/20 cursor-pointer flex flex-col justify-center"
-          onClick={() => router.push('/dashboard/accounts/bills')}
-        >
-          <Statistic
-            title={<span className="text-orange-400">Bills</span>}
-            value={data.kpis.unpaidBillCount}
-            prefix={<WarningOutlined className="mr-2" />}
-            suffix="Bills"
-          />
-        </Card>
+    <div>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <Typography.Title level={3} className={pageTitleClassName}>
+            Purchase Dashboard
+          </Typography.Title>
+          <Typography.Text className={mutedTextClassName}>
+            Material requests, purchase orders and bills at a glance
+          </Typography.Text>
+        </div>
       </div>
+
+      <Row gutter={[16, 16]} className="mb-6">
+        <Col xs={24} sm={12} lg={6}>
+          <KpiCard
+            tone="blue"
+            title="Material Request"
+            value={data.kpis.materialRequirementCount}
+            icon={<FileTextOutlined className="text-blue-500" />}
+            onClick={() => router.push('/dashboard/material-requirement')}
+          />
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <KpiCard
+            tone="green"
+            title="Active POs"
+            value={data.kpis.activePOCount}
+            icon={<ShoppingCartOutlined className="text-emerald-500" />}
+            note="Approved"
+            onClick={() => router.push('/dashboard/purchase-orders')}
+          />
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <KpiCard
+            tone="purple"
+            title="Material Received"
+            value={data.kpis.materialReceivedCount}
+            icon={<InboxOutlined className="text-purple-500" />}
+            onClick={() => router.push('/dashboard/material-received')}
+          />
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <KpiCard
+            tone="amber"
+            title="Pending POs"
+            value={data.kpis.pendingPOCount}
+            icon={<ClockCircleOutlined className="text-amber-500" />}
+            note="Awaiting Approval"
+            onClick={() => router.push('/dashboard/purchase-orders')}
+          />
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <KpiCard
+            tone="orange"
+            title="Bills"
+            value={data.kpis.unpaidBillCount}
+            icon={<WarningOutlined className="text-orange-500" />}
+            note="Unpaid bills"
+            onClick={() => router.push('/dashboard/accounts/bills')}
+          />
+        </Col>
+      </Row>
 
       <Row gutter={[16, 16]}>
         <Col xs={24}>
-          <Card title="Recent Activity" className="h-full border-[var(--border)]">
+          <Card
+            title={<Typography.Text strong className="text-[var(--text-primary)]!">Recent Activity</Typography.Text>}
+            className={cardClassName}
+          >
             <Typography.Text strong className="mb-3 block">Latest Bills</Typography.Text>
             <div className="space-y-4">
               {data.recentActivity.bills.map((bill: any) => (
-                <Flex key={bill.id} justify="space-between" align="center" className="pb-3! border-b border-white/5 last:border-0">
+                <Flex key={bill.id} justify="space-between" align="center" className="pb-3! border-b border-[var(--border)] last:border-0">
                   <div>
                     <Typography.Text className="block">{bill.billNumber}</Typography.Text>
                     <Typography.Text type="secondary" className="text-xs">{bill.vendorName}</Typography.Text>
                   </div>
                   <div className="text-right">
                     <StatusTag value={bill.status} />
-                    <Typography.Text type="secondary" className="text-[10px] block mt-1">{formatDate(bill.billDate)}</Typography.Text>
+                    <Typography.Text type="secondary" className="mt-1 block text-xs">{formatDate(bill.billDate)}</Typography.Text>
                   </div>
                 </Flex>
               ))}
             </div>
 
-            <Divider className="my-4 border-white/5" />
+            <Divider className="my-4 border-[var(--border)]" />
 
             <Typography.Text strong className="mb-3 block">Latest POs</Typography.Text>
             <div className="space-y-4">
               {data.recentActivity.pos.map((po: any) => (
-                <Flex key={po.id} justify="space-between" align="center" className="pb-3! border-b border-white/5 last:border-0">
+                <Flex key={po.id} justify="space-between" align="center" className="pb-3! border-b border-[var(--border)] last:border-0">
                   <div>
                     <Typography.Text className="block">{po.poNumber}</Typography.Text>
                     <Typography.Text type="secondary" className="text-xs">{po.vendorName}</Typography.Text>
                   </div>
                   <div className="text-right">
                     <StatusTag value={po.status} />
-                    <Typography.Text type="secondary" className="text-[10px] block mt-1">{formatDate(po.createdAt)}</Typography.Text>
+                    <Typography.Text type="secondary" className="mt-1 block text-xs">{formatDate(po.createdAt)}</Typography.Text>
                   </div>
                 </Flex>
               ))}

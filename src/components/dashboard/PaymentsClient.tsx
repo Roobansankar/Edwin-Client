@@ -9,7 +9,8 @@ import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import dayjs from 'dayjs';
 import { createPayment, syncExpensesToLedger } from '@/actions/payments';
-import type { AdvanceRequest, Payment, Project, PurchaseOrder, SubcontractWorkOrder, SubcontractorPaymentRequest, Vendor } from '@/types/erp';
+import type { AdvanceRequest, Payment, Project, PurchaseOrder, SubcontractWorkOrder, SubcontractorPaymentRequest, UnpaidExpenseWeekSummary, UnpaidLabourWeekSummary, Vendor } from '@/types/erp';
+import { PaymentOptionsPanel } from './PaymentOptionsPanel';
 import {
   StatusTag,
   cardClassName,
@@ -50,9 +51,22 @@ type PaymentsClientProps = {
   advanceRequests: AdvanceRequest[];
   subcontractWorkOrders: SubcontractWorkOrder[];
   subcontractorPaymentRequests: SubcontractorPaymentRequest[];
+  unpaidLabourSummary: UnpaidLabourWeekSummary[];
+  unpaidExpenseSummary: UnpaidExpenseWeekSummary[];
 };
 
-export function PaymentsClient({ payments, summary, projects, vendors, purchaseOrders, advanceRequests, subcontractWorkOrders, subcontractorPaymentRequests }: PaymentsClientProps) {
+export function PaymentsClient({
+  payments,
+  summary,
+  projects,
+  vendors,
+  purchaseOrders,
+  advanceRequests,
+  subcontractWorkOrders,
+  subcontractorPaymentRequests,
+  unpaidLabourSummary,
+  unpaidExpenseSummary,
+}: PaymentsClientProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const { message } = App.useApp();
@@ -429,6 +443,14 @@ export function PaymentsClient({ payments, summary, projects, vendors, purchaseO
           </Card>
         </Col>
       </Row>
+
+      <PaymentOptionsPanel
+        payments={payments}
+        unpaidLabourSummary={unpaidLabourSummary}
+        unpaidExpenseSummary={unpaidExpenseSummary}
+        advanceRequests={advanceRequests}
+        subcontractorPaymentRequests={subcontractorPaymentRequests}
+      />
 
       <Card className={cardClassName}>
         <Tabs activeKey={activeTab} onChange={(key) => { setActiveTab(key); setSearchText(''); setStatusFilter(''); setDateRange([null, null]); }} items={tabItems} />

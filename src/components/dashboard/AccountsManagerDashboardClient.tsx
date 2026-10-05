@@ -15,15 +15,15 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import type { AccountsDashboardData, PayableCategory } from '@/types/erp';
 import { clientApiFetch } from '@/lib/client-api';
-import { cardClassName, formatCurrency, secondaryTextClassName } from './ui';
+import { KpiCard, cardClassName, formatCurrency, mutedTextClassName, pageTitleClassName } from './ui';
 
 // One card per payable category. `href` is the page where that category
 // gets paid; `unit` labels the count shown under the amount.
 const PAYABLE_CARDS: Array<{ key: PayableCategory; title: string; icon: React.ReactNode; unit: string; href: string }> = [
-  { key: 'labour', title: 'Labour Payable', icon: <TeamOutlined />, unit: 'pending weekly payments', href: '/dashboard/labour-payments' },
-  { key: 'material', title: 'Material Payable', icon: <ShoppingCartOutlined />, unit: 'pending POs', href: '/dashboard/accounts/bills' },
-  { key: 'subcontractor', title: 'Sub Contractor Payable', icon: <SolutionOutlined />, unit: 'pending work orders', href: '/dashboard/subcontractor-payment-requests' },
-  { key: 'expenses', title: 'Expenses Payable', icon: <WalletOutlined />, unit: 'pending weekly payments', href: '/dashboard/expense-payments' },
+  { key: 'labour', title: 'Labour Payable', icon: <TeamOutlined className="text-rose-500" />, unit: 'pending weekly payments', href: '/dashboard/labour-payments' },
+  { key: 'material', title: 'Material Payable', icon: <ShoppingCartOutlined className="text-rose-500" />, unit: 'pending POs', href: '/dashboard/accounts/bills' },
+  { key: 'subcontractor', title: 'Sub Contractor Payable', icon: <SolutionOutlined className="text-rose-500" />, unit: 'pending work orders', href: '/dashboard/subcontractor-payment-requests' },
+  { key: 'expenses', title: 'Expenses Payable', icon: <WalletOutlined className="text-rose-500" />, unit: 'pending weekly payments', href: '/dashboard/expense-payments' },
 ];
 
 async function loadAccountsDashboard(): Promise<AccountsDashboardData> {
@@ -103,9 +103,14 @@ export function AccountsManagerDashboardClient() {
       )}
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <Typography.Title level={3} className="m-0! text-[var(--text-primary)]!">
-          Accounts Dashboard
-        </Typography.Title>
+        <div>
+          <Typography.Title level={3} className={pageTitleClassName}>
+            Accounts Dashboard
+          </Typography.Title>
+          <Typography.Text className={mutedTextClassName}>
+            Receivables, collections, payments and payables at a glance
+          </Typography.Text>
+        </div>
         <Button
           icon={<ReloadOutlined />}
           onClick={() => void refetch()}
@@ -115,60 +120,36 @@ export function AccountsManagerDashboardClient() {
         </Button>
       </div>
 
-      <Row gutter={[16, 16]} className="mb-4">
+      <Row gutter={[16, 16]} className="mb-6">
         <Col xs={24} sm={12} md={8}>
-          <Card
-            hoverable
-            className="rounded-xl! border! border-emerald-500/20! bg-linear-to-br! from-emerald-500/15! to-emerald-500/5! cursor-pointer"
+          <KpiCard
+            tone="green"
+            title="Total Receivables"
+            value={formatCurrency(kpis?.totalReceivable || 0)}
+            icon={<FileTextOutlined className="text-emerald-500" />}
+            note={kpis ? `${kpis.pendingInvoiceCount} pending invoices` : 'Not available'}
             onClick={() => router.push('/dashboard/accounts/invoices')}
-          >
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-500 text-xl">
-                <FileTextOutlined />
-              </div>
-              <div>
-                <Typography.Text className={secondaryTextClassName}>Total Receivables</Typography.Text>
-                <div className="text-2xl font-bold text-[var(--text-primary)]">{formatCurrency(kpis?.totalReceivable || 0)}</div>
-                <Typography.Text type="secondary" className="text-xs">{kpis?.pendingInvoiceCount} pending invoices</Typography.Text>
-              </div>
-            </div>
-          </Card>
+          />
         </Col>
         <Col xs={24} sm={12} md={8}>
-          <Card
-            hoverable
-            className="rounded-xl! border! border-blue-500/20! bg-linear-to-br! from-blue-500/15! to-blue-500/5! cursor-pointer"
+          <KpiCard
+            tone="blue"
+            title="Inflow"
+            value={kpis ? formatCurrency(kpis.monthInflow) : '—'}
+            icon={<ArrowUpOutlined className="text-blue-500" />}
+            note={kpis ? 'Current month collections' : 'Not available'}
             onClick={() => router.push('/dashboard/payments')}
-          >
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-500/20 text-blue-500 text-xl">
-                <ArrowUpOutlined />
-              </div>
-              <div>
-                <Typography.Text className={secondaryTextClassName}>Inflow</Typography.Text>
-                <div className="text-2xl font-bold text-[var(--text-primary)]">{kpis ? formatCurrency(kpis.monthInflow) : '—'}</div>
-                <Typography.Text type="secondary" className="text-xs">{kpis ? 'Current month collections' : 'Not available'}</Typography.Text>
-              </div>
-            </div>
-          </Card>
+          />
         </Col>
         <Col xs={24} sm={12} md={8}>
-          <Card
-            hoverable
-            className="rounded-xl! border! border-amber-500/20! bg-linear-to-br! from-amber-500/15! to-amber-500/5! cursor-pointer"
+          <KpiCard
+            tone="amber"
+            title="Outflow"
+            value={kpis ? formatCurrency(kpis.monthOutflow) : '—'}
+            icon={<ArrowDownOutlined className="text-amber-500" />}
+            note={kpis ? 'Current month payments' : 'Not available'}
             onClick={() => router.push('/dashboard/payments')}
-          >
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-500/20 text-amber-500 text-xl">
-                <ArrowDownOutlined />
-              </div>
-              <div>
-                <Typography.Text className={secondaryTextClassName}>Outflow</Typography.Text>
-                <div className="text-2xl font-bold text-[var(--text-primary)]">{kpis ? formatCurrency(kpis.monthOutflow) : '—'}</div>
-                <Typography.Text type="secondary" className="text-xs">{kpis ? 'Current month payments' : 'Not available'}</Typography.Text>
-              </div>
-            </div>
-          </Card>
+          />
         </Col>
       </Row>
 
@@ -177,24 +158,14 @@ export function AccountsManagerDashboardClient() {
           const payable = payableFor(card.key);
           return (
             <Col key={card.key} xs={24} sm={12} lg={6}>
-              <Card
-                hoverable
-                className="rounded-xl! border! border-rose-500/20! bg-linear-to-br! from-rose-500/15! to-rose-500/5! cursor-pointer"
+              <KpiCard
+                tone="rose"
+                title={card.title}
+                value={payable ? formatCurrency(payable.amount) : '—'}
+                icon={card.icon}
+                note={payable ? `${payable.count} ${card.unit}` : 'Not available'}
                 onClick={() => router.push(card.href)}
-              >
-                <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-rose-500/20 text-rose-500 text-xl">
-                    {card.icon}
-                  </div>
-                  <div>
-                    <Typography.Text className={secondaryTextClassName}>{card.title}</Typography.Text>
-                    <div className="text-2xl font-bold text-[var(--text-primary)]">{payable ? formatCurrency(payable.amount) : '—'}</div>
-                    <Typography.Text type="secondary" className="text-xs">
-                      {payable ? `${payable.count} ${card.unit}` : 'Not available'}
-                    </Typography.Text>
-                  </div>
-                </div>
-              </Card>
+              />
             </Col>
           );
         })}

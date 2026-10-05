@@ -15,7 +15,7 @@ import {
   Tag,
   Typography,
 } from 'antd';
-import dayjs, { type Dayjs } from 'dayjs';
+import type { Dayjs } from 'dayjs';
 import type { ColumnsType } from 'antd/es/table';
 import {
   DollarOutlined,
@@ -36,6 +36,7 @@ import {
   StatusTag,
   titleCase,
   titleIconClassName,
+  weekRangeLabel,
 } from './ui';
 
 function inRange(dateStr: string | null | undefined, range: [Dayjs | null, Dayjs | null]) {
@@ -59,22 +60,8 @@ type DailyLabourGroupRow = {
   first: boolean;
 };
 
-// Monday-to-Sunday week that contains the report date, e.g. "Sep 7 to 13".
-function reportWeekLabel(dateStr: string) {
-  const d = dayjs(dateStr);
-  if (!d.isValid()) return '-';
-  const start = d.subtract((d.day() + 6) % 7, 'day');
-  const end = start.add(6, 'day');
-  return `${start.format('MMM D')} to ${end.format(start.month() === end.month() ? 'D' : 'MMM D')}`;
-}
-
-// Status filter options for the vendor / subcontractor bill tabs.
-const REPORT_BILL_STATUS_OPTIONS = [
-  { label: 'Pending', value: 'pending' },
-  { label: 'Admin Approved', value: 'admin_approved' },
-  { label: 'Approved', value: 'approved' },
-  { label: 'Rejected', value: 'rejected' },
-];
+// Expense and bill rows are only reported once Admin has approved them.
+const ADMIN_APPROVED = 'admin_approved';
 
 // Sentinel value for the "All Projects" option in the Project Report dropdown.
 const ALL_PROJECTS = '__all_projects__';
@@ -107,10 +94,8 @@ export function ReportsClient({
   const [dlDateRange, setDlDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
   const [vbProjectId, setVbProjectId] = useState<string | undefined>(ALL_PROJECTS);
   const [vbDateRange, setVbDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
-  const [vbStatus, setVbStatus] = useState<string | undefined>();
   const [sbProjectId, setSbProjectId] = useState<string | undefined>(ALL_PROJECTS);
   const [sbDateRange, setSbDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
-  const [sbStatus, setSbStatus] = useState<string | undefined>();
 
   const projectNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -120,7 +105,7 @@ export function ReportsClient({
 
   const projectBills = useMemo(() => {
     if (!selectedProjectId) return [];
-    return bills.filter((b) => (selectedProjectId === ALL_PROJECTS || b.projectId === selectedProjectId) && inRange(b.billDate, projectDateRange));
+    return bills.filter((b) => b.status === ADMIN_APPROVED && (selectedProjectId === ALL_PROJECTS || b.projectId === selectedProjectId) && inRange(b.billDate, projectDateRange));
   }, [bills, selectedProjectId, projectDateRange]);
 
   const projectSummary = useMemo(() => {
@@ -136,7 +121,7 @@ export function ReportsClient({
   const projectExpenses = useMemo(() => {
     if (!expProjectId) return [];
     return expenses
-      .filter((e) => (expProjectId === ALL_PROJECTS || e.projectId === expProjectId) && inRange(e.expenseDate, expDateRange))
+      .filter((e) => e.status === ADMIN_APPROVED && (expProjectId === ALL_PROJECTS || e.projectId === expProjectId) && inRange(e.expenseDate, expDateRange))
       .sort((a, b) => (b.expenseDate || '').localeCompare(a.expenseDate || ''));
   }, [expenses, expProjectId, expDateRange]);
 
@@ -179,9 +164,9 @@ export function ReportsClient({
     () => bills
       .filter((b) => !vbProjectId || vbProjectId === ALL_PROJECTS || b.projectId === vbProjectId)
       .filter((b) => inRange(b.billDate, vbDateRange))
-      .filter((b) => !vbStatus || b.status === vbStatus)
+      .filter((b) => b.status === ADMIN_APPROVED)
       .sort((a, b) => (b.billDate || '').localeCompare(a.billDate || '')),
-    [bills, vbProjectId, vbDateRange, vbStatus],
+    [bills, vbProjectId, vbDateRange],
   );
 
   // Subcontractor bills for the Subcontractor Bills tab (dated by when they were raised).
@@ -189,9 +174,9 @@ export function ReportsClient({
     () => subcontractorBills
       .filter((b) => !sbProjectId || sbProjectId === ALL_PROJECTS || b.projectId === sbProjectId)
       .filter((b) => inRange(b.createdAt, sbDateRange))
-      .filter((b) => !sbStatus || b.status === sbStatus)
+      .filter((b) => b.status === ADMIN_APPROVED)
       .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')),
-    [subcontractorBills, sbProjectId, sbDateRange, sbStatus],
+    [subcontractorBills, sbProjectId, sbDateRange],
   );
 
   const vendorBillsSummary = useMemo(() => {
@@ -325,7 +310,7 @@ export function ReportsClient({
         return [
           first ? row.groupSno : '',
           first ? formatDate(r.reportDate) : '',
-          first ? reportWeekLabel(r.reportDate) : '',
+          first ? weekRangeLabel(r.reportDate) : '',
           first ? r.project?.name || '-' : '',
           first ? r.project?.projectCategory?.name || '-' : '',
           first ? r.createdBy?.name || '-' : '',
@@ -433,7 +418,7 @@ export function ReportsClient({
   const dailyLabourColumns: ColumnsType<DailyLabourGroupRow> = [
     { title: 'S.No', key: 'sno', align: 'right' as const, width: 70, render: (_, row) => spanCell(row, row.groupSno) },
     { title: 'Date', key: 'date', width: 120, render: (_, row) => spanCell(row, <Typography.Text strong>{formatDate(row.report.reportDate)}</Typography.Text>) },
-    { title: 'Week', key: 'week', width: 150, render: (_, row) => spanCell(row, reportWeekLabel(row.report.reportDate)) },
+    { title: 'Week', key: 'week', width: 150, render: (_, row) => spanCell(row, weekRangeLabel(row.report.reportDate)) },
     { title: 'All Project', key: 'project', width: 200, render: (_, row) => spanCell(row, row.report.project?.name || '-') },
     { title: 'Trade', key: 'trade', width: 140, render: (_, row) => spanCell(row, row.report.project?.projectCategory?.name || '-') },
     { title: 'Team', key: 'team', width: 160, render: (_, row) => spanCell(row, row.report.createdBy?.name || '-') },
@@ -896,14 +881,6 @@ export function ReportsClient({
                 String(option?.label || '').toLowerCase().includes(input.toLowerCase())
               }
             />
-            <Select
-              allowClear
-              placeholder="Filter by status"
-              style={{ minWidth: 180 }}
-              value={vbStatus}
-              onChange={(v) => setVbStatus(v || undefined)}
-              options={REPORT_BILL_STATUS_OPTIONS}
-            />
             <DatePicker.RangePicker
               value={vbDateRange[0] || vbDateRange[1] ? vbDateRange : [null, null]}
               onChange={(dates) => setVbDateRange(dates ? [dates[0], dates[1]] : [null, null])}
@@ -985,14 +962,6 @@ export function ReportsClient({
               filterOption={(input, option) =>
                 String(option?.label || '').toLowerCase().includes(input.toLowerCase())
               }
-            />
-            <Select
-              allowClear
-              placeholder="Filter by status"
-              style={{ minWidth: 180 }}
-              value={sbStatus}
-              onChange={(v) => setSbStatus(v || undefined)}
-              options={REPORT_BILL_STATUS_OPTIONS}
             />
             <DatePicker.RangePicker
               value={sbDateRange[0] || sbDateRange[1] ? sbDateRange : [null, null]}
