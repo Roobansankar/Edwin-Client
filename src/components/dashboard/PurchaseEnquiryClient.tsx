@@ -122,6 +122,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyEnquiry, setHistoryEnquiry] = useState<PurchaseEnquiry | null>(null);
   const [searchText, setSearchText] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
 
   const posByEnquiryNo = useMemo(() => {
@@ -169,6 +170,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
         const created = enq.createdAt ? enq.createdAt.split('T')[0] : '';
         if (created < from || created > to) return false;
       }
+      if (statusFilter && (enq.status || 'pending') !== statusFilter) return false;
       if (searchText) {
         const q = searchText.toLowerCase();
         const haystack = [
@@ -185,7 +187,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
       }
       return true;
     });
-  }, [enquiries, searchText, dateRange]);
+  }, [enquiries, searchText, dateRange, statusFilter]);
 
   const [splitOpen, setSplitOpen] = useState(false);
   const [splitEnquiry, setSplitEnquiry] = useState<PurchaseEnquiry | null>(null);
@@ -470,7 +472,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
     <div>
       <Flex justify="space-between" align="center" className={`${pageHeaderClassName} mb-0!`} gap={16} wrap="wrap">
         <Typography.Title level={3} className={pageTitleClassName}>
-          <ShoppingCartOutlined style={{ marginBottom: 24 }} className={titleIconClassName} /> {isSiteEngineer ? 'Material Requirement' : 'Material Requirement Request'}
+          <ShoppingCartOutlined style={{ marginBottom: 24 }} className={titleIconClassName} /> {isSiteEngineer ? 'Material Requirement' : 'Material Request'}
         </Typography.Title>
         {canCreateEnquiry && (
           <Button
@@ -496,6 +498,14 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
           prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
           style={{ width: 280 }}
         />
+        <Select
+          allowClear
+          placeholder="Filter by status"
+          value={statusFilter}
+          onChange={(v) => setStatusFilter(v || undefined)}
+          options={STATUS_OPTIONS}
+          style={{ width: 180 }}
+        />
         <DatePicker.RangePicker
           value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
           onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
@@ -517,7 +527,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
           size="middle"
           pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (total) => `${total} enquiries` }}
           scroll={{ x: 1380 }}
-          locale={{ emptyText: isSiteEngineer ? 'No material requirements yet. Create one!' : 'No material requirement requests yet.' }}
+          locale={{ emptyText: isSiteEngineer ? 'No material requirements yet. Create one!' : 'No material requests yet.' }}
         />
       </Card>
 
