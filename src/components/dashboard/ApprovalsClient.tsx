@@ -13,7 +13,8 @@ import dayjs from 'dayjs';
 import { updateBillStatus } from '@/actions/invoices';
 import { updateSubcontractorBillStatus } from '@/actions/subcontractor-bills';
 import { updateExpenseStatus } from '@/actions/expenses';
-import type { PurchaseBill, Expense, DailyLabourReport, SubcontractorBill } from '@/types/erp';
+import type { PurchaseBill, Expense, DailyLabourReport, SubcontractorBill, VendorQuotation } from '@/types/erp';
+import { BillDocumentsMenu, BILL_STATUS_OPTIONS, missingDocs } from './BillDocumentsMenu';
 import {
   StatusTag,
   cardClassName,
@@ -41,11 +42,12 @@ const APPROVAL_STATUS_OPTIONS = [
 type Props = {
   bills: PurchaseBill[];
   subcontractorBills: SubcontractorBill[];
+  vendorQuotations: VendorQuotation[];
   expenses: Expense[];
   dailyReports: DailyLabourReport[];
 };
 
-export function ApprovalsClient({ bills, subcontractorBills, expenses, dailyReports }: Props) {
+export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, expenses, dailyReports }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
@@ -57,6 +59,8 @@ export function ApprovalsClient({ bills, subcontractorBills, expenses, dailyRepo
   const { message } = App.useApp();
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
+  // Only admin / accounts can tick a bill's documents or approve it.
+  const canApproveBill = user?.role === 'admin' || user?.role === 'accounts_manager';
 
   useEffect(() => {
     try {
@@ -160,10 +164,37 @@ export function ApprovalsClient({ bills, subcontractorBills, expenses, dailyRepo
     setRejectExpenseId(null);
   };
 
-  const handleBillStatusChange = (id: string, status: string) => {
+  // Latest vendor quotation per (vendor, MR ref) - the Purchase Enquiry a
+  // bill's PO was raised from.
+  const enquiryByVendorAndMr = useMemo(() => {
+    const map = new Map<string, VendorQuotation>();
+    for (const vq of vendorQuotations) {
+      const key = `${vq.vendorId}|${vq.materialRequirement?.enquiryNo || ''}`;
+      if (!map.has(key)) map.set(key, vq);
+    }
+    return map;
+  }, [vendorQuotations]);
+  const enquiryFor = (bill: PurchaseBill) =>
+    enquiryByVendorAndMr.get(`${bill.vendorId}|${bill.purchaseOrder?.materialRequirementNo || ''}`) || null;
+
+  // Moving to Accounts Approved is blocked until all three documents are
+  // checked (the server enforces the same rule).
+  const handleBillStatusChange = (bill: PurchaseBill, newStatus: string) => {
+    if (newStatus === 'admin_approved') {
+      const missing = missingDocs(bill);
+      if (missing.length) {
+        message.error(`Open and check all three documents first. Still to check: ${missing.join(', ')}`);
+        return;
+      }
+    }
     startTransition(async () => {
-      try { await updateBillStatus(id, status); message.success('Bill status updated'); }
-      catch (error) { message.error(error instanceof Error ? error.message : 'Failed'); }
+      try {
+        await updateBillStatus(bill.id, newStatus);
+        message.success('Bill status updated');
+        router.refresh();
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : 'Failed');
+      }
     });
   };
 
@@ -296,55 +327,172 @@ export function ApprovalsClient({ bills, subcontractorBills, expenses, dailyRepo
     },
   ];
 
+  // Work-order view: what was requested against the WO, with its payments.
   const subcontractorBillColumns: ColumnsType<SubcontractorBill> = [
-    { title: '#', key: 'sno', width: 50, render: (_, __, i) => i + 1 },
-    { title: 'Date', dataIndex: 'billDate', render: formatDate },
-    { title: 'Bill No', dataIndex: 'billNumber' },
-    { title: 'Subcontractor', key: 'subcontractor', render: (_, record) => record.subcontractor?.name || '-' },
+    { title: 'S.No', key: 'sno', width: 60, render: (_, __, i) => i + 1 },
+    { title: 'Subcontractor', key: 'subcontractor', width: 170, render: (_, r) => r.subcontractor?.name || '-' },
+    { title: 'Project', key: 'project', width: 170, render: (_, r) => r.project?.name || '-' },
+    { title: 'WO Number', key: 'woNumber', width: 140, render: (_, r) => r.subcontractWorkOrder?.woNumber || '-' },
     {
-      title: 'Total Amount', key: 'totalAmount', align: 'right',
-      render: (_, record) => formatCurrency(Number(record.amount) + Number(record.gstAmount || 0)),
+      title: 'Requested Amount', key: 'requestedAmount', width: 150, align: 'right',
+      render: (_, r) => formatCurrency(Number(r.amount) + Number(r.gstAmount || 0)),
     },
     {
-      title: 'Actions', key: 'actions', width: 80,
-      render: (_, record) => (
-        <Button size="small" icon={<EyeOutlined />} onClick={() => router.push(`/dashboard/accounts/subcontractor-bills/${record.id}`)} title="View Details" />
-      ),
+      title: 'WO Amount', key: 'woAmount', width: 140, align: 'right',
+      render: (_, r) => r.subcontractWorkOrder
+        ? formatCurrency(r.subcontractWorkOrder.totalAmount)
+        : <Typography.Text type="secondary">-</Typography.Text>,
     },
     {
-      title: 'Status', key: 'status', width: 140,
-      render: (_, record) => (
+      title: 'Work Order', key: 'workOrder', width: 110,
+      render: (_, r) => r.subcontractWorkOrder?.workorderUrl ? (
+        <Button type="link" size="small" icon={<FilePdfOutlined />} href={r.subcontractWorkOrder.workorderUrl} target="_blank">
+          View
+        </Button>
+      ) : <Typography.Text type="secondary">-</Typography.Text>,
+    },
+    {
+      title: 'Notes', key: 'notes', width: 200, ellipsis: true,
+      render: (_, r) => r.notes || '-',
+    },
+    {
+      title: 'History', key: 'history', width: 220,
+      render: (_, r) => {
+        const payments = [...(r.payments || [])].sort(
+          (a, b) => new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime(),
+        );
+        const woValue = r.subcontractWorkOrder?.totalAmount;
+        const requested = Number(r.amount) + Number(r.gstAmount || 0);
+        const balance = requested - Number(r.paidAmount || 0);
+        const ordinal = (n: number) => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`);
+        return (
+          <Flex vertical gap={0}>
+            <Typography.Text className="text-xs">WO Value: {woValue != null ? formatCurrency(woValue) : '-'}</Typography.Text>
+            {payments.length === 0 ? (
+              <Typography.Text type="secondary" className="text-xs">No payments yet</Typography.Text>
+            ) : (
+              payments.slice(0, 2).map((p, i) => (
+                <Typography.Text key={p.id} className="text-xs">{ordinal(i + 1)} Payment: {formatCurrency(p.amount)}</Typography.Text>
+              ))
+            )}
+            <Typography.Text strong className="text-xs">Balance Payment: {formatCurrency(balance)}</Typography.Text>
+          </Flex>
+        );
+      },
+    },
+    {
+      title: 'Requested At', key: 'requestedAt', width: 120,
+      render: (_, r) => formatDate(r.createdAt),
+    },
+    {
+      title: 'Status', dataIndex: 'status', width: 170,
+      render: (value, record) => (
         <Select
-          defaultValue={record.status || 'pending'} size="small" variant="borderless" className="w-full"
+          value={value}
+          size="small"
+          variant="borderless"
+          className="w-full"
+          popupMatchSelectWidth={false}
+          disabled={isPending}
+          options={APPROVAL_STATUS_OPTIONS}
           onChange={(newStatus) => handleSubcontractorBillStatusChange(record.id, newStatus)}
-          options={APPROVAL_STATUS_OPTIONS} popupMatchSelectWidth={false} disabled={isPending}
         />
       ),
     },
   ];
 
+  // Same column layout as the Bills page.
   const billColumns: ColumnsType<PurchaseBill> = [
-    { title: '#', key: 'sno', width: 50, render: (_, __, i) => i + 1 },
-    { title: 'Date', dataIndex: 'billDate', render: formatDate },
-    { title: 'Bill No', dataIndex: 'billNumber' },
-    { title: 'Vendor', key: 'vendor', render: (_, record) => record.vendor?.name || '-' },
-    { title: 'Amount', dataIndex: 'amount', align: 'right', render: formatCurrency },
+    { title: 'S.No', key: 'sno', width: 60, render: (_, __, i) => i + 1 },
+    { title: 'Created Date', dataIndex: 'createdAt', width: 110, render: (v?: string) => formatDate(v) },
+    { title: 'MR Ref', key: 'mrRef', width: 130, render: (_, r) => r.purchaseOrder?.materialRequirementNo || '-' },
     {
-      title: 'Actions', key: 'actions', width: 80,
-      render: (_, record) => (
-        <Button size="small" icon={<EyeOutlined />} onClick={() => router.push(`/dashboard/accounts/bills/${record.id}`)} title="View Details" />
-      ),
+      title: 'Purchase Enquiry', key: 'purchaseEnquiry', width: 150,
+      render: (_, r) => {
+        const vq = enquiryFor(r);
+        if (!vq) return <Typography.Text type="secondary">-</Typography.Text>;
+        return (
+          <Flex vertical gap={0}>
+            <Typography.Text className="text-xs">{formatDate(vq.createdAt)}</Typography.Text>
+            {vq.quotationUrl && (
+              <Button type="link" size="small" className="px-0! h-auto!" icon={<FilePdfOutlined />} href={vq.quotationUrl} target="_blank">
+                Quotation
+              </Button>
+            )}
+          </Flex>
+        );
+      },
     },
+    { title: 'PO Number', key: 'purchaseOrder', width: 130, render: (_, r) => r.purchaseOrder?.poNumber || '-' },
+    { title: 'Bill No', dataIndex: 'billNumber', width: 130, render: (v: string) => <Typography.Text strong>{v}</Typography.Text> },
+    { title: 'Vendor', key: 'vendor', width: 160, render: (_, r) => r.vendor?.name || '-' },
+    { title: 'Project', key: 'project', width: 160, render: (_, r) => r.project?.name || r.purchaseOrder?.project?.name || '-' },
     {
-      title: 'Status', key: 'status', width: 140,
-      render: (_, record) => (
+      title: 'Status', dataIndex: 'status', width: 170,
+      render: (value, record) => canApproveBill ? (
         <Select
-          defaultValue={record.status || 'pending'} size="small" variant="borderless" className="w-full"
-          onChange={(newStatus) => handleBillStatusChange(record.id, newStatus)}
-          options={APPROVAL_STATUS_OPTIONS} popupMatchSelectWidth={false} disabled={isPending}
+          value={value}
+          size="small"
+          variant="borderless"
+          className="w-full"
+          popupMatchSelectWidth={false}
+          disabled={isPending}
+          options={BILL_STATUS_OPTIONS}
+          onChange={(newStatus) => handleBillStatusChange(record, newStatus)}
         />
+      ) : (
+        <StatusTag value={value} />
       ),
     },
+    {
+      title: 'GST', dataIndex: 'gstAmount', align: 'right', width: 110,
+      render: (value) => Number(value) > 0 ? formatCurrency(value) : <Typography.Text type="secondary">-</Typography.Text>,
+    },
+    {
+      // The bill amount already carries GST (copied from the PO total).
+      title: 'Total Amount', dataIndex: 'amount', align: 'right', width: 130,
+      render: (value) => <Typography.Text strong>{formatCurrency(value)}</Typography.Text>,
+    },
+    {
+      title: 'Paid Amount', dataIndex: 'paidAmount', align: 'right', width: 120,
+      render: (value) => Number(value) > 0 ? formatCurrency(value) : <Typography.Text type="secondary">-</Typography.Text>,
+    },
+    {
+      title: 'Balance Amount', key: 'balanceAmount', align: 'right', width: 130,
+      render: (_, r) => {
+        const balance = Number(r.amount) - Number(r.paidAmount || 0);
+        return <Typography.Text strong={balance > 0}>{formatCurrency(balance)}</Typography.Text>;
+      },
+    },
+    {
+      title: 'History', key: 'history', width: 200,
+      render: (_, r) => {
+        const payments = [...(r.payments || [])].sort(
+          (a, b) => new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime(),
+        );
+        const poValue = r.purchaseOrder ? (r.purchaseOrder.totalWithGst || r.purchaseOrder.totalAmount) : r.amount;
+        const balance = Number(r.amount) - Number(r.paidAmount || 0);
+        const ordinal = (n: number) => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`);
+        return (
+          <Flex vertical gap={0}>
+            <Typography.Text className="text-xs">PO Value: {formatCurrency(poValue)}</Typography.Text>
+            {payments.length === 0 ? (
+              <Typography.Text type="secondary" className="text-xs">No payments yet</Typography.Text>
+            ) : (
+              payments.slice(0, 2).map((p, i) => (
+                <Typography.Text key={p.id} className="text-xs">{ordinal(i + 1)} Payment: {formatCurrency(p.amount)}</Typography.Text>
+              ))
+            )}
+            <Typography.Text strong className="text-xs">Balance Payment: {formatCurrency(balance)}</Typography.Text>
+          </Flex>
+        );
+      },
+    },
+    {
+      title: 'Action', key: 'actions', width: 170,
+      render: (_, record) => <BillDocumentsMenu bill={record} canApprove={canApproveBill} />,
+    },
+    { title: 'Bill Date', dataIndex: 'billDate', width: 110, render: formatDate },
   ];
 
   const renderContent = (
@@ -352,6 +500,7 @@ export function ApprovalsClient({ bills, subcontractorBills, expenses, dailyRepo
     dataSource: any[],
     columns: ColumnsType<any>,
     emptyText: string,
+    scrollX = 1300,
   ) => (
     <>
       <Row gutter={16} className="mb-4">
@@ -394,7 +543,7 @@ export function ApprovalsClient({ bills, subcontractorBills, expenses, dailyRepo
         </Row>
         <Table
           dataSource={dataSource} columns={columns} rowKey="id"
-          pagination={{ pageSize: 10 }} scroll={{ x: 1300 }}
+          pagination={{ pageSize: 10 }} scroll={{ x: scrollX }}
           locale={{ emptyText }}
         />
       </div>
@@ -427,12 +576,12 @@ export function ApprovalsClient({ bills, subcontractorBills, expenses, dailyRepo
             {
               key: 'bills',
               label: <span><FileDoneOutlined /> Purchase Bills (Material)</span>,
-              children: renderContent(billCounts, filteredBills, billColumns, 'No purchase bills'),
+              children: renderContent(billCounts, filteredBills, billColumns, 'No purchase bills', 2210),
             },
             {
               key: 'subBills',
               label: <span><FileDoneOutlined /> Subcontractor Bills</span>,
-              children: renderContent(subcontractorBillCounts, filteredSubcontractorBills, subcontractorBillColumns, 'No subcontractor bills'),
+              children: renderContent(subcontractorBillCounts, filteredSubcontractorBills, subcontractorBillColumns, 'No subcontractor bills', 1650),
             },
             {
               key: 'expenses',

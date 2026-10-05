@@ -94,9 +94,30 @@ export async function updateBillStatus(id: string, status: string) {
     const res = await fetch(`${getApiBaseUrl()}/bills/${id}/status`, {
       method: 'PATCH', headers, body: JSON.stringify({ status }),
     });
-    if (!res.ok) throw new Error('Failed to update bill status');
+    if (!res.ok) {
+      // Surface the server's reason (e.g. "Still to check: MRR") instead of a generic message.
+      const body = await res.json().catch(() => null);
+      const reason = Array.isArray(body?.message) ? body.message.join(', ') : body?.message;
+      throw new Error(reason || 'Failed to update bill status');
+    }
     revalidatePath('/dashboard/accounts/bills');
     revalidatePath('/dashboard/approvals');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
+  }
+}
+
+// Ticks one of the three documents (mrr | enquiry | po) as checked for a bill.
+export async function markBillDocumentChecked(id: string, document: 'mrr' | 'enquiry' | 'po') {
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/bills/${id}/document-check`, {
+      method: 'PATCH', headers, body: JSON.stringify({ document }),
+    });
+    if (!res.ok) throw new Error('Failed to mark document as checked');
+    revalidatePath('/dashboard/accounts/bills');
     return res.json();
   } catch (error) {
     if (error instanceof Error) throw error;

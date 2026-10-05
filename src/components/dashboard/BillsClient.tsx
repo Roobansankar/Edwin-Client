@@ -5,15 +5,16 @@ import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { App, Button, Card, DatePicker, Drawer, Flex, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Typography, Upload, Divider } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { DeleteOutlined, EditOutlined, EyeOutlined, FileDoneOutlined, PlusOutlined, HistoryOutlined, SearchOutlined, UploadOutlined, FileTextOutlined, FileExcelOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, FileDoneOutlined, PlusOutlined, HistoryOutlined, SearchOutlined, UploadOutlined, FileTextOutlined, FileExcelOutlined, FilePdfOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { Controller, useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { z } from 'zod';
-import { createBill, updateBill, deleteBill, uploadBillFile } from '@/actions/invoices';
+import { createBill, updateBill, deleteBill, uploadBillFile, updateBillStatus } from '@/actions/invoices';
 import { createPayment } from '@/actions/payments';
 import { getApiBaseUrl } from '@/lib/api-url';
 import { exportToExcel } from '@/lib/excel';
-import type { Vendor, Project, PurchaseBill, PurchaseOrder } from '@/types/erp';
+import type { Vendor, Project, PurchaseBill, PurchaseOrder, VendorQuotation } from '@/types/erp';
+import { BillDocumentsMenu, BILL_STATUS_OPTIONS, missingDocs } from './BillDocumentsMenu';
 import { PaymentMode, BillStatus } from '@/types/erp';
 import {
   StatusTag,
@@ -69,11 +70,14 @@ type BillsClientProps = {
   vendors: Vendor[];
   projects: Project[];
   purchaseOrders: PurchaseOrder[];
+  vendorQuotations: VendorQuotation[];
   userRole: string;
 };
 
-export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole }: BillsClientProps) {
+export function BillsClient({ bills, vendors, projects, purchaseOrders, vendorQuotations, userRole }: BillsClientProps) {
   const canManagePayments = userRole === 'admin' || userRole === 'accounts_manager';
+  // Only admin / accounts can change a bill's status or tick its documents.
+  const canApproveBill = userRole === 'admin' || userRole === 'accounts_manager';
   // Recording a bill is purchase team's job (they're the ones receiving
   // vendor bills); accounts only reviews/approves and manages payments.
   const canRecordBill = userRole === 'admin' || userRole === 'purchase_team';
@@ -87,6 +91,39 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
   const [fileList, setFileList] = useState<any[]>([]);
   const [searchText, setSearchText] = useState('');
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
+  // Latest vendor quotation per (vendor, MR ref) - the "Purchase Enquiry" a
+  // bill's PO was raised from.
+  const enquiryByVendorAndMr = useMemo(() => {
+    const map = new Map<string, VendorQuotation>();
+    for (const vq of vendorQuotations) {
+      const key = `${vq.vendorId}|${vq.materialRequirement?.enquiryNo || ''}`;
+      if (!map.has(key)) map.set(key, vq);
+    }
+    return map;
+  }, [vendorQuotations]);
+  const enquiryFor = (bill: PurchaseBill) =>
+    enquiryByVendorAndMr.get(`${bill.vendorId}|${bill.purchaseOrder?.materialRequirementNo || ''}`) || null;
+
+  // Moving to Accounts Approved is blocked until all three documents are
+  // checked (the server enforces the same rule).
+  const handleBillStatusSelect = (bill: PurchaseBill, newStatus: string) => {
+    if (newStatus === 'admin_approved') {
+      const missing = missingDocs(bill);
+      if (missing.length) {
+        message.error(`Open and check all three documents first. Still to check: ${missing.join(', ')}`);
+        return;
+      }
+    }
+    startTransition(async () => {
+      try {
+        await updateBillStatus(bill.id, newStatus);
+        message.success('Bill status updated');
+        router.refresh();
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : 'Failed to update status');
+      }
+    });
+  };
 
   const filteredBills = useMemo(() => {
     const from = dateRange[0]?.format('YYYY-MM-DD');
@@ -344,8 +381,40 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
       render: (_text, _record, index) => index + 1,
     },
     {
-      title: 'PO No',
+      title: 'Created Date',
+      dataIndex: 'createdAt',
+      width: 110,
+      render: (value?: string) => formatDate(value),
+    },
+    {
+      title: 'MR Ref',
+      key: 'mrRef',
+      width: 130,
+      render: (_value, record) => record.purchaseOrder?.materialRequirementNo || '-',
+    },
+    {
+      title: 'Purchase Enquiry',
+      key: 'purchaseEnquiry',
+      width: 150,
+      render: (_value, record) => {
+        const vq = enquiryFor(record);
+        if (!vq) return <Typography.Text type="secondary">-</Typography.Text>;
+        return (
+          <Flex vertical gap={0}>
+            <Typography.Text className="text-xs">{formatDate(vq.createdAt)}</Typography.Text>
+            {vq.quotationUrl && (
+              <Button type="link" size="small" className="px-0! h-auto!" icon={<FilePdfOutlined />} href={vq.quotationUrl} target="_blank">
+                Quotation
+              </Button>
+            )}
+          </Flex>
+        );
+      },
+    },
+    {
+      title: 'PO Number',
       key: 'purchaseOrder',
+      width: 130,
       render: (_value, record) => record.purchaseOrder ? (
         <Typography.Text>{record.purchaseOrder.poNumber}</Typography.Text>
       ) : '-',
@@ -353,63 +422,93 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
     {
       title: 'Bill No',
       dataIndex: 'billNumber',
+      width: 130,
       render: (value: string) => <Typography.Text strong>{value}</Typography.Text>,
-    },
-    {
-      title: 'Bill Date',
-      dataIndex: 'billDate',
-      render: formatDate,
     },
     {
       title: 'Vendor',
       dataIndex: ['vendor', 'name'],
+      width: 160,
       render: (_value, record) => record.vendor?.name || '-',
     },
     {
+      title: 'Project',
+      key: 'project',
+      width: 160,
+      render: (_value, record) => record.project?.name || record.purchaseOrder?.project?.name || '-',
+    },
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      width: 170,
+      render: (value, record) => canApproveBill ? (
+        <Select
+          value={value}
+          size="small"
+          variant="borderless"
+          className="w-full"
+          popupMatchSelectWidth={false}
+          disabled={isPending}
+          options={BILL_STATUS_OPTIONS}
+          onChange={(newStatus) => handleBillStatusSelect(record, newStatus)}
+        />
+      ) : (
+        <StatusTag value={value} />
+      ),
+    },
+    {
+      title: 'GST',
+      dataIndex: 'gstAmount',
+      align: 'right',
+      width: 110,
+      render: (value) => Number(value) > 0 ? formatCurrency(value) : <Typography.Text type="secondary">-</Typography.Text>,
+    },
+    {
+      // The bill amount already carries GST (copied from the PO total).
       title: 'Total Amount',
       dataIndex: 'amount',
       align: 'right',
-      render: (value) => formatCurrency(value),
+      width: 130,
+      render: (value) => <Typography.Text strong>{formatCurrency(value)}</Typography.Text>,
     },
     {
-      title: 'Doc',
-      dataIndex: 'billFileUrl',
-      width: 60,
-      render: (url) => url ? (
-        <Button
-          type="text"
-          icon={<FileTextOutlined className="text-blue-500" />}
-          title="Vendor Bill"
-          onClick={() => window.open(`${getApiBaseUrl().replace('/api/v1', '')}${url}`, '_blank')}
-        />
-      ) : '-',
-    },
-    {
-      title: 'Amount Paid',
+      title: 'Paid Amount',
       dataIndex: 'paidAmount',
       align: 'right',
       width: 120,
       render: (value) => Number(value) > 0 ? formatCurrency(value) : <Typography.Text type="secondary">-</Typography.Text>,
     },
     {
+      title: 'Balance Amount',
+      key: 'balanceAmount',
+      align: 'right',
+      width: 130,
+      render: (_value, record) => {
+        const balance = Number(record.amount) - Number(record.paidAmount || 0);
+        return <Typography.Text strong={balance > 0}>{formatCurrency(balance)}</Typography.Text>;
+      },
+    },
+    {
       title: 'History',
       key: 'history',
-      width: 170,
+      width: 200,
       render: (_, record) => {
         const payments = [...(record.payments || [])].sort(
           (a, b) => new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime(),
         );
+        const poValue = record.purchaseOrder ? (record.purchaseOrder.totalWithGst || record.purchaseOrder.totalAmount) : record.amount;
         const balance = Number(record.amount) - Number(record.paidAmount || 0);
         return (
           <Flex vertical gap={0}>
+            <Typography.Text className="text-xs">PO Value: {formatCurrency(poValue)}</Typography.Text>
             {payments.length === 0 ? (
               <Typography.Text type="secondary" className="text-xs">No payments yet</Typography.Text>
             ) : (
               payments.slice(0, 2).map((p, i) => (
-                <Typography.Text key={p.id} className="text-xs">{ordinal(i + 1)} Paid: {formatCurrency(p.amount)}</Typography.Text>
+                <Typography.Text key={p.id} className="text-xs">{ordinal(i + 1)} Payment: {formatCurrency(p.amount)}</Typography.Text>
               ))
             )}
-            <Typography.Text strong className="text-xs">Balance: {formatCurrency(balance)}</Typography.Text>
+            <Typography.Text strong className="text-xs">Balance Payment: {formatCurrency(balance)}</Typography.Text>
             {canManagePayments && payments.length > 0 && (
               <Button type="link" size="small" icon={<HistoryOutlined />} className="px-0! h-auto! justify-start!" onClick={() => setHistoryBill(record)}>
                 {payments.length > 2 ? `View all (${payments.length})` : 'View'}
@@ -420,62 +519,61 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
       },
     },
     {
-      title: 'Status',
-      dataIndex: 'status',
-      render: (value) => <StatusTag value={value} />,
-    },
-    {
-      title: 'Actions',
+      title: 'Action',
       key: 'actions',
-      render: (_, record) => (
-        <Space>
-          <Button
-            size="small"
-            icon={<EyeOutlined />}
-            onClick={() => router.push(`/dashboard/accounts/bills/${record.id}`)}
-            title="View Details — MR, Enquiry, PO, Material Received, Vendor Bill"
-          />
-          {record.status === 'pending' && (
-            <>
-              <Button
-                size="small"
-                icon={<EditOutlined />}
-                onClick={() => handleEdit(record)}
-                title="Edit"
-              />
-              <Popconfirm
-                title="Delete Bill?"
-                description="This will permanently delete this bill."
-                onConfirm={() => handleDelete(record.id)}
-                okText="Yes"
-                cancelText="No"
-                okButtonProps={{ danger: true }}
-              >
+      width: 210,
+      render: (_, record) => {
+        return (
+          <Space>
+            <BillDocumentsMenu bill={record} canApprove={canApproveBill} />
+            {record.status === 'pending' && (
+              <>
                 <Button
                   size="small"
-                  type="text"
-                  icon={<DeleteOutlined className="text-red-500" />}
-                  title="Delete"
-                  loading={isPending}
+                  icon={<EditOutlined />}
+                  onClick={() => handleEdit(record)}
+                  title="Edit"
                 />
-              </Popconfirm>
-            </>
-          )}
-          {canManagePayments && (
-            <Button
-              size="small"
-              type="primary"
-              disabled={record.status === 'approved'}
-              onClick={() => {
-                setPaymentBill(record);
-                paymentForm.setValue('amount', Number(record.amount) - Number(record.paidAmount));
-              }}
-            >
-              Cash Outflow
-            </Button>
-          )}
-        </Space>
-      ),
+                <Popconfirm
+                  title="Delete Bill?"
+                  description="This will permanently delete this bill."
+                  onConfirm={() => handleDelete(record.id)}
+                  okText="Yes"
+                  cancelText="No"
+                  okButtonProps={{ danger: true }}
+                >
+                  <Button
+                    size="small"
+                    type="text"
+                    icon={<DeleteOutlined className="text-red-500" />}
+                    title="Delete"
+                    loading={isPending}
+                  />
+                </Popconfirm>
+              </>
+            )}
+            {canManagePayments && (
+              <Button
+                size="small"
+                type="primary"
+                disabled={record.status === 'approved'}
+                onClick={() => {
+                  setPaymentBill(record);
+                  paymentForm.setValue('amount', Number(record.amount) - Number(record.paidAmount));
+                }}
+              >
+                Cash Outflow
+              </Button>
+            )}
+          </Space>
+        );
+      },
+    },
+    {
+      title: 'Bill Date',
+      dataIndex: 'billDate',
+      width: 110,
+      render: formatDate,
     },
   ];
 
@@ -549,7 +647,7 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
           columns={columns}
           rowKey="id"
           size="middle"
-          scroll={{ x: 1350 }}
+          scroll={{ x: 2210 }}
           pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} bills` }}
         />
       </Card>

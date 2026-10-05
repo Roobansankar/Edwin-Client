@@ -73,12 +73,6 @@ const PAYMENT_TERMS_OPTIONS = [
   { label: 'Full Payment', value: 'full_payment' },
 ];
 
-const PAYMENT_TERMS_LABELS: Record<string, string> = {
-  advance: 'Advance',
-  credit: 'Credit',
-  full_payment: 'Full Payment',
-};
-
 export function formatDateTime(value?: string | null) {
   if (!value) return '-';
   const date = new Date(value);
@@ -311,14 +305,20 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
 
   const columns: ColumnsType<PurchaseEnquiry> = [
     { title: 'S.No', key: 'sno', width: 60, render: (_, __, i) => i + 1 },
-    { title: 'Enquiry No', dataIndex: 'enquiryNo', key: 'enquiryNo', width: 140 },
-
+    { title: 'MR NO', dataIndex: 'enquiryNo', key: 'enquiryNo', width: 140 },
+    {
+      title: 'Material Request Date',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      width: 150,
+      render: (v: string) => formatDate(v),
+    },
     { title: 'Project', key: 'project', width: 160, render: (_, r) => r.project?.name || r.projectId },
     ...(!isSiteEngineer
       ? [{ title: 'Site Engineer', key: 'creator', width: 140, render: (_: unknown, r: PurchaseEnquiry) => r.creator?.name || r.createdBy || '-' }]
       : []),
     {
-      title: 'Items',
+      title: 'Item',
       key: 'items',
       width: 200,
       render: (_, r) => (
@@ -329,6 +329,14 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
             </Typography.Text>
           ))}
         </Flex>
+      ),
+    },
+    {
+      title: 'Expected Date & Time',
+      key: 'expectedDate',
+      width: 170,
+      render: (_, r) => (
+        <Typography.Text className="text-xs">{formatDateTime(r.expectedDate)}</Typography.Text>
       ),
     },
     {
@@ -361,110 +369,69 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
         ),
     },
     {
-      title: 'Amount / Balance',
-      key: 'amountBalance',
-      width: 200,
-      render: (_, r) => {
-        const { total, balance, hasPo } = enquiryTotals(r.enquiryNo);
-        if (!hasPo) return <Typography.Text type="secondary">-</Typography.Text>;
-        return (
-          <Flex vertical gap={0}>
-            <Typography.Text className="text-xs">Total: <Typography.Text strong>{formatCurrency(total)}</Typography.Text></Typography.Text>
-            <Typography.Text className="text-xs">Balance: <Typography.Text strong>{formatCurrency(balance)}</Typography.Text></Typography.Text>
-          </Flex>
-        );
-      },
-    },
-    {
-      title: 'History',
-      key: 'history',
-      width: 90,
-      render: (_, r) => {
-        const { hasPo } = enquiryTotals(r.enquiryNo);
-        return hasPo ? (
-          <Button type="link" size="small" className="px-0! h-auto!" icon={<HistoryOutlined />} onClick={() => openHistory(r)}>
-            History
-          </Button>
-        ) : (
-          <Typography.Text type="secondary">-</Typography.Text>
-        );
-      },
-    },
-    {
-      title: 'Expected By',
-      key: 'expectedDate',
-      width: 160,
-      render: (_, r) => (
-        <Typography.Text className="text-xs">{formatDateTime(r.expectedDate)}</Typography.Text>
-      ),
-    },
-    {
-      title: 'Payment Terms',
-      key: 'paymentTerms',
-      width: 130,
-      render: (_, r) => (
-        r.paymentTerms ? <Tag color="blue">{PAYMENT_TERMS_LABELS[r.paymentTerms] || r.paymentTerms}</Tag> : <Typography.Text type="secondary">-</Typography.Text>
-      ),
-    },
-    {
-      title: isPurchaseTeam ? 'Request Date' : 'Created',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      width: 110,
-      render: (v: string) => formatDate(v),
-    },
-    {
       title: 'Actions',
       key: 'actions',
-      width: isSiteEngineer ? 160 : 120,
-      render: (_, record) => (
-        <Space>
-          {canManageEnquiry && (
+      width: 200,
+      render: (_, record) => {
+        const { hasPo } = enquiryTotals(record.enquiryNo);
+        return (
+          <Space>
+            {canManageEnquiry && (
+              <Button
+                type="link"
+                size="small"
+                icon={<EditOutlined />}
+                title="Edit enquiry"
+                onClick={() => {
+                  setEditing(record);
+                  setOpen(true);
+                }}
+              />
+            )}
             <Button
               type="link"
               size="small"
-              icon={<EditOutlined />}
-              title="Edit enquiry"
+              icon={<FilePdfOutlined />}
+              title="Preview full PDF"
               onClick={() => {
-                setEditing(record);
-                setOpen(true);
+                setPreviewEnquiry(record);
+                setPreviewItems(null);
+                setPreviewVendorName(null);
               }}
             />
-          )}
-          <Button
-            type="link"
-            size="small"
-            icon={<FilePdfOutlined />}
-            title="Preview full PDF"
-            onClick={() => {
-              setPreviewEnquiry(record);
-              setPreviewItems(null);
-              setPreviewVendorName(null);
-            }}
-          />
-          {!isSiteEngineer && (
-            <Button
-              type="link"
-              size="small"
-              icon={<SplitCellsOutlined />}
-              title="Split items by vendor & generate PDF"
-              onClick={() => openSplit(record)}
-            />
-          )}
-          {isSiteEngineer && (
-            <Popconfirm title="Delete this enquiry?" onConfirm={() => startTransition(async () => {
-              try {
-                await deletePurchaseEnquiry(record.id);
-                message.success('Deleted');
-              } catch (e) {
-                message.error('Failed to delete');
-              }
-            })}>
-              <Button danger type="link" size="small" icon={<DeleteOutlined />} />
-            </Popconfirm>
-          )}
-        </Space>
-      ),
+            {!isSiteEngineer && (
+              <Button
+                type="link"
+                size="small"
+                icon={<SplitCellsOutlined />}
+                title="Split items by vendor & generate PDF"
+                onClick={() => openSplit(record)}
+              />
+            )}
+            {hasPo && (
+              <Button
+                type="link"
+                size="small"
+                icon={<HistoryOutlined />}
+                title="Payment history"
+                onClick={() => openHistory(record)}
+              />
+            )}
+            {isSiteEngineer && (
+              <Popconfirm title="Delete this enquiry?" onConfirm={() => startTransition(async () => {
+                try {
+                  await deletePurchaseEnquiry(record.id);
+                  message.success('Deleted');
+                } catch (e) {
+                  message.error('Failed to delete');
+                }
+              })}>
+                <Button danger type="link" size="small" icon={<DeleteOutlined />} />
+              </Popconfirm>
+            )}
+          </Space>
+        );
+      },
     },
   ];
 
@@ -526,7 +493,7 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
           loading={isPending}
           size="middle"
           pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (total) => `${total} enquiries` }}
-          scroll={{ x: 1380 }}
+          scroll={{ x: 1500 }}
           locale={{ emptyText: isSiteEngineer ? 'No material requirements yet. Create one!' : 'No material requests yet.' }}
         />
       </Card>

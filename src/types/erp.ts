@@ -563,6 +563,9 @@ export type PurchaseBill = {
   gstPercent?: number | string | null;
   gstAmount?: number | string | null;
   status: BillStatus;
+  mrrChecked?: boolean;
+  enquiryChecked?: boolean;
+  poChecked?: boolean;
   paidAmount: number | string;
   billDate: string;
   dueDate?: string | null;
