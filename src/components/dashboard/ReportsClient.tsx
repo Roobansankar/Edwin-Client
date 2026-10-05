@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   Button,
   Card,
@@ -15,7 +15,7 @@ import {
   Tag,
   Typography,
 } from 'antd';
-import type { Dayjs } from 'dayjs';
+import dayjs, { type Dayjs } from 'dayjs';
 import type { ColumnsType } from 'antd/es/table';
 import {
   DollarOutlined,
@@ -44,6 +44,28 @@ function inRange(dateStr: string | null | undefined, range: [Dayjs | null, Dayjs
   const to = range[1].format('YYYY-MM-DD');
   const d = dateStr.split('T')[0];
   return d >= from && d <= to;
+}
+
+// One row per (report, worker category). The report-level cells (S.No, Date,
+// Week, Project, Trade, Team, Status) are shown once and span that report's rows.
+type DailyLabourGroupRow = {
+  key: string;
+  groupSno: number;
+  report: DailyLabourReport;
+  category: string;
+  totalShift: number;
+  totalAmount: number;
+  span: number;
+  first: boolean;
+};
+
+// Monday-to-Sunday week that contains the report date, e.g. "Sep 7 to 13".
+function reportWeekLabel(dateStr: string) {
+  const d = dayjs(dateStr);
+  if (!d.isValid()) return '-';
+  const start = d.subtract((d.day() + 6) % 7, 'day');
+  const end = start.add(6, 'day');
+  return `${start.format('MMM D')} to ${end.format(start.month() === end.month() ? 'D' : 'MMM D')}`;
 }
 
 // Status filter options for the vendor / subcontractor bill tabs.
@@ -125,7 +147,9 @@ export function ReportsClient({
   }, [projectExpenses]);
 
   const filteredDailyLabour = useMemo(() => {
+    // Only reports that Accounts & Admin have fully approved (report status 'approved').
     return dailyLabourReports
+      .filter((r) => r.status === 'approved')
       .filter((r) => (!dlProjectId || r.projectId === dlProjectId) && inRange(r.reportDate, dlDateRange))
       .sort((a, b) => (b.reportDate || '').localeCompare(a.reportDate || ''));
   }, [dailyLabourReports, dlProjectId, dlDateRange]);
@@ -202,6 +226,33 @@ export function ReportsClient({
     return { count: filteredDailyLabour.length, headcount, totalShift };
   }, [filteredDailyLabour]);
 
+  const dailyLabourRows = useMemo<DailyLabourGroupRow[]>(() => {
+    return filteredDailyLabour.flatMap((report, index) => {
+      const byCategory = new Map<string, { totalShift: number; totalAmount: number }>();
+      for (const w of report.workers || []) {
+        const category = w.trade || '-';
+        const count = Number(w.count) || 1;
+        const shift = Number(w.shift) || 0;
+        const totals = byCategory.get(category) || { totalShift: 0, totalAmount: 0 };
+        totals.totalShift += count * shift;
+        totals.totalAmount += count * shift * (Number(w.shiftAmount) || 0);
+        byCategory.set(category, totals);
+      }
+      const categories = [...byCategory.entries()];
+      if (categories.length === 0) categories.push(['-', { totalShift: 0, totalAmount: 0 }]);
+      return categories.map(([category, totals], i) => ({
+        key: `${report.id}-${category}`,
+        groupSno: index + 1,
+        report,
+        category,
+        totalShift: totals.totalShift,
+        totalAmount: totals.totalAmount,
+        span: categories.length,
+        first: i === 0,
+      }));
+    });
+  }, [filteredDailyLabour]);
+
   const exportProjectBills = () => {
     exportToExcel({
       filename: `Project-Bills-${selectedProjectId && selectedProjectId !== ALL_PROJECTS ? (projectNameById.get(selectedProjectId) || 'report') : 'all'}`,
@@ -266,19 +317,22 @@ export function ReportsClient({
     exportToExcel({
       filename: 'Daily-Labour-List',
       sheetName: 'Daily Labour',
-      headers: ['Date', 'Project', 'Site Engineer', 'Headcount', 'Trade Count', 'Total Shift', 'Status'],
-      rows: filteredDailyLabour.map((r) => {
-        const headcount = (r.workers || []).reduce((s, w) => s + (Number(w.count) || 1), 0);
-        const tradeCount = new Set((r.workers || []).map((w) => w.trade).filter(Boolean)).size;
-        const totalShift = (r.workers || []).reduce((s, w) => s + (Number(w.count) || 1) * (Number(w.shift) || 0), 0);
+      headers: ['S.No', 'Date', 'Week', 'All Project', 'Trade', 'Team', 'Category', 'Total Shift', 'Total Amount', 'Status'],
+      // Report-level cells are written on the first row of each report only, like the sheet layout.
+      rows: dailyLabourRows.map((row) => {
+        const r = row.report;
+        const first = row.first;
         return [
-          formatDate(r.reportDate),
-          r.project?.name || '-',
-          r.createdBy?.name || '-',
-          headcount,
-          tradeCount,
-          totalShift,
-          titleCase(r.status),
+          first ? row.groupSno : '',
+          first ? formatDate(r.reportDate) : '',
+          first ? reportWeekLabel(r.reportDate) : '',
+          first ? r.project?.name || '-' : '',
+          first ? r.project?.projectCategory?.name || '-' : '',
+          first ? r.createdBy?.name || '-' : '',
+          row.category,
+          row.totalShift,
+          row.totalAmount,
+          first ? 'Account & Admin Approved' : '',
         ];
       }),
     });
@@ -370,39 +424,23 @@ export function ReportsClient({
   ];
 
 
-  const dailyLabourColumns: ColumnsType<DailyLabourReport> = [
-    { title: 'Date', dataIndex: 'reportDate', width: 120, render: (v: string) => <Typography.Text strong>{formatDate(v)}</Typography.Text> },
-    { title: 'Project', dataIndex: ['project', 'name'], width: 200, render: (v: string) => v || '-' },
-    { title: 'Site Engineer', key: 'creator', width: 180, render: (_, r) => r.createdBy?.name || '-' },
-    {
-      title: 'Headcount',
-      key: 'headcount',
-      align: 'right' as const,
-      width: 110,
-      render: (_, r) => (r.workers || []).reduce((s, w) => s + (Number(w.count) || 1), 0),
-    },
-    {
-      title: 'Trade Count',
-      key: 'tradeCount',
-      align: 'right' as const,
-      width: 110,
-      render: (_, r) => new Set((r.workers || []).map((w) => w.trade).filter(Boolean)).size,
-    },
-    {
-      title: 'Total Shift',
-      key: 'totalShift',
-      align: 'right' as const,
-      width: 110,
-      render: (_, r) => (r.workers || []).reduce((s, w) => s + (Number(w.count) || 1) * (Number(w.shift) || 0), 0),
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      width: 120,
-      render: (v: string) => (
-        <Tag color={v === 'approved' ? 'success' : v === 'rejected' ? 'error' : 'warning'}>{titleCase(v)}</Tag>
-      ),
-    },
+  // Report-level cells span all of that report's category rows.
+  const spanCell = (row: DailyLabourGroupRow, children: ReactNode) => ({
+    children,
+    props: { rowSpan: row.first ? row.span : 0 },
+  });
+
+  const dailyLabourColumns: ColumnsType<DailyLabourGroupRow> = [
+    { title: 'S.No', key: 'sno', align: 'right' as const, width: 70, render: (_, row) => spanCell(row, row.groupSno) },
+    { title: 'Date', key: 'date', width: 120, render: (_, row) => spanCell(row, <Typography.Text strong>{formatDate(row.report.reportDate)}</Typography.Text>) },
+    { title: 'Week', key: 'week', width: 150, render: (_, row) => spanCell(row, reportWeekLabel(row.report.reportDate)) },
+    { title: 'All Project', key: 'project', width: 200, render: (_, row) => spanCell(row, row.report.project?.name || '-') },
+    { title: 'Trade', key: 'trade', width: 140, render: (_, row) => spanCell(row, row.report.project?.projectCategory?.name || '-') },
+    { title: 'Team', key: 'team', width: 160, render: (_, row) => spanCell(row, row.report.createdBy?.name || '-') },
+    { title: 'Category', key: 'category', width: 130, render: (_, row) => <Tag color="black">{row.category}</Tag> },
+    { title: 'Total Shift', key: 'totalShift', align: 'right' as const, width: 120, render: (_, row) => row.totalShift },
+    { title: 'Total Amount', key: 'totalAmount', align: 'right' as const, width: 140, render: (_, row) => formatCurrency(row.totalAmount) },
+    { title: 'Status', key: 'status', width: 190, render: (_, row) => spanCell(row, <Tag color="success">Account &amp; Admin Approved</Tag>) },
   ];
 
   // Same column layout as the Approvals / Bills pages, read-only here.
@@ -820,12 +858,12 @@ export function ReportsClient({
         >
           <Table
             className="mantis-table"
-            dataSource={filteredDailyLabour}
+            dataSource={dailyLabourRows}
             columns={dailyLabourColumns}
-            rowKey="id"
+            rowKey="key"
             size="middle"
-            scroll={{ x: 900 }}
-            pagination={{ pageSize: 15, showTotal: (total) => `${total} reports` }}
+            scroll={{ x: 1420 }}
+            pagination={{ pageSize: 20, showTotal: (total) => `${total} rows` }}
             locale={{ emptyText: 'No daily labour reports for the selected filters' }}
           />
         </Card>
