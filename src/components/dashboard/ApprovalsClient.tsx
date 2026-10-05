@@ -11,8 +11,9 @@ import { useAuthStore } from '@/store/auth';
 
 import dayjs from 'dayjs';
 import { updateBillStatus } from '@/actions/invoices';
+import { updateSubcontractorBillStatus } from '@/actions/subcontractor-bills';
 import { updateExpenseStatus } from '@/actions/expenses';
-import type { PurchaseBill, Expense, DailyLabourReport } from '@/types/erp';
+import type { PurchaseBill, Expense, DailyLabourReport, SubcontractorBill } from '@/types/erp';
 import {
   StatusTag,
   cardClassName,
@@ -39,11 +40,12 @@ const APPROVAL_STATUS_OPTIONS = [
 
 type Props = {
   bills: PurchaseBill[];
+  subcontractorBills: SubcontractorBill[];
   expenses: Expense[];
   dailyReports: DailyLabourReport[];
 };
 
-export function ApprovalsClient({ bills, expenses, dailyReports }: Props) {
+export function ApprovalsClient({ bills, subcontractorBills, expenses, dailyReports }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
@@ -103,6 +105,21 @@ export function ApprovalsClient({ bills, expenses, dailyReports }: Props) {
     });
   }, [bills, dateRange, searchText, statusFilter]);
 
+  const filteredSubcontractorBills = useMemo(() => {
+    const from = dateRange[0]?.format('YYYY-MM-DD');
+    const to = dateRange[1]?.format('YYYY-MM-DD');
+    const q = searchText.toLowerCase();
+    return subcontractorBills.filter((b) => {
+      if (from && to) {
+        const d = typeof b.billDate === 'string' ? b.billDate.split('T')[0] : '';
+        if (d < from || d > to) return false;
+      }
+      if (statusFilter && b.status !== statusFilter) return false;
+      if (q && !b.billNumber?.toLowerCase().includes(q) && !b.subcontractor?.name?.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [subcontractorBills, dateRange, searchText, statusFilter]);
+
   const filteredDaily = useMemo(() => {
     const from = dateRange[0]?.format('YYYY-MM-DD');
     const to = dateRange[1]?.format('YYYY-MM-DD');
@@ -150,6 +167,13 @@ export function ApprovalsClient({ bills, expenses, dailyReports }: Props) {
     });
   };
 
+  const handleSubcontractorBillStatusChange = (id: string, status: string) => {
+    startTransition(async () => {
+      try { await updateSubcontractorBillStatus(id, status); message.success('Subcontractor bill status updated'); }
+      catch (error) { message.error(error instanceof Error ? error.message : 'Failed'); }
+    });
+  };
+
   const expenseCounts = useMemo(() => ({
     pending: filteredExpenses.filter((e) => e.status === 'pending').length,
     admin_approved: filteredExpenses.filter((e) => e.status === 'admin_approved').length,
@@ -163,6 +187,13 @@ export function ApprovalsClient({ bills, expenses, dailyReports }: Props) {
     approved: filteredBills.filter((b) => b.status === 'approved').length,
     rejected: filteredBills.filter((b) => b.status === 'rejected').length,
   }), [filteredBills]);
+
+  const subcontractorBillCounts = useMemo(() => ({
+    pending: filteredSubcontractorBills.filter((b) => b.status === 'pending').length,
+    admin_approved: filteredSubcontractorBills.filter((b) => b.status === 'admin_approved').length,
+    approved: filteredSubcontractorBills.filter((b) => b.status === 'approved').length,
+    rejected: filteredSubcontractorBills.filter((b) => b.status === 'rejected').length,
+  }), [filteredSubcontractorBills]);
 
   const dailyCounts = useMemo(() => ({
     pending: filteredDaily.filter((r) => r.status === 'pending').length,
@@ -242,6 +273,33 @@ export function ApprovalsClient({ bills, expenses, dailyReports }: Props) {
         <Select
           value={record.status || 'pending'} size="small" variant="borderless" className="w-full"
           onChange={(newStatus) => handleExpenseStatusSelect(record.id, newStatus)}
+          options={APPROVAL_STATUS_OPTIONS} popupMatchSelectWidth={false} disabled={isPending}
+        />
+      ),
+    },
+  ];
+
+  const subcontractorBillColumns: ColumnsType<SubcontractorBill> = [
+    { title: '#', key: 'sno', width: 50, render: (_, __, i) => i + 1 },
+    { title: 'Date', dataIndex: 'billDate', render: formatDate },
+    { title: 'Bill No', dataIndex: 'billNumber' },
+    { title: 'Subcontractor', key: 'subcontractor', render: (_, record) => record.subcontractor?.name || '-' },
+    {
+      title: 'Total Amount', key: 'totalAmount', align: 'right',
+      render: (_, record) => formatCurrency(Number(record.amount) + Number(record.gstAmount || 0)),
+    },
+    {
+      title: 'Actions', key: 'actions', width: 80,
+      render: (_, record) => (
+        <Button size="small" icon={<EyeOutlined />} onClick={() => router.push(`/dashboard/accounts/subcontractor-bills/${record.id}`)} title="View Details" />
+      ),
+    },
+    {
+      title: 'Status', key: 'status', width: 140,
+      render: (_, record) => (
+        <Select
+          defaultValue={record.status || 'pending'} size="small" variant="borderless" className="w-full"
+          onChange={(newStatus) => handleSubcontractorBillStatusChange(record.id, newStatus)}
           options={APPROVAL_STATUS_OPTIONS} popupMatchSelectWidth={false} disabled={isPending}
         />
       ),
@@ -353,6 +411,11 @@ export function ApprovalsClient({ bills, expenses, dailyReports }: Props) {
               key: 'bills',
               label: <span><FileDoneOutlined /> Purchase Bills</span>,
               children: renderContent(billCounts, filteredBills, billColumns, 'No purchase bills'),
+            },
+            {
+              key: 'subBills',
+              label: <span><FileDoneOutlined /> Subcontractor Bills</span>,
+              children: renderContent(subcontractorBillCounts, filteredSubcontractorBills, subcontractorBillColumns, 'No subcontractor bills'),
             },
             {
               key: 'daily',
