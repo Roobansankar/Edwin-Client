@@ -211,6 +211,23 @@ export function ApprovalsClient({ bills, subcontractorBills, expenses, dailyRepo
       render: (_, record) => record.workers?.reduce((s, w) => s + Number(w.count || 1), 0) || 0,
     },
     {
+      // One tag per trade, coloured by that trade's own approval status -
+      // same status the daily labour detail page shows per trade.
+      title: 'Trade Status', key: 'tradeStatus', width: 360,
+      render: (_, record) => (
+        <Flex wrap="wrap" gap={4}>
+          {record.workers?.map((w) => {
+            const s = w.status || 'pending';
+            return (
+              <Tag key={w.id} color="black">
+                {w.trade} ({Number(w.count || 1)}) — {s.charAt(0).toUpperCase() + s.slice(1)}
+              </Tag>
+            );
+          })}
+        </Flex>
+      ),
+    },
+    {
       title: 'Actions', key: 'actions', width: 80,
       render: (_, record) => (
         <Button size="small" icon={<EyeOutlined />} onClick={() => router.push(`/dashboard/daily-labour/${record.id}`)} title="View Details" />
@@ -403,13 +420,13 @@ export function ApprovalsClient({ bills, subcontractorBills, expenses, dailyRepo
           onChange={(key) => { setActiveTab(key); setSearchText(''); setStatusFilter(''); }}
           items={[
             {
-              key: 'expenses',
-              label: <span><WalletOutlined /> Expenses</span>,
-              children: renderContent(expenseCounts, filteredExpenses, expenseColumns, 'No expenses pending approval'),
+              key: 'daily',
+              label: <span><CalendarOutlined /> Daily Labour List</span>,
+              children: renderContent(dailyCounts, filteredDaily, dailyColumns, 'No daily labour reports'),
             },
             {
               key: 'bills',
-              label: <span><FileDoneOutlined /> Purchase Bills</span>,
+              label: <span><FileDoneOutlined /> Purchase Bills (Material)</span>,
               children: renderContent(billCounts, filteredBills, billColumns, 'No purchase bills'),
             },
             {
@@ -418,9 +435,9 @@ export function ApprovalsClient({ bills, subcontractorBills, expenses, dailyRepo
               children: renderContent(subcontractorBillCounts, filteredSubcontractorBills, subcontractorBillColumns, 'No subcontractor bills'),
             },
             {
-              key: 'daily',
-              label: <span><CalendarOutlined /> Daily Labour List</span>,
-              children: renderContent(dailyCounts, filteredDaily, dailyColumns, 'No daily labour reports'),
+              key: 'expenses',
+              label: <span><WalletOutlined /> Expenses</span>,
+              children: renderContent(expenseCounts, filteredExpenses, expenseColumns, 'No expenses pending approval'),
             },
           ]}
         />
