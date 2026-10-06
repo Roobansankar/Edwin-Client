@@ -672,6 +672,8 @@ export type DailyWorker = {
   eveningPhoto5Url?: string | null;
   status?: string;
   reviewRemarks?: string | null;
+  // Set once this approved trade entry is included in a labour payment.
+  labourPaymentId?: string | null;
 };
 
 export type DailyLabourReport = {

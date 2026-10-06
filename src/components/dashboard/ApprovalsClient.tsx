@@ -14,7 +14,8 @@ import dayjs from 'dayjs';
 import { updateBillStatus } from '@/actions/invoices';
 import { updateSubcontractorBillStatus } from '@/actions/subcontractor-bills';
 import { updateExpenseStatus } from '@/actions/expenses';
-import type { PurchaseBill, Expense, DailyLabourReport, SubcontractorBill, VendorQuotation } from '@/types/erp';
+import type { PurchaseBill, Expense, DailyLabourReport, DailyWorker, SubcontractorBill, VendorQuotation } from '@/types/erp';
+import { clientApiFetch } from '@/lib/client-api';
 import { BillDocumentsMenu, BILL_STATUS_OPTIONS, missingDocs } from './BillDocumentsMenu';
 import {
   StatusTag,
@@ -41,6 +42,84 @@ const APPROVAL_STATUS_OPTIONS = [
   { label: 'Approved', value: 'approved' },
   { label: 'Rejected', value: 'rejected' },
 ];
+
+// One row of the weekly Daily Labour view: every report one site engineer
+// raised for one project in one week.
+type DailyWeekRow = {
+  key: string;
+  weekStart: string;
+  name: string;
+  projectName: string;
+  reports: DailyLabourReport[];
+};
+
+// One trade entry, listed under its week when that week is expanded.
+type DailyTradeRow = {
+  key: string;
+  reportId: string;
+  reportDate: string;
+  worker: DailyWorker;
+};
+
+const TRADE_STATUS_OPTIONS = [
+  { label: 'Pending', value: 'pending' },
+  { label: 'Approved', value: 'approved' },
+  { label: 'Rejected', value: 'rejected' },
+];
+
+function dailyWeekTrades(reports: DailyLabourReport[]): DailyTradeRow[] {
+  return reports.flatMap((report) =>
+    (report.workers || []).map((worker) => ({
+      key: worker.id,
+      reportId: report.id,
+      reportDate: report.reportDate,
+      worker,
+    })),
+  );
+}
+
+function tradeStatus(worker: DailyWorker) {
+  return worker.status || 'pending';
+}
+
+// Count x shift x shift amount for one trade entry.
+function tradeAmount(worker: DailyWorker) {
+  return (Number(worker.count) || 1) * (Number(worker.shift) || 0) * (Number(worker.shiftAmount) || 0);
+}
+
+// Rejected trade entries are not part of the amount.
+function dailyWeekAmount(reports: DailyLabourReport[]) {
+  return dailyWeekTrades(reports)
+    .filter((t) => tradeStatus(t.worker) !== 'rejected')
+    .reduce((sum, t) => sum + tradeAmount(t.worker), 0);
+}
+
+// Week status from its trade entries, which accounts sets one by one. Once
+// every trade is approved, Payment Pending / Paid follows the labour payment.
+function dailyWeekStatus(reports: DailyLabourReport[]): { label: string; color: string } {
+  const workers = dailyWeekTrades(reports).map((t) => t.worker);
+  if (workers.length === 0) return { label: 'No Trades', color: 'default' };
+  if (workers.some((w) => tradeStatus(w) === 'pending')) return { label: 'Pending Approval', color: 'warning' };
+  if (workers.every((w) => tradeStatus(w) === 'rejected')) return { label: 'Rejected', color: 'error' };
+  if (workers.some((w) => tradeStatus(w) === 'rejected')) return { label: 'Partly Rejected', color: 'error' };
+  if (workers.some((w) => !w.labourPaymentId)) return { label: 'Payment Pending', color: 'gold' };
+  return { label: 'Paid', color: 'success' };
+}
+
+function dailyWeekPendingTrades(reports: DailyLabourReport[]) {
+  return dailyWeekTrades(reports).filter((t) => tradeStatus(t.worker) === 'pending');
+}
+
+// Sets one trade entry's status through the same route the detail page uses.
+function setTradeStatus(reportId: string, workerId: string, status: string, remarks?: string) {
+  const body: { status: string; remarks?: string } = { status };
+  if (remarks !== undefined) body.remarks = remarks;
+  return clientApiFetch(`/daily-labour/${reportId}/workers/${workerId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
 
 // Accounts verifies each expense, but only admin can give the final Admin Approved.
 const EXPENSE_VERIFY_STATUS_OPTIONS = APPROVAL_STATUS_OPTIONS.filter((o) => o.value !== 'admin_approved');
@@ -106,6 +185,12 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
   const [expandedWeeks, setExpandedWeeks] = useState<string[]>([]);
   // Week row whose "Approve Week" is running.
   const [updatingWeekKey, setUpdatingWeekKey] = useState<string | null>(null);
+  // Daily labour weeks currently expanded, the trade entry being updated,
+  // and the trade entry being rejected (its remark is collected first).
+  const [expandedDailyWeeks, setExpandedDailyWeeks] = useState<string[]>([]);
+  const [updatingTradeId, setUpdatingTradeId] = useState<string | null>(null);
+  const [rejectTrade, setRejectTrade] = useState<{ reportId: string; workerId: string; trade: string } | null>(null);
+  const [rejectTradeReason, setRejectTradeReason] = useState('');
   const { message } = App.useApp();
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
@@ -320,53 +405,200 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
     rejected: filteredSubcontractorBills.filter((b) => b.status === 'rejected').length,
   }), [filteredSubcontractorBills]);
 
+  // Daily labour reports grouped by week, site engineer (Team) and project.
+  const dailyWeekRows = useMemo<DailyWeekRow[]>(() => {
+    const groups = new Map<string, DailyWeekRow>();
+    for (const r of filteredDaily) {
+      const weekStart = weekStartOf(r.reportDate)?.format('YYYY-MM-DD') || '';
+      const name = r.createdBy?.name || '-';
+      const projectName = r.project?.name || '-';
+      const key = `${weekStart}|${r.createdById || r.createdBy?.id || name}|${r.projectId || projectName}`;
+      const group = groups.get(key);
+      if (group) {
+        group.reports.push(r);
+      } else {
+        groups.set(key, { key, weekStart, name, projectName, reports: [r] });
+      }
+    }
+    return [...groups.values()].sort(
+      (a, b) => b.weekStart.localeCompare(a.weekStart) || a.name.localeCompare(b.name),
+    );
+  }, [filteredDaily]);
+
+  const updateTradeStatus = (reportId: string, workerId: string, status: string, remarks?: string) => {
+    setUpdatingTradeId(workerId);
+    startTransition(async () => {
+      try {
+        await setTradeStatus(reportId, workerId, status, remarks);
+        message.success(`Trade entry ${status}`);
+        router.refresh();
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : 'Failed to update trade entry');
+      } finally {
+        setUpdatingTradeId(null);
+      }
+    });
+  };
+
+  // Rejecting a trade opens a small modal to capture why, so the site
+  // engineer who submitted it gets a specific reason.
+  const handleTradeStatusSelect = (t: DailyTradeRow, status: string) => {
+    if (status === 'rejected') {
+      setRejectTradeReason('');
+      setRejectTrade({ reportId: t.reportId, workerId: t.worker.id, trade: t.worker.trade });
+      return;
+    }
+    updateTradeStatus(t.reportId, t.worker.id, status, '');
+  };
+
+  const submitTradeRejection = () => {
+    if (!rejectTrade) return;
+    updateTradeStatus(rejectTrade.reportId, rejectTrade.workerId, 'rejected', rejectTradeReason.trim());
+    setRejectTrade(null);
+  };
+
+  // Approves every pending trade entry in one week. Updates run one after
+  // another because each one recalculates the report status on the server.
+  const approveDailyWeek = (row: DailyWeekRow) => {
+    const targets = dailyWeekPendingTrades(row.reports);
+    if (targets.length === 0) return;
+    setUpdatingWeekKey(row.key);
+    startTransition(async () => {
+      try {
+        let failed = 0;
+        for (const t of targets) {
+          try {
+            await setTradeStatus(t.reportId, t.worker.id, 'approved');
+          } catch {
+            failed += 1;
+          }
+        }
+        if (failed === 0) {
+          message.success(`${targets.length} trade entr${targets.length > 1 ? 'ies' : 'y'} approved for ${weekRangeLabel(row.weekStart)}`);
+        } else {
+          message.error(`${failed} of ${targets.length} trade entries could not be approved`);
+        }
+        router.refresh();
+      } finally {
+        setUpdatingWeekKey(null);
+      }
+    });
+  };
+
   const dailyCounts = useMemo(() => ({
     pending: filteredDaily.filter((r) => r.status === 'pending').length,
     approved: filteredDaily.filter((r) => r.status === 'approved').length,
     rejected: filteredDaily.filter((r) => r.status === 'rejected').length,
   }), [filteredDaily]);
 
-  const dailyColumns: ColumnsType<DailyLabourReport> = [
-    { title: '#', key: 'sno', width: 50, render: (_, __, i) => i + 1 },
-    { title: 'Date', dataIndex: 'reportDate', render: formatDate },
-    { title: 'Project', key: 'project', render: (_, record) => record.project?.name || '-' },
-    { title: 'Site Engineer', key: 'siteEngineer', render: (_, record) => record.createdBy?.name || '-' },
+  const dailyWeekColumns: ColumnsType<DailyWeekRow> = [
+    { title: 'S.No', key: 'sno', width: 70, render: (_, __, i) => i + 1 },
+    { title: 'Week', key: 'week', width: 150, render: (_, r) => weekRangeLabel(r.weekStart) },
+    { title: 'Team', key: 'team', width: 200, render: (_, r) => <Typography.Text strong>{r.name}</Typography.Text> },
+    { title: 'Project', key: 'project', width: 200, render: (_, r) => r.projectName },
+    { title: 'Reports', key: 'reports', width: 90, align: 'right', render: (_, r) => r.reports.length },
+    { title: 'Amount', key: 'amount', width: 140, align: 'right', render: (_, r) => formatCurrency(dailyWeekAmount(r.reports)) },
     {
-      title: 'Headcount', key: 'headcount',
-      render: (_, record) => record.workers?.reduce((s, w) => s + Number(w.count || 1), 0) || 0,
+      title: 'Status', key: 'status', width: 170,
+      render: (_, r) => {
+        const status = dailyWeekStatus(r.reports);
+        return <Tag color={status.color}>{status.label}</Tag>;
+      },
     },
     {
-      // One tag per trade, coloured by that trade's own approval status -
-      // same status the daily labour detail page shows per trade.
-      title: 'Trade Status', key: 'tradeStatus', width: 360,
-      render: (_, record) => (
-        <Flex wrap="wrap" gap={4}>
-          {record.workers?.map((w) => {
-            const s = w.status || 'pending';
-            return (
-              <Tag key={w.id} color="black">
-                {w.trade} ({Number(w.count || 1)}) — {s.charAt(0).toUpperCase() + s.slice(1)}
-              </Tag>
-            );
-          })}
-        </Flex>
-      ),
+      title: 'Action', key: 'action', width: 280,
+      render: (_, r) => {
+        const open = expandedDailyWeeks.includes(r.key);
+        const pending = dailyWeekPendingTrades(r.reports).length;
+        return (
+          <Flex gap={6} wrap="wrap">
+            <Button
+              size="small"
+              type={open ? 'default' : 'primary'}
+              ghost={!open}
+              onClick={() => setExpandedDailyWeeks((keys) => (open ? keys.filter((k) => k !== r.key) : [...keys, r.key]))}
+            >
+              {open ? 'Hide trades' : `Review (${r.reports.length})`}
+            </Button>
+            <Popconfirm
+              title={`Approve all trade entries for ${weekRangeLabel(r.weekStart)}?`}
+              description={`Sets ${pending} pending trade entr${pending === 1 ? 'y' : 'ies'} to Approved. Rejected entries are left out.`}
+              onConfirm={() => approveDailyWeek(r)}
+              okText="Yes, approve"
+              cancelText="No"
+              disabled={pending === 0}
+            >
+              <Button
+                size="small"
+                type="primary"
+                disabled={pending === 0 || updatingWeekKey !== null}
+                loading={updatingWeekKey === r.key}
+              >
+                {pending === 0 ? 'Nothing to approve' : 'Approve Week'}
+              </Button>
+            </Popconfirm>
+          </Flex>
+        );
+      },
     },
-    {
-      title: 'Actions', key: 'actions', width: 80,
-      render: (_, record) => (
-        <Button size="small" icon={<EyeOutlined />} onClick={() => router.push(`/dashboard/daily-labour/${record.id}`)} title="View Details" />
-      ),
-    },
-    ...(isAdmin ? [{
-      title: 'Status', key: 'status', width: 140,
-      render: (_: unknown, record: DailyLabourReport) => (
-        <Tag color={record.status === 'approved' ? 'success' : record.status === 'rejected' ? 'error' : 'warning'}>
-          {record.status === 'approved' ? 'Approved' : record.status === 'rejected' ? 'Rejected' : 'Pending'}
-        </Tag>
-      ),
-    }] : []),
   ];
+
+  // Trade entries under an expanded week. Accounts changes each trade's
+  // status; admin reviews them and approves the week once.
+  const dailyTradeColumns: ColumnsType<DailyTradeRow> = [
+    { title: 'Date', key: 'date', width: 110, render: (_, t) => formatDate(t.reportDate) },
+    { title: 'Trade', key: 'trade', width: 160, render: (_, t) => <Typography.Text strong>{t.worker.trade}</Typography.Text> },
+    { title: 'Count', key: 'count', width: 80, align: 'right', render: (_, t) => Number(t.worker.count) || 1 },
+    { title: 'Shift', key: 'shift', width: 80, align: 'right', render: (_, t) => t.worker.shift || '-' },
+    {
+      title: 'Amount', key: 'amount', width: 130, align: 'right',
+      render: (_, t) => formatCurrency(tradeStatus(t.worker) === 'rejected' ? 0 : tradeAmount(t.worker)),
+    },
+    {
+      title: 'Status', key: 'status', width: 170,
+      render: (_, t) => {
+        const status = tradeStatus(t.worker);
+        if (isAdmin) {
+          const label = TRADE_STATUS_OPTIONS.find((o) => o.value === status)?.label || 'Pending';
+          return <Tag color={status === 'approved' ? 'success' : status === 'rejected' ? 'error' : 'warning'}>{label}</Tag>;
+        }
+        return (
+          <Select
+            value={status} size="small" variant="borderless" className="w-full"
+            onChange={(newStatus) => handleTradeStatusSelect(t, newStatus)}
+            options={TRADE_STATUS_OPTIONS} popupMatchSelectWidth={false}
+            loading={updatingTradeId === t.worker.id} disabled={updatingTradeId === t.worker.id}
+          />
+        );
+      },
+    },
+    { title: 'Remarks', key: 'remarks', ellipsis: true, render: (_, t) => t.worker.reviewRemarks || '-' },
+    {
+      title: 'View', key: 'view', width: 70,
+      render: (_, t) => (
+        <Button size="small" icon={<EyeOutlined />} onClick={() => router.push(`/dashboard/daily-labour/${t.reportId}`)} title="View Details" />
+      ),
+    },
+  ];
+
+  const dailyWeekTableProps = {
+    rowKey: 'key',
+    expandable: {
+      expandedRowKeys: expandedDailyWeeks,
+      onExpand: (expanded: boolean, row: DailyWeekRow) =>
+        setExpandedDailyWeeks((keys) => (expanded ? [...keys, row.key] : keys.filter((k) => k !== row.key))),
+      expandedRowRender: (row: DailyWeekRow) => (
+        <Table
+          size="small"
+          rowKey="key"
+          dataSource={dailyWeekTrades(row.reports)}
+          columns={dailyTradeColumns}
+          pagination={false}
+          scroll={{ x: 1000 }}
+        />
+      ),
+    },
+  };
 
   const expenseColumns: ColumnsType<Expense> = [
     { title: '#', key: 'sno', width: 50, render: (_, __, i) => i + 1 },
@@ -694,13 +926,13 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
     { title: 'Bill Date', dataIndex: 'billDate', width: 110, render: formatDate },
   ];
 
-  const renderContent = (
+  const renderContent = <T extends object>(
     counts: Record<string, number>,
-    dataSource: any[],
-    columns: ColumnsType<any>,
+    dataSource: T[],
+    columns: ColumnsType<T>,
     emptyText: string,
     scrollX = 1300,
-    tableProps: { rowKey?: string; expandable?: TableProps<ExpenseWeekRow>['expandable'] } = {},
+    tableProps: { rowKey?: string; expandable?: TableProps<T>['expandable'] } = {},
   ) => (
     <>
       <Row gutter={16} className="mb-4">
@@ -764,6 +996,26 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
         />
       </Flex>
 
+      <Modal
+        title={rejectTrade ? `Reject ${rejectTrade.trade} entry` : 'Reject trade entry'}
+        open={!!rejectTrade}
+        onCancel={() => setRejectTrade(null)}
+        onOk={submitTradeRejection}
+        okText="Reject"
+        okButtonProps={{ danger: true }}
+        destroyOnHidden
+      >
+        <Typography.Text className="mb-2 block">
+          The site engineer who submitted this entry will be notified — add a remark so they know why.
+        </Typography.Text>
+        <Input.TextArea
+          rows={3}
+          value={rejectTradeReason}
+          onChange={(e) => setRejectTradeReason(e.target.value)}
+          placeholder="Reason for rejection"
+        />
+      </Modal>
+
       <Card className={cardClassName}>
         <Tabs
           activeKey={activeTab}
@@ -772,7 +1024,7 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
             {
               key: 'daily',
               label: <span><CalendarOutlined /> Daily Labour List</span>,
-              children: renderContent(dailyCounts, filteredDaily, dailyColumns, 'No daily labour reports'),
+              children: renderContent(dailyCounts, dailyWeekRows, dailyWeekColumns, 'No daily labour reports', 1200, dailyWeekTableProps),
             },
             {
               key: 'bills',
