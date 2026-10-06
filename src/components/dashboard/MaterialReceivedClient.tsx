@@ -15,7 +15,10 @@ import { cardClassName, formatDate, pageHeaderClassName, pageTitleClassName, tit
 
 const STATUS_OPTIONS = [
   { label: 'Pending', value: 'pending' },
-  { label: 'Verified', value: 'verified' },
+  { label: 'Approved', value: 'approved' },
+  { label: 'Rejected', value: 'rejected' },
+  // Shown disabled so records verified before this change still display.
+  { label: 'Verified', value: 'verified', disabled: true },
 ];
 
 type Props = {
@@ -224,7 +227,7 @@ export function MaterialReceivedClient({ records, projects, itemDescriptions, pu
     { title: 'MR Number', dataIndex: 'mrNumber', key: 'mrNumber', width: 150, render: (v: string) => <Typography.Text strong>{v}</Typography.Text> },
     { title: 'PO Number', key: 'po', width: 130, render: (_, r) => r.purchaseOrder?.poNumber || r.purchaseOrderId || '-' },
     { title: 'Project', key: 'project', width: 200, render: (_, r) => r.project ? `${r.project.name} (${r.project.projectCode || 'No Code'})` : r.projectId },
-    { title: 'Date', dataIndex: 'receivedDate', key: 'receivedDate', width: 120, render: (v?: string | null) => formatDate(v) },
+    { title: 'Received Date', dataIndex: 'receivedDate', key: 'receivedDate', width: 120, render: (v?: string | null) => formatDate(v) },
     {
       title: 'Items',
       key: 'items',
@@ -292,7 +295,7 @@ export function MaterialReceivedClient({ records, projects, itemDescriptions, pu
           options={STATUS_OPTIONS} popupMatchSelectWidth={false} disabled={isPending}
         />
       ) : (
-        <Tag color={r.status === 'pending' ? 'orange' : 'green'}>{(r.status || 'pending').toUpperCase()}</Tag>
+        <Tag color={r.status === 'rejected' ? 'red' : r.status === 'pending' ? 'orange' : 'green'}>{(r.status || 'pending').toUpperCase()}</Tag>
       ),
     },
     { title: 'Created', dataIndex: 'createdAt', key: 'createdAt', width: 120, render: (v?: string) => formatDate(v) },
@@ -396,7 +399,7 @@ export function MaterialReceivedClient({ records, projects, itemDescriptions, pu
                     .filter((po) => po.status === 'approved')
                     .map((po) => ({
                       value: po.id,
-                      label: `${po.poNumber} - ${po.vendor?.name || 'Unknown Vendor'}`,
+                      label: `${po.poNumber} — MR ${po.materialRequirementNo || '-'} — ${po.vendor?.name || 'Unknown Vendor'}`,
                     }))}
                 />
               </Form.Item>

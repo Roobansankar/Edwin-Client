@@ -561,20 +561,22 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
                   </Form.Item>
                 )}
               />
-              <Controller
-                control={control}
-                name="paymentTerms"
-                render={({ field }) => (
-                  <Form.Item label="Payment Terms" className="flex-1">
-                    <Select
-                      {...field}
-                      allowClear
-                      placeholder="Select payment terms"
-                      options={PAYMENT_TERMS_OPTIONS}
-                    />
-                  </Form.Item>
-                )}
-              />
+              {!isSiteEngineer && (
+                <Controller
+                  control={control}
+                  name="paymentTerms"
+                  render={({ field }) => (
+                    <Form.Item label="Payment Terms" className="flex-1">
+                      <Select
+                        {...field}
+                        allowClear
+                        placeholder="Select payment terms"
+                        options={PAYMENT_TERMS_OPTIONS}
+                      />
+                    </Form.Item>
+                  )}
+                />
+              )}
             </Flex>
 
             <Flex justify="space-between" align="center">

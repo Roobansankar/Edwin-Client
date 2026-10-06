@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition, type ReactNode } from 'react';
 import { App, Button, Card, Col, DatePicker, Flex, Input, Modal, Popconfirm, Row, Select, Space, Statistic, Table, Tabs, Tag, Typography } from 'antd';
 import type { TableProps } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
@@ -16,7 +16,7 @@ import { updateSubcontractorBillStatus } from '@/actions/subcontractor-bills';
 import { updateExpenseStatus } from '@/actions/expenses';
 import type { PurchaseBill, Expense, DailyLabourReport, DailyWorker, SubcontractorBill, VendorQuotation } from '@/types/erp';
 import { clientApiFetch } from '@/lib/client-api';
-import { BillDocumentsMenu, BILL_STATUS_OPTIONS, missingDocs } from './BillDocumentsMenu';
+import { BillDocumentsMenu, missingDocs } from './BillDocumentsMenu';
 import {
   StatusTag,
   cardClassName,
@@ -58,33 +58,56 @@ type DailyTradeRow = {
   key: string;
   reportId: string;
   reportDate: string;
+  reportRemarks: string | null;
   worker: DailyWorker;
+  // Report-level cells (date, overall remarks) show once, on the first trade
+  // row of the report, and span that report's trade rows.
+  first: boolean;
+  span: number;
 };
 
-const TRADE_STATUS_OPTIONS = [
-  { label: 'Pending', value: 'pending' },
-  { label: 'Approved', value: 'approved' },
-  { label: 'Rejected', value: 'rejected' },
+// Admin's choices, labelled as admin decisions. Pending and Accounts Approved
+// are shown disabled so those trades still display their status.
+const ADMIN_TRADE_STATUS_OPTIONS = [
+  { label: 'Pending', value: 'pending', disabled: true },
+  { label: 'Admin Approved', value: 'admin_approved' },
+  { label: 'Admin Rejected', value: 'rejected' },
+  { label: 'Accounts Approved', value: 'approved', disabled: true },
+];
+// Accounts' choices are labelled as accounts decisions. Admin Approved is shown
+// (disabled) so an admin-approved trade still displays its status.
+const ACCOUNTS_TRADE_STATUS_OPTIONS = [
+  { label: 'Accounts Pending', value: 'pending' },
+  { label: 'Accounts Approved', value: 'approved' },
+  { label: 'Accounts Rejected', value: 'rejected' },
+  { label: 'Admin Approved', value: 'admin_approved', disabled: true },
 ];
 
 function dailyWeekTrades(reports: DailyLabourReport[]): DailyTradeRow[] {
-  return reports.flatMap((report) =>
-    (report.workers || []).map((worker) => ({
+  return reports.flatMap((report) => {
+    const workers = report.workers || [];
+    return workers.map((worker, i) => ({
       key: worker.id,
       reportId: report.id,
       reportDate: report.reportDate,
+      reportRemarks: report.remarks || null,
       worker,
-    })),
-  );
+      first: i === 0,
+      span: workers.length,
+    }));
+  });
 }
 
 function tradeStatus(worker: DailyWorker) {
   return worker.status || 'pending';
 }
 
-// Count x shift x shift amount for one trade entry.
+// Count x shift x rate for one trade entry. The rate is the amount saved on
+// the entry, or the trade's shift amount when the entry has none (same rule
+// the server uses for labour costs).
 function tradeAmount(worker: DailyWorker) {
-  return (Number(worker.count) || 1) * (Number(worker.shift) || 0) * (Number(worker.shiftAmount) || 0);
+  const rate = Number(worker.shiftAmount) || Number(worker.tradeRel?.shiftWiseAmount) || 0;
+  return (Number(worker.count) || 1) * (Number(worker.shift) || 0) * rate;
 }
 
 // Rejected trade entries are not part of the amount.
@@ -94,21 +117,31 @@ function dailyWeekAmount(reports: DailyLabourReport[]) {
     .reduce((sum, t) => sum + tradeAmount(t.worker), 0);
 }
 
-// Week status from its trade entries, which accounts sets one by one. Once
-// every trade is approved, Payment Pending / Paid follows the labour payment.
-function dailyWeekStatus(reports: DailyLabourReport[]): { label: string; color: string } {
-  const workers = dailyWeekTrades(reports).map((t) => t.worker);
-  if (workers.length === 0) return { label: 'No Trades', color: 'default' };
-  if (workers.some((w) => tradeStatus(w) === 'pending')) return { label: 'Pending Approval', color: 'warning' };
-  if (workers.every((w) => tradeStatus(w) === 'rejected')) return { label: 'Rejected', color: 'error' };
-  if (workers.some((w) => tradeStatus(w) === 'rejected')) return { label: 'Partly Rejected', color: 'error' };
-  if (workers.some((w) => !w.labourPaymentId)) return { label: 'Payment Pending', color: 'gold' };
-  return { label: 'Paid', color: 'success' };
+// Total shifts for the week: count x shift per trade entry. Rejected trade
+// entries are left out, like the amount.
+function dailyWeekShifts(reports: DailyLabourReport[]) {
+  return dailyWeekTrades(reports)
+    .filter((t) => tradeStatus(t.worker) !== 'rejected')
+    .reduce((sum, t) => sum + (Number(t.worker.count) || 1) * (Number(t.worker.shift) || 0), 0);
 }
 
-function dailyWeekPendingTrades(reports: DailyLabourReport[]) {
-  return dailyWeekTrades(reports).filter((t) => tradeStatus(t.worker) === 'pending');
+// The week's dropdown shows the one status all its trades share, or undefined
+// (shown as "Mixed") when they differ.
+function dailyWeekStatusValue(reports: DailyLabourReport[]): string | undefined {
+  const statuses = Array.from(new Set(dailyWeekTrades(reports).map((t) => tradeStatus(t.worker))));
+  return statuses.length === 1 ? statuses[0] : undefined;
 }
+
+// The status card a week is counted under: pending if any trade is pending,
+// else rejected if any is rejected, else admin approved if all are, else approved.
+function dailyWeekBucket(reports: DailyLabourReport[]): 'pending' | 'rejected' | 'admin_approved' | 'approved' {
+  const statuses = dailyWeekTrades(reports).map((t) => tradeStatus(t.worker));
+  if (statuses.includes('pending')) return 'pending';
+  if (statuses.includes('rejected')) return 'rejected';
+  if (statuses.length > 0 && statuses.every((s) => s === 'admin_approved')) return 'admin_approved';
+  return 'approved';
+}
+
 
 // Sets one trade entry's status through the same route the detail page uses.
 function setTradeStatus(reportId: string, workerId: string, status: string, remarks?: string) {
@@ -123,6 +156,15 @@ function setTradeStatus(reportId: string, workerId: string, status: string, rema
 
 // Accounts verifies each expense, but only admin can give the final Admin Approved.
 const EXPENSE_VERIFY_STATUS_OPTIONS = APPROVAL_STATUS_OPTIONS.filter((o) => o.value !== 'admin_approved');
+
+// Purchase bills on this page: only Pending, Accounts Approved and Accounts
+// Rejected. Plain Approved is shown disabled so older approved bills still display.
+const BILL_DECISION_OPTIONS = [
+  { label: 'Pending', value: 'pending' },
+  { label: 'Accounts Approved', value: 'admin_approved' },
+  { label: 'Accounts Rejected', value: 'rejected' },
+  { label: 'Approved', value: 'approved', disabled: true },
+];
 
 type Props = {
   bills: PurchaseBill[];
@@ -191,6 +233,9 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
   const [updatingTradeId, setUpdatingTradeId] = useState<string | null>(null);
   const [rejectTrade, setRejectTrade] = useState<{ reportId: string; workerId: string; trade: string } | null>(null);
   const [rejectTradeReason, setRejectTradeReason] = useState('');
+  // Week being rejected from its status dropdown, and the remark for it.
+  const [rejectWeek, setRejectWeek] = useState<DailyWeekRow | null>(null);
+  const [rejectWeekReason, setRejectWeekReason] = useState('');
   const { message } = App.useApp();
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
@@ -457,39 +502,63 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
     setRejectTrade(null);
   };
 
-  // Approves every pending trade entry in one week. Updates run one after
-  // another because each one recalculates the report status on the server.
-  const approveDailyWeek = (row: DailyWeekRow) => {
-    const targets = dailyWeekPendingTrades(row.reports);
-    if (targets.length === 0) return;
+  // Sets every eligible trade entry in one week to one status. Accounts never
+  // changes an admin approval, and paid entries are never reopened or
+  // rejected. Updates run one after another because each one recalculates the
+  // report status on the server.
+  const setDailyWeekStatus = (row: DailyWeekRow, status: string, remarks = '') => {
+    const week = weekRangeLabel(row.weekStart);
     setUpdatingWeekKey(row.key);
     startTransition(async () => {
       try {
-        let failed = 0;
-        for (const t of targets) {
-          try {
-            await setTradeStatus(t.reportId, t.worker.id, 'approved');
-          } catch {
-            failed += 1;
-          }
-        }
-        if (failed === 0) {
-          message.success(`${targets.length} trade entr${targets.length > 1 ? 'ies' : 'y'} approved for ${weekRangeLabel(row.weekStart)}`);
+        // The server applies the per-trade rules and notifies the other role.
+        const result = await clientApiFetch<{ changed: number }>('/daily-labour/week-status', {
+          method: 'PATCH',
+          body: JSON.stringify({
+            reportIds: row.reports.map((r) => r.id),
+            status,
+            remarks,
+            weekLabel: week,
+          }),
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (result.changed === 0) {
+          message.info(`Nothing to change in ${week}`);
         } else {
-          message.error(`${failed} of ${targets.length} trade entries could not be approved`);
+          const label = status.replace('_', ' ');
+          message.success(`${result.changed} trade entr${result.changed === 1 ? 'y' : 'ies'} set to ${label} for ${week}`);
         }
         router.refresh();
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : 'Failed to update the week');
       } finally {
         setUpdatingWeekKey(null);
       }
     });
   };
 
-  const dailyCounts = useMemo(() => ({
-    pending: filteredDaily.filter((r) => r.status === 'pending').length,
-    approved: filteredDaily.filter((r) => r.status === 'approved').length,
-    rejected: filteredDaily.filter((r) => r.status === 'rejected').length,
-  }), [filteredDaily]);
+  // Picking Rejected for a week asks for one remark, applied to each trade.
+  const handleDailyWeekSelect = (row: DailyWeekRow, status: string) => {
+    if (status === 'rejected') {
+      setRejectWeekReason('');
+      setRejectWeek(row);
+      return;
+    }
+    setDailyWeekStatus(row, status);
+  };
+
+  const submitWeekRejection = () => {
+    if (!rejectWeek) return;
+    setDailyWeekStatus(rejectWeek, 'rejected', rejectWeekReason.trim());
+    setRejectWeek(null);
+  };
+
+  // Status cards count weeks, so they match the weekly rows in the table.
+  const dailyCounts = useMemo(() => {
+    const counts = { pending: 0, approved: 0, rejected: 0, admin_approved: 0 };
+    for (const week of dailyWeekRows) counts[dailyWeekBucket(week.reports)] += 1;
+    return counts;
+  }, [dailyWeekRows]);
 
   const dailyWeekColumns: ColumnsType<DailyWeekRow> = [
     { title: 'S.No', key: 'sno', width: 70, render: (_, __, i) => i + 1 },
@@ -497,47 +566,38 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
     { title: 'Team', key: 'team', width: 200, render: (_, r) => <Typography.Text strong>{r.name}</Typography.Text> },
     { title: 'Project', key: 'project', width: 200, render: (_, r) => r.projectName },
     { title: 'Reports', key: 'reports', width: 90, align: 'right', render: (_, r) => r.reports.length },
+    { title: 'Total Shift', key: 'totalShift', width: 120, align: 'right', render: (_, r) => dailyWeekShifts(r.reports) },
     { title: 'Amount', key: 'amount', width: 140, align: 'right', render: (_, r) => formatCurrency(dailyWeekAmount(r.reports)) },
     {
-      title: 'Status', key: 'status', width: 170,
-      render: (_, r) => {
-        const status = dailyWeekStatus(r.reports);
-        return <Tag color={status.color}>{status.label}</Tag>;
-      },
+      // Sets every trade in the week at once. Admin also gets Admin Approved.
+      title: 'Status', key: 'status', width: 200,
+      render: (_, r) => (
+        <Select
+          size="small"
+          className="w-full"
+          placeholder="Mixed"
+          value={dailyWeekStatusValue(r.reports)}
+          options={isAdmin ? ADMIN_TRADE_STATUS_OPTIONS : ACCOUNTS_TRADE_STATUS_OPTIONS}
+          onChange={(value: string) => handleDailyWeekSelect(r, value)}
+          loading={updatingWeekKey === r.key}
+          disabled={updatingWeekKey !== null}
+          popupMatchSelectWidth={false}
+        />
+      ),
     },
     {
-      title: 'Action', key: 'action', width: 280,
+      title: 'Action', key: 'action', width: 140,
       render: (_, r) => {
         const open = expandedDailyWeeks.includes(r.key);
-        const pending = dailyWeekPendingTrades(r.reports).length;
         return (
-          <Flex gap={6} wrap="wrap">
-            <Button
-              size="small"
-              type={open ? 'default' : 'primary'}
-              ghost={!open}
-              onClick={() => setExpandedDailyWeeks((keys) => (open ? keys.filter((k) => k !== r.key) : [...keys, r.key]))}
-            >
-              {open ? 'Hide trades' : `Review (${r.reports.length})`}
-            </Button>
-            <Popconfirm
-              title={`Approve all trade entries for ${weekRangeLabel(r.weekStart)}?`}
-              description={`Sets ${pending} pending trade entr${pending === 1 ? 'y' : 'ies'} to Approved. Rejected entries are left out.`}
-              onConfirm={() => approveDailyWeek(r)}
-              okText="Yes, approve"
-              cancelText="No"
-              disabled={pending === 0}
-            >
-              <Button
-                size="small"
-                type="primary"
-                disabled={pending === 0 || updatingWeekKey !== null}
-                loading={updatingWeekKey === r.key}
-              >
-                {pending === 0 ? 'Nothing to approve' : 'Approve Week'}
-              </Button>
-            </Popconfirm>
-          </Flex>
+          <Button
+            size="small"
+            type={open ? 'default' : 'primary'}
+            ghost={!open}
+            onClick={() => setExpandedDailyWeeks((keys) => (open ? keys.filter((k) => k !== r.key) : [...keys, r.key]))}
+          >
+            {open ? 'Hide trades' : `Review (${r.reports.length})`}
+          </Button>
         );
       },
     },
@@ -545,11 +605,22 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
 
   // Trade entries under an expanded week. Accounts changes each trade's
   // status; admin reviews them and approves the week once.
+  // Report-level cells span all trade rows of their report.
+  const reportSpanCell = (t: DailyTradeRow, children: ReactNode) => ({
+    children,
+    props: { rowSpan: t.first ? t.span : 0 },
+  });
+
   const dailyTradeColumns: ColumnsType<DailyTradeRow> = [
-    { title: 'Date', key: 'date', width: 110, render: (_, t) => formatDate(t.reportDate) },
+    { title: 'Date', key: 'date', width: 110, render: (_, t) => reportSpanCell(t, formatDate(t.reportDate)) },
     { title: 'Trade', key: 'trade', width: 160, render: (_, t) => <Typography.Text strong>{t.worker.trade}</Typography.Text> },
+    { title: 'Trade Team', key: 'tradeTeam', width: 160, render: (_, t) => t.worker.tradeRel?.team?.name || '-' },
     { title: 'Count', key: 'count', width: 80, align: 'right', render: (_, t) => Number(t.worker.count) || 1 },
     { title: 'Shift', key: 'shift', width: 80, align: 'right', render: (_, t) => t.worker.shift || '-' },
+    {
+      title: 'Total Shift', key: 'totalShift', width: 110, align: 'right',
+      render: (_, t) => (tradeStatus(t.worker) === 'rejected' ? 0 : (Number(t.worker.count) || 1) * (Number(t.worker.shift) || 0)),
+    },
     {
       title: 'Amount', key: 'amount', width: 130, align: 'right',
       render: (_, t) => formatCurrency(tradeStatus(t.worker) === 'rejected' ? 0 : tradeAmount(t.worker)),
@@ -558,21 +629,18 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
       title: 'Status', key: 'status', width: 170,
       render: (_, t) => {
         const status = tradeStatus(t.worker);
-        if (isAdmin) {
-          const label = TRADE_STATUS_OPTIONS.find((o) => o.value === status)?.label || 'Pending';
-          return <Tag color={status === 'approved' ? 'success' : status === 'rejected' ? 'error' : 'warning'}>{label}</Tag>;
-        }
         return (
           <Select
             value={status} size="small" variant="borderless" className="w-full"
             onChange={(newStatus) => handleTradeStatusSelect(t, newStatus)}
-            options={TRADE_STATUS_OPTIONS} popupMatchSelectWidth={false}
+            options={isAdmin ? ADMIN_TRADE_STATUS_OPTIONS : ACCOUNTS_TRADE_STATUS_OPTIONS} popupMatchSelectWidth={false}
             loading={updatingTradeId === t.worker.id} disabled={updatingTradeId === t.worker.id}
           />
         );
       },
     },
-    { title: 'Remarks', key: 'remarks', ellipsis: true, render: (_, t) => t.worker.reviewRemarks || '-' },
+    { title: 'Overall Remarks', key: 'overallRemarks', width: 220, ellipsis: true, render: (_, t) => reportSpanCell(t, t.reportRemarks || '-') },
+    { title: 'Trade Remarks', key: 'tradeRemarks', width: 200, ellipsis: true, render: (_, t) => t.worker.reviewRemarks || '-' },
     {
       title: 'View', key: 'view', width: 70,
       render: (_, t) => (
@@ -640,6 +708,12 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
             ))}
           </Flex>
         ) : '-',
+    },
+    {
+      // Rejected expenses show the rejection remarks; the rest show the
+      // remarks the submitter entered.
+      title: 'Overall Remarks', key: 'remarks', width: 220, ellipsis: true,
+      render: (_, record) => (record.status === 'rejected' ? record.rejectionReason : record.remarks) || '-',
     },
     {
       title: 'Status', key: 'status', width: 140,
@@ -868,7 +942,7 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
           className="w-full"
           popupMatchSelectWidth={false}
           disabled={isPending}
-          options={BILL_STATUS_OPTIONS}
+          options={BILL_DECISION_OPTIONS}
           onChange={(newStatus) => handleBillStatusChange(record, newStatus)}
         />
       ) : (
@@ -997,6 +1071,26 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
       </Flex>
 
       <Modal
+        title={rejectWeek ? `Reject all trades for ${weekRangeLabel(rejectWeek.weekStart)}` : 'Reject trades'}
+        open={!!rejectWeek}
+        onCancel={() => setRejectWeek(null)}
+        onOk={submitWeekRejection}
+        okText="Reject"
+        okButtonProps={{ danger: true, disabled: !rejectWeekReason.trim() }}
+        destroyOnHidden
+      >
+        <Typography.Text className="mb-2 block">
+          Every trade in this week that is not already in a labour payment will be rejected with this remark.
+        </Typography.Text>
+        <Input.TextArea
+          rows={3}
+          value={rejectWeekReason}
+          onChange={(e) => setRejectWeekReason(e.target.value)}
+          placeholder="Reason for rejection"
+        />
+      </Modal>
+
+      <Modal
         title={rejectTrade ? `Reject ${rejectTrade.trade} entry` : 'Reject trade entry'}
         open={!!rejectTrade}
         onCancel={() => setRejectTrade(null)}
@@ -1046,21 +1140,22 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
       </Card>
 
       <Modal
-        title="Reject Expense"
+        title="Reject Expense — Remarks"
         open={!!rejectExpenseId}
         onCancel={() => setRejectExpenseId(null)}
         onOk={submitExpenseRejection}
-        okText="Reject"
-        okButtonProps={{ danger: true }}
+        okText="Reject with remarks"
+        okButtonProps={{ danger: true, disabled: !rejectReason.trim() }}
       >
         <Typography.Paragraph>
-          The person who submitted this expense will be notified — add a remark so they know why.
+          The person who submitted this expense will be notified and can read these remarks.
         </Typography.Paragraph>
+        <Typography.Text strong className="mb-1 block">Overall Remarks</Typography.Text>
         <Input.TextArea
           rows={3}
           value={rejectReason}
           onChange={(e) => setRejectReason(e.target.value)}
-          placeholder="Reason for rejection..."
+          placeholder="Why is this expense rejected?"
         />
       </Modal>
     </div>

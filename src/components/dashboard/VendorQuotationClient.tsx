@@ -536,7 +536,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
       ) : null,
     },
     {
-      title: 'MR Ref', key: 'mr', width: 130,
+      title: 'MR No', key: 'mr', width: 130,
       onCell: (r) => ({ rowSpan: r._isFirst ? r._groupSize : 0 }),
       render: (_, r) => r.materialRequirement?.enquiryNo || '-',
     },

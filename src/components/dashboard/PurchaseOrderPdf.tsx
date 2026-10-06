@@ -10,7 +10,6 @@ import { formatDate } from './ui';
 const DARK = '#1f2937';
 const BLACK = '#000000';
 const GREY_700 = '#374151';
-const GREY_500 = '#6b7280';
 const GREY_200 = '#e5e7eb';
 
 const styles = StyleSheet.create({
@@ -38,6 +37,7 @@ const styles = StyleSheet.create({
     fontSize: 19,
     fontFamily: 'Helvetica-Bold',
     letterSpacing: 0.5,
+    lineHeight: 1.2,
   },
   companyTagline: {
     fontSize: 8,
@@ -45,7 +45,7 @@ const styles = StyleSheet.create({
     color: DARK,
     textTransform: 'uppercase',
     letterSpacing: 1.5,
-    marginTop: 2,
+    marginTop: 7,
     marginBottom: 4,
   },
   companyContact: {
@@ -234,39 +234,28 @@ const styles = StyleSheet.create({
   footer: {
     marginTop: 'auto',
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
   },
   sigBlock: {
     width: 190,
-    borderTopWidth: 1,
-    borderTopColor: BLACK,
-    paddingTop: 6,
-    textAlign: 'center',
+    alignItems: 'center',
+  },
+  sigCompany: {
+    fontSize: 9,
+    fontFamily: 'Helvetica-Bold',
+  },
+  signSpace: {
+    height: 36,
+  },
+  sigUnderline: {
+    width: 190,
+    borderBottomWidth: 1,
+    borderBottomColor: BLACK,
+    marginBottom: 4,
   },
   sigLine: {
     fontSize: 9,
     fontFamily: 'Helvetica-Bold',
-  },
-  sigSub: {
-    fontSize: 8,
-    color: GREY_500,
-    marginTop: 2,
-  },
-  sealBox: {
-    width: 90,
-    height: 60,
-    alignSelf: 'center',
-    marginBottom: 6,
-    borderWidth: 1,
-    borderColor: GREY_500,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sealBoxText: {
-    fontSize: 7,
-    color: GREY_500,
-    textTransform: 'uppercase',
   },
 });
 
@@ -419,7 +408,7 @@ export function PurchaseOrderPdf({ purchaseOrder }: Props) {
             <View style={styles.grandRow}>
               <Text style={styles.grandLabel}>Total</Text>
               <View style={styles.grandValueBox}>
-                <Text style={styles.grandValueText}>{'₹'} {formatINR(total)}</Text>
+                <Text style={styles.grandValueText}>{formatINR(total)}</Text>
               </View>
             </View>
           </View>
@@ -436,17 +425,13 @@ export function PurchaseOrderPdf({ purchaseOrder }: Props) {
           <Text style={styles.signLabel}>Date: {formatDate(purchaseOrder.createdAt || '')}</Text>
         </View>
 
-        {/* Company seal + authorized signatory */}
+        {/* Signature block: company name, then an underlined line to sign on */}
         <View style={styles.footer}>
           <View style={styles.sigBlock}>
-            <View style={styles.sealBox}>
-              <Text style={styles.sealBoxText}>Affix Seal Here</Text>
-            </View>
-            <Text style={styles.sigLine}>Company Seal</Text>
-          </View>
-          <View style={styles.sigBlock}>
-            <Text style={styles.sigLine}>Authorized Signatory</Text>
-            <Text style={styles.sigSub}>For Edwin Construction</Text>
+            <Text style={styles.sigCompany}>For Edwin Construction</Text>
+            <View style={styles.signSpace} />
+            <View style={styles.sigUnderline} />
+            <Text style={styles.sigLine}>Purchase Order Sign</Text>
           </View>
         </View>
       </Page>

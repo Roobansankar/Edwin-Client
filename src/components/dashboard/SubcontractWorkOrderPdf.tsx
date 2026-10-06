@@ -39,6 +39,7 @@ const styles = StyleSheet.create({
     fontSize: 19,
     fontFamily: 'Helvetica-Bold',
     letterSpacing: 0.5,
+    lineHeight: 1.2,
   },
   companyTagline: {
     fontSize: 8,
@@ -46,7 +47,7 @@ const styles = StyleSheet.create({
     color: DARK,
     textTransform: 'uppercase',
     letterSpacing: 1.5,
-    marginTop: 2,
+    marginTop: 7,
     marginBottom: 4,
   },
   companyContact: {
@@ -409,7 +410,7 @@ export function SubcontractWorkOrderPdf({ workOrder }: Props) {
             <View style={styles.grandRow}>
               <Text style={styles.grandLabel}>Grand Total</Text>
               <View style={styles.grandValueBox}>
-                <Text style={styles.grandValueText}>{'₹'} {formatINR(total)}</Text>
+                <Text style={styles.grandValueText}>{formatINR(total)}</Text>
               </View>
             </View>
           </View>

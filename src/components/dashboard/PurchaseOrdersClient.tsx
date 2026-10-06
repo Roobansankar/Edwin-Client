@@ -84,7 +84,7 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
   const [projectId, setProjectId] = useState('');
   const [poExpectedDate, setPoExpectedDate] = useState<string | null>(null);
   const [poPaymentTerms, setPoPaymentTerms] = useState<PaymentTerms | undefined>(undefined);
-  const [poRemarks, setPoRemarks] = useState('');
+  const [poRemarks, setPoRemarks] = useState('Material amount must be refundable in case of material loss or damage');
   const [vendorSections, setVendorSections] = useState<VendorPoSection[]>([]);
 
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -276,7 +276,7 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
     setProjectId('');
     setPoExpectedDate(null);
     setPoPaymentTerms(undefined);
-    setPoRemarks('');
+    setPoRemarks('Material amount must be refundable in case of material loss or damage');
     setVendorSections([]);
     setBillFile(null);
   };
@@ -376,7 +376,7 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
 
   const colSno: ColumnsType<PurchaseOrder>[number] = { title: 'S.No', key: 'sno', width: 60, render: (_text, _record, index) => index + 1 };
   const colPoNumber: ColumnsType<PurchaseOrder>[number] = { title: 'PO Number', dataIndex: 'poNumber', sorter: (a, b) => a.poNumber.localeCompare(b.poNumber), render: (value: string) => <Typography.Text strong>{value}</Typography.Text> };
-  const colMrRef: ColumnsType<PurchaseOrder>[number] = { title: 'MR Ref', dataIndex: 'materialRequirementNo', sorter: (a, b) => (a.materialRequirementNo || '').localeCompare(b.materialRequirementNo || ''), render: (value?: string | null) => value || <Typography.Text type="secondary">-</Typography.Text> };
+  const colMrRef: ColumnsType<PurchaseOrder>[number] = { title: 'MR No', dataIndex: 'materialRequirementNo', sorter: (a, b) => (a.materialRequirementNo || '').localeCompare(b.materialRequirementNo || ''), render: (value?: string | null) => value || <Typography.Text type="secondary">-</Typography.Text> };
   const colExpectedDate: ColumnsType<PurchaseOrder>[number] = { title: 'Expected By', key: 'expectedDate', width: 160, render: (_, r) => <Typography.Text className="text-xs">{formatDateTime(r.expectedDate)}</Typography.Text> };
   const colPaymentTerms: ColumnsType<PurchaseOrder>[number] = { title: 'Payment Terms', key: 'paymentTerms', width: 130, render: (_, r) => r.paymentTerms ? <Tag color="blue">{PAYMENT_TERMS_LABELS[r.paymentTerms] || r.paymentTerms}</Tag> : <Typography.Text type="secondary">-</Typography.Text> };
   const colVendor: ColumnsType<PurchaseOrder>[number] = { title: 'Vendor', dataIndex: ['vendor', 'name'], sorter: (a, b) => (a.vendor?.name || '').localeCompare(b.vendor?.name || ''), render: (_value, record) => record.vendor?.name || '-' };
@@ -477,7 +477,7 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
                   <div className="flex flex-col gap-0.5 text-xs text-[var(--text-muted)]">
                     <span>Vendor: {record.vendor?.name || '-'}</span>
                     {record.project && <span>Project: {record.project.name} ({record.project.projectCode || 'No Code'})</span>}
-                    {record.materialRequirementNo && <span>MR Ref: {record.materialRequirementNo}</span>}
+                    {record.materialRequirementNo && <span>MR No: {record.materialRequirementNo}</span>}
                     {record.expectedDate && <span>Expected: {formatDateTime(record.expectedDate)}</span>}
                     {record.paymentTerms && <span>Terms: {PAYMENT_TERMS_LABELS[record.paymentTerms] || record.paymentTerms}</span>}
                     <Flex justify="space-between" align="center" className="mt-1">
@@ -528,10 +528,10 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
       >
         <Form layout="vertical">
           {!editingPo && peOptions.length > 0 && (
-            <Form.Item label="MR Ref" className="mb-6 rounded-lg border border-blue-500/20 bg-blue-500/5 p-4">
+            <Form.Item label="MR No" className="mb-6 rounded-lg border border-blue-500/20 bg-blue-500/5 p-4">
               <Select
                 showSearch
-                placeholder="Search MR Ref or vendor..."
+                placeholder="Search MR No or vendor..."
                 optionFilterProp="label"
                 onChange={handleEnquirySelect}
                 value={selectedQuotationId || undefined}

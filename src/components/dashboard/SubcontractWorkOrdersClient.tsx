@@ -400,16 +400,16 @@ export function SubcontractWorkOrdersClient({
       render: (text) => <Typography.Text strong>{text}</Typography.Text>,
     },
     {
-      title: 'Date',
+      title: 'Date (WO Created)',
       dataIndex: 'createdAt',
       key: 'createdAt',
-      width: 110,
+      width: 160,
       render: (v?: string) => formatDate(v),
     },
     {
       title: 'Project',
       key: 'project',
-      width: 180,
+      width: 220,
       render: (_, record) => record.project?.projectCode || '-',
     },
     {

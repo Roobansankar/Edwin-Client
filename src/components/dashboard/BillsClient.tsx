@@ -45,6 +45,7 @@ const billSchema = z.object({
   purchaseOrderId: z.string().optional(),
   amount: z.number().positive('Amount must be positive'),
   gstPercent: z.number().optional(),
+  transportAmount: z.number().optional(),
   dueDate: z.string().optional(),
   billDate: z.string().min(1, 'Select bill date'),
   projectId: z.string().optional(),
@@ -158,6 +159,7 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, vendorQu
       purchaseOrderId: '',
       amount: 0,
       gstPercent: 0,
+      transportAmount: 0,
       dueDate: undefined,
       billDate: new Date().toISOString().split('T')[0],
       projectId: undefined,
@@ -178,6 +180,11 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, vendorQu
   const watchedGstPercent = useWatch({
     control,
     name: 'gstPercent',
+  });
+
+  const watchedTransportAmount = useWatch({
+    control,
+    name: 'transportAmount',
   });
 
   const watchedProjectId = useWatch({
@@ -207,18 +214,20 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, vendorQu
       const basicAmount = watchedItems.reduce((sum: number, item: any) =>
         sum + (Number(item?.quantity || 0) * Number(item?.rate || 0)), 0);
       const gstAmount = basicAmount * (Number(watchedGstPercent || 0) / 100);
-      setValue('amount', basicAmount + gstAmount);
+      setValue('amount', basicAmount + gstAmount + Number(watchedTransportAmount || 0));
     }
-  }, [watchedItems, watchedGstPercent, setValue]);
+  }, [watchedItems, watchedGstPercent, watchedTransportAmount, setValue]);
 
   const handleEdit = (bill: PurchaseBill) => {
     setEditingBill(bill);
+    const linkedPo = purchaseOrders.find(p => p.id === bill.purchaseOrderId);
     reset({
       vendorId: bill.vendorId,
       purchaseOrderId: bill.purchaseOrderId || undefined,
       projectId: bill.projectId || undefined,
       amount: Number(bill.amount),
       gstPercent: Number(bill.gstPercent || 0),
+      transportAmount: Number(linkedPo?.transportAmount || 0),
       billDate: bill.billDate,
       dueDate: bill.dueDate || undefined,
       notes: bill.notes || '',
@@ -261,6 +270,7 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, vendorQu
         billDate: new Date().toISOString().split('T')[0],
         amount: 0,
         gstPercent: Number(po.gstPercent || 0),
+        transportAmount: Number(po.transportAmount || 0),
         items: po.items?.map(item => ({
           poItemId: item.id!,
           description: item.description,
@@ -321,8 +331,9 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, vendorQu
           sum + Number(item.quantity || 0) * Number(item.rate || 0), 0);
         const gstAmount = basicAmount * (Number(values.gstPercent || 0) / 100);
 
+        const { transportAmount: _transportAmount, ...billValues } = values;
         const payload = {
-          ...values,
+          ...billValues,
           gstAmount,
           billFileUrl,
           billFileKey,
@@ -891,7 +902,12 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, vendorQu
                         {formatCurrency((watchedItems || []).reduce((s, i) => s + Number(i.quantity || 0) * Number(i.rate || 0), 0) * (Number(watchedGstPercent || 0) / 100))}
                       </Typography.Text>
                     </Form.Item>
-                    <Form.Item label="Total w/ GST" className="mb-0">
+                    <Form.Item label="Transport" className="mb-0">
+                      <Typography.Text>
+                        {formatCurrency(Number(watchedTransportAmount || 0))}
+                      </Typography.Text>
+                    </Form.Item>
+                    <Form.Item label="Total" className="mb-0">
                       <Typography.Title level={4} style={{ margin: 0, color: '#10b981' }}>
                         {formatCurrency(watch('amount'))}
                       </Typography.Title>

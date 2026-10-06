@@ -107,15 +107,22 @@ export function DpwForm({ projects, trades, teams = [], initialValues, onSuccess
     });
   };
 
-  const handleAddTrade = async (e: React.MouseEvent<HTMLElement>) => {
+  const handleAddTrade = async (e: React.MouseEvent<HTMLElement>, index: number) => {
     e.preventDefault();
     if (!newTradeName.trim()) return;
 
     setIsAddingTrade(true);
     try {
-      const trade = await createTrade({ name: newTradeName });
+      // Save the trade under the team chosen for this row, otherwise it is
+      // filtered out of that row's trade list and looks like nothing was added.
+      const trade = await createTrade({ name: newTradeName.trim(), teamId: rowTeamId[index] || undefined });
       setLocalTrades([...localTrades, trade]);
       setNewTradeName('');
+      // Select the new trade in this row.
+      const workers = form.getFieldValue('workers') || [];
+      form.setFieldsValue({
+        workers: workers.map((w: any, i: number) => (i === index ? { ...w, tradeId: trade.id } : w)),
+      });
       message.success('Trade added successfully');
     } catch (error) {
       message.error(error instanceof Error ? error.message : 'Failed to add trade');
@@ -330,7 +337,7 @@ export function DpwForm({ projects, trades, teams = [], initialValues, onSuccess
                                     onChange={(e) => setNewTradeName(e.target.value)}
                                     onKeyDown={(e) => e.stopPropagation()}
                                   />
-                                  <Button type="text" icon={<PlusOutlined />} onClick={handleAddTrade} loading={isAddingTrade}>
+                                  <Button type="text" icon={<PlusOutlined />} onClick={(e) => handleAddTrade(e, name)} loading={isAddingTrade}>
                                     Add
                                   </Button>
                                 </Space>

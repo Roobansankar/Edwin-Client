@@ -121,14 +121,35 @@ export function DpwClient({
       sorter: (a, b) => dayjs(a.reportDate).unix() - dayjs(b.reportDate).unix(),
     },
     {
-      title: 'Project',
-      dataIndex: ['project', 'name'],
-      key: 'projectName',
-      render: (name) => name || 'N/A',
+      title: 'Project Code',
+      dataIndex: ['project', 'projectCode'],
+      key: 'projectCode',
+      width: 160,
+      render: (code) => code || 'N/A',
+    },
+    {
+      // A report can have trades from more than one team, so list each team once.
+      title: 'Team',
+      key: 'team',
+      width: 200,
+      render: (_, record: DailyLabourReport) => {
+        const teams = Array.from(
+          new Set((record.workers || []).map((w) => w.tradeRel?.team?.name).filter((name): name is string => !!name)),
+        );
+        if (teams.length === 0) return '-';
+        return (
+          <Space wrap size={[4, 4]}>
+            {teams.map((team) => (
+              <Tag key={team} color="cyan" style={{ margin: 0 }}>{team}</Tag>
+            ))}
+          </Space>
+        );
+      },
     },
     {
       title: 'Headcount',
       key: 'workers',
+      width: 220,
       render: (_, record) => {
         const tradeSummary = getTradeSummary(record.workers);
         const total = getTotalCount(record.workers);
@@ -149,7 +170,7 @@ export function DpwClient({
       },
     },
     {
-      title: 'Remarks',
+      title: 'Overall Remarks',
       dataIndex: 'remarks',
       key: 'remarks',
       ellipsis: true,

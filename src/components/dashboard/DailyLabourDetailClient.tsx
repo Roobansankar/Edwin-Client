@@ -209,7 +209,12 @@ export function DailyLabourDetailClient() {
               return (
                 <Card
                   key={worker.id || index}
-                  title={<Typography.Text strong className="text-sky-400">{worker.trade}</Typography.Text>}
+                  title={
+                    <Space size={8} wrap>
+                      <Typography.Text strong className="text-sky-400">{worker.trade}</Typography.Text>
+                      <Tag color="cyan">Team: {worker.tradeRel?.team?.name || 'No team'}</Tag>
+                    </Space>
+                  }
                   className="border-[var(--border)] bg-[var(--subtle-bg)]"
                 >
                   <Row gutter={[16, 16]}>

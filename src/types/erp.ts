@@ -674,6 +674,8 @@ export type DailyWorker = {
   reviewRemarks?: string | null;
   // Set once this approved trade entry is included in a labour payment.
   labourPaymentId?: string | null;
+  // The trade this entry belongs to, including its default shift amount.
+  tradeRel?: Trade | null;
 };
 
 export type DailyLabourReport = {
