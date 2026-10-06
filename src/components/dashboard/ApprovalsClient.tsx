@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
-import { App, Button, Card, Col, DatePicker, Flex, Input, Modal, Row, Select, Space, Statistic, Table, Tabs, Tag, Typography } from 'antd';
+import { App, Button, Card, Col, DatePicker, Flex, Input, Modal, Popconfirm, Row, Select, Space, Statistic, Table, Tabs, Tag, Typography } from 'antd';
 import type { TableProps } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -42,6 +42,9 @@ const APPROVAL_STATUS_OPTIONS = [
   { label: 'Rejected', value: 'rejected' },
 ];
 
+// Accounts verifies each expense, but only admin can give the final Admin Approved.
+const EXPENSE_VERIFY_STATUS_OPTIONS = APPROVAL_STATUS_OPTIONS.filter((o) => o.value !== 'admin_approved');
+
 type Props = {
   bills: PurchaseBill[];
   subcontractorBills: SubcontractorBill[];
@@ -60,6 +63,15 @@ type ExpenseWeekRow = {
   projectName: string;
   expenses: Expense[];
 };
+
+// Expenses a week-level approval changes. Admin approves the week once, so
+// it also covers expenses accounts already approved; accounts only approves
+// what is still pending. Rejected expenses are never changed by this.
+function weekApprovalTargets(expenses: Expense[], isAdminUser: boolean) {
+  return expenses.filter((e) =>
+    isAdminUser ? e.status === 'pending' || e.status === 'approved' : e.status === 'pending',
+  );
+}
 
 // Rejected expenses are not part of what gets paid.
 function expenseWeekAmount(expenses: Expense[]) {
@@ -87,6 +99,13 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
   const [activeTab, setActiveTabState] = useState('expenses');
   const [rejectExpenseId, setRejectExpenseId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  // Only the expense being updated is locked, so one slow update cannot
+  // disable every status dropdown on the page.
+  const [updatingExpenseId, setUpdatingExpenseId] = useState<string | null>(null);
+  // Week rows currently expanded in the Expenses tab.
+  const [expandedWeeks, setExpandedWeeks] = useState<string[]>([]);
+  // Week row whose "Approve Week" is running.
+  const [updatingWeekKey, setUpdatingWeekKey] = useState<string | null>(null);
   const { message } = App.useApp();
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
@@ -190,9 +209,33 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
   }, [dailyReports, dateRange, searchText, statusFilter]);
 
   const handleExpenseStatusChange = (id: string, status: string, reason?: string) => {
+    setUpdatingExpenseId(id);
     startTransition(async () => {
       try { await updateExpenseStatus(id, status, reason); message.success('Expense status updated'); }
       catch (error) { message.error(error instanceof Error ? error.message : 'Failed'); }
+      finally { setUpdatingExpenseId(null); }
+    });
+  };
+
+  // Approves every eligible expense in one week. Each expense is updated on
+  // its own, so one failure does not stop the rest of the week.
+  const approveExpenseWeek = (row: ExpenseWeekRow) => {
+    const targetStatus = isAdmin ? 'admin_approved' : 'approved';
+    const targets = weekApprovalTargets(row.expenses, isAdmin);
+    if (targets.length === 0) return;
+    setUpdatingWeekKey(row.key);
+    startTransition(async () => {
+      try {
+        const results = await Promise.allSettled(targets.map((e) => updateExpenseStatus(e.id, targetStatus)));
+        const failed = results.filter((r) => r.status === 'rejected').length;
+        if (failed === 0) {
+          message.success(`${targets.length} expense${targets.length > 1 ? 's' : ''} approved for ${weekRangeLabel(row.weekStart)}`);
+        } else {
+          message.error(`${failed} of ${targets.length} expenses could not be approved`);
+        }
+      } finally {
+        setUpdatingWeekKey(null);
+      }
     });
   };
 
@@ -372,7 +415,8 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
         <Select
           value={record.status || 'pending'} size="small" variant="borderless" className="w-full"
           onChange={(newStatus) => handleExpenseStatusSelect(record.id, newStatus)}
-          options={APPROVAL_STATUS_OPTIONS} popupMatchSelectWidth={false} disabled={isPending}
+          options={EXPENSE_VERIFY_STATUS_OPTIONS} popupMatchSelectWidth={false}
+          loading={updatingExpenseId === record.id} disabled={updatingExpenseId === record.id}
         />
       ),
     },
@@ -405,15 +449,70 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
         return <Tag color={status.color}>{status.label}</Tag>;
       },
     },
+    {
+      title: 'Action', key: 'action', width: 280,
+      render: (_, r) => {
+        const open = expandedWeeks.includes(r.key);
+        const targets = weekApprovalTargets(r.expenses, isAdmin);
+        const weekLabelText = weekRangeLabel(r.weekStart);
+        return (
+          <Flex gap={6} wrap="wrap">
+            <Button
+              size="small"
+              type={open ? 'default' : 'primary'}
+              ghost={!open}
+              onClick={() => setExpandedWeeks((keys) => (open ? keys.filter((k) => k !== r.key) : [...keys, r.key]))}
+            >
+              {open ? 'Hide expenses' : `Review (${r.expenses.length})`}
+            </Button>
+            <Popconfirm
+              title={`Approve all expenses for ${weekLabelText}?`}
+              description={
+                isAdmin
+                  ? `Sets ${targets.length} expense${targets.length === 1 ? '' : 's'} to Admin Approved. Rejected expenses are left out.`
+                  : `Sets ${targets.length} pending expense${targets.length === 1 ? '' : 's'} to Approved. Rejected expenses are left out.`
+              }
+              onConfirm={() => approveExpenseWeek(r)}
+              okText="Yes, approve"
+              cancelText="No"
+              disabled={targets.length === 0}
+            >
+              <Button
+                size="small"
+                type="primary"
+                disabled={targets.length === 0 || updatingWeekKey !== null}
+                loading={updatingWeekKey === r.key}
+              >
+                {targets.length === 0 ? 'Nothing to approve' : 'Approve Week'}
+              </Button>
+            </Popconfirm>
+          </Flex>
+        );
+      },
+    },
   ];
 
-  const expenseDetailColumns = expenseColumns.filter(
-    (c) => c.key !== 'sno' && c.key !== 'creator' && c.key !== 'project',
-  );
+  // Admin only approves the whole week, so each expense shows its status
+  // read-only for admin. Accounts verifies each one and cannot give the
+  // final Admin Approved, so that option is left out for accounts.
+  const expenseDetailColumns = expenseColumns
+    .filter((c) => c.key !== 'sno' && c.key !== 'creator' && c.key !== 'project')
+    .map((c) => (c.key === 'status' && isAdmin
+      ? {
+          ...c,
+          render: (_: unknown, record: Expense) => {
+            const option = APPROVAL_STATUS_OPTIONS.find((o) => o.value === (record.status || 'pending'));
+            return <Tag color={record.status === 'rejected' ? 'error' : record.status === 'admin_approved' ? 'purple' : record.status === 'approved' ? 'success' : 'warning'}>{option?.label || 'Pending'}</Tag>;
+          },
+        }
+      : c));
 
   const expenseWeekTableProps = {
     rowKey: 'key',
     expandable: {
+      expandedRowKeys: expandedWeeks,
+      onExpand: (expanded: boolean, row: ExpenseWeekRow) =>
+        setExpandedWeeks((keys) => (expanded ? [...keys, row.key] : keys.filter((k) => k !== row.key))),
       expandedRowRender: (row: ExpenseWeekRow) => (
         <Table
           size="small"
