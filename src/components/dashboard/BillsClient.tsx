@@ -75,7 +75,7 @@ type BillsClientProps = {
   userRole: string;
 };
 
-export function BillsClient({ bills, vendors, projects, purchaseOrders, vendorQuotations, userRole }: BillsClientProps) {
+export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole }: BillsClientProps) {
   const canManagePayments = userRole === 'admin' || userRole === 'accounts_manager';
   // Only admin / accounts can change a bill's status or tick its documents.
   const canApproveBill = userRole === 'admin' || userRole === 'accounts_manager';
@@ -92,19 +92,6 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, vendorQu
   const [fileList, setFileList] = useState<any[]>([]);
   const [searchText, setSearchText] = useState('');
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
-  // Latest vendor quotation per (vendor, MR ref) - the "Purchase Enquiry" a
-  // bill's PO was raised from.
-  const enquiryByVendorAndMr = useMemo(() => {
-    const map = new Map<string, VendorQuotation>();
-    for (const vq of vendorQuotations) {
-      const key = `${vq.vendorId}|${vq.materialRequirement?.enquiryNo || ''}`;
-      if (!map.has(key)) map.set(key, vq);
-    }
-    return map;
-  }, [vendorQuotations]);
-  const enquiryFor = (bill: PurchaseBill) =>
-    enquiryByVendorAndMr.get(`${bill.vendorId}|${bill.purchaseOrder?.materialRequirementNo || ''}`) || null;
-
   // Moving to Accounts Approved is blocked until all three documents are
   // checked (the server enforces the same rule).
   const handleBillStatusSelect = (bill: PurchaseBill, newStatus: string) => {
@@ -392,35 +379,16 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, vendorQu
       render: (_text, _record, index) => index + 1,
     },
     {
-      title: 'Created Date',
-      dataIndex: 'createdAt',
-      width: 110,
-      render: (value?: string) => formatDate(value),
+      title: 'Project',
+      key: 'project',
+      width: 160,
+      render: (_value, record) => record.project?.name || record.purchaseOrder?.project?.name || '-',
     },
     {
-      title: 'MR Ref',
+      title: 'MR No',
       key: 'mrRef',
       width: 130,
       render: (_value, record) => record.purchaseOrder?.materialRequirementNo || '-',
-    },
-    {
-      title: 'Purchase Enquiry',
-      key: 'purchaseEnquiry',
-      width: 150,
-      render: (_value, record) => {
-        const vq = enquiryFor(record);
-        if (!vq) return <Typography.Text type="secondary">-</Typography.Text>;
-        return (
-          <Flex vertical gap={0}>
-            <Typography.Text className="text-xs">{formatDate(vq.createdAt)}</Typography.Text>
-            {vq.quotationUrl && (
-              <Button type="link" size="small" className="px-0! h-auto!" icon={<FilePdfOutlined />} href={vq.quotationUrl} target="_blank">
-                Quotation
-              </Button>
-            )}
-          </Flex>
-        );
-      },
     },
     {
       title: 'PO Number',
@@ -437,42 +405,16 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, vendorQu
       render: (value: string) => <Typography.Text strong>{value}</Typography.Text>,
     },
     {
+      title: 'Bill Date',
+      dataIndex: 'billDate',
+      width: 110,
+      render: formatDate,
+    },
+    {
       title: 'Vendor',
       dataIndex: ['vendor', 'name'],
       width: 160,
       render: (_value, record) => record.vendor?.name || '-',
-    },
-    {
-      title: 'Project',
-      key: 'project',
-      width: 160,
-      render: (_value, record) => record.project?.name || record.purchaseOrder?.project?.name || '-',
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      width: 170,
-      render: (value, record) => canApproveBill ? (
-        <Select
-          value={value}
-          size="small"
-          variant="borderless"
-          className="w-full"
-          popupMatchSelectWidth={false}
-          disabled={isPending}
-          options={BILL_STATUS_OPTIONS}
-          onChange={(newStatus) => handleBillStatusSelect(record, newStatus)}
-        />
-      ) : (
-        <StatusTag value={value} />
-      ),
-    },
-    {
-      title: 'GST',
-      dataIndex: 'gstAmount',
-      align: 'right',
-      width: 110,
-      render: (value) => Number(value) > 0 ? formatCurrency(value) : <Typography.Text type="secondary">-</Typography.Text>,
     },
     {
       // The bill amount already carries GST (copied from the PO total).
@@ -483,21 +425,22 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, vendorQu
       render: (value) => <Typography.Text strong>{formatCurrency(value)}</Typography.Text>,
     },
     {
-      title: 'Paid Amount',
+      title: 'Doc (Vendor Bill)',
+      key: 'vendorBillDoc',
+      width: 120,
+      align: 'center',
+      render: (_value, record) => record.billFileUrl ? (
+        <Button type="link" size="small" icon={<FileTextOutlined />} href={`${getApiBaseUrl().replace('/api/v1', '')}${record.billFileUrl}`} target="_blank">
+          View
+        </Button>
+      ) : <Typography.Text type="secondary">-</Typography.Text>,
+    },
+    {
+      title: 'Amount Paid',
       dataIndex: 'paidAmount',
       align: 'right',
       width: 120,
       render: (value) => Number(value) > 0 ? formatCurrency(value) : <Typography.Text type="secondary">-</Typography.Text>,
-    },
-    {
-      title: 'Balance Amount',
-      key: 'balanceAmount',
-      align: 'right',
-      width: 130,
-      render: (_value, record) => {
-        const balance = Number(record.amount) - Number(record.paidAmount || 0);
-        return <Typography.Text strong={balance > 0}>{formatCurrency(balance)}</Typography.Text>;
-      },
     },
     {
       title: 'History',
@@ -528,6 +471,25 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, vendorQu
           </Flex>
         );
       },
+    },
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      width: 170,
+      render: (value, record) => canApproveBill ? (
+        <Select
+          value={value}
+          size="small"
+          variant="borderless"
+          className="w-full"
+          popupMatchSelectWidth={false}
+          disabled={isPending}
+          options={BILL_STATUS_OPTIONS}
+          onChange={(newStatus) => handleBillStatusSelect(record, newStatus)}
+        />
+      ) : (
+        <StatusTag value={value} />
+      ),
     },
     {
       title: 'Action',
@@ -581,10 +543,27 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, vendorQu
       },
     },
     {
-      title: 'Bill Date',
-      dataIndex: 'billDate',
+      title: 'Created Date',
+      dataIndex: 'createdAt',
       width: 110,
-      render: formatDate,
+      render: (value?: string) => formatDate(value),
+    },
+    {
+      title: 'GST',
+      dataIndex: 'gstAmount',
+      align: 'right',
+      width: 110,
+      render: (value) => Number(value) > 0 ? formatCurrency(value) : <Typography.Text type="secondary">-</Typography.Text>,
+    },
+    {
+      title: 'Balance Amount',
+      key: 'balanceAmount',
+      align: 'right',
+      width: 130,
+      render: (_value, record) => {
+        const balance = Number(record.amount) - Number(record.paidAmount || 0);
+        return <Typography.Text strong={balance > 0}>{formatCurrency(balance)}</Typography.Text>;
+      },
     },
   ];
 
