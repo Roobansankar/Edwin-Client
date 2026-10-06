@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button, Card, Checkbox, DatePicker, Divider, Drawer, Flex, Form, Input, Modal, Popconfirm, Select, Space, Table, Tag, Typography, App, InputNumber } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { DeleteOutlined, EditOutlined, FilePdfOutlined, HistoryOutlined, PlusOutlined, SearchOutlined, ShoppingCartOutlined, SplitCellsOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, FilePdfOutlined, PlusOutlined, SearchOutlined, ShoppingCartOutlined, SplitCellsOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { Controller, useForm, useFieldArray } from 'react-hook-form';
 import { z } from 'zod';
@@ -130,26 +130,6 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
     return map;
   }, [purchaseOrders]);
 
-  const paidByPoId = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const p of payments) {
-      if (!p.purchaseOrderId) continue;
-      map.set(p.purchaseOrderId, (map.get(p.purchaseOrderId) || 0) + Number(p.amount));
-    }
-    return map;
-  }, [payments]);
-
-  const enquiryTotals = (enquiryNo: string) => {
-    const pos = posByEnquiryNo.get(enquiryNo) || [];
-    const total = pos.reduce((sum, po) => sum + Number(po.totalWithGst || po.totalAmount), 0);
-    const paid = pos.reduce((sum, po) => sum + (paidByPoId.get(po.id) || 0), 0);
-    return { total, paid, balance: total - paid, hasPo: pos.length > 0 };
-  };
-
-  const openHistory = (enquiry: PurchaseEnquiry) => {
-    setHistoryEnquiry(enquiry);
-    setHistoryOpen(true);
-  };
   const historyPayments = useMemo(() => {
     if (!historyEnquiry) return [];
     const poIds = new Set((posByEnquiryNo.get(historyEnquiry.enquiryNo) || []).map((po) => po.id));
@@ -373,7 +353,6 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
       key: 'actions',
       width: 200,
       render: (_, record) => {
-        const { hasPo } = enquiryTotals(record.enquiryNo);
         return (
           <Space>
             {canManageEnquiry && (
@@ -406,15 +385,6 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
                 icon={<SplitCellsOutlined />}
                 title="Split items by vendor & generate PDF"
                 onClick={() => openSplit(record)}
-              />
-            )}
-            {hasPo && (
-              <Button
-                type="link"
-                size="small"
-                icon={<HistoryOutlined />}
-                title="Payment history"
-                onClick={() => openHistory(record)}
               />
             )}
             {isSiteEngineer && (
