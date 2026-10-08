@@ -4,7 +4,8 @@ import { useCallback, useMemo, useState, useTransition } from 'react';
 import { Button, Card, DatePicker, Flex, Form, Input, InputNumber, Modal, Select, Table, Tag, Typography, App } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
-import { DollarOutlined, FilePdfOutlined, HistoryOutlined, SearchOutlined } from '@ant-design/icons';
+import { DollarOutlined, EyeOutlined, FilePdfOutlined, HistoryOutlined, SearchOutlined } from '@ant-design/icons';
+import Link from 'next/link';
 import { createAdvanceRequest } from '@/actions/advance-requests';
 import type { Project, AdvanceRequest, PurchaseOrder, PurchaseBill, Payment } from '@/types/erp';
 import {
@@ -203,6 +204,17 @@ export function AdvanceRequestClient({ projects, advanceRequests, purchaseOrders
     },
     { title: 'Requested At', dataIndex: 'createdAt', render: formatDate },
     { title: 'Status', key: 'status', render: (_, record) => <Tag color={STATUS_COLORS[record.status] || 'default'}>{STATUS_LABELS[record.status] || record.status.toUpperCase()}</Tag> },
+    {
+      title: 'Actions',
+      key: 'actions',
+      width: 90,
+      align: 'center',
+      render: (_, record) => (
+        <Link href={`/dashboard/advance/${record.id}`}>
+          <Button size="small" icon={<EyeOutlined />} title="View full journey" />
+        </Link>
+      ),
+    },
   ];
 
   return (

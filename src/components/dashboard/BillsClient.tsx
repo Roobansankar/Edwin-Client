@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { App, Button, Card, DatePicker, Drawer, Flex, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Typography, Upload, Divider } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { DeleteOutlined, EditOutlined, FileDoneOutlined, PlusOutlined, HistoryOutlined, SearchOutlined, UploadOutlined, FileTextOutlined, FileExcelOutlined, FilePdfOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, EyeOutlined, FileDoneOutlined, PlusOutlined, HistoryOutlined, SearchOutlined, UploadOutlined, FileTextOutlined, FileExcelOutlined, FilePdfOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { Controller, useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { z } from 'zod';
@@ -498,6 +498,12 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
       render: (_, record) => {
         return (
           <Space>
+            <Button
+              size="small"
+              icon={<EyeOutlined />}
+              title="View bill details"
+              onClick={() => router.push(`/dashboard/accounts/bills/${record.id}`)}
+            />
             <BillDocumentsMenu bill={record} canApprove={canApproveBill} />
             {record.status === 'pending' && (
               <>

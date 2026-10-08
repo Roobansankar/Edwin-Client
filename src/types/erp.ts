@@ -754,6 +754,14 @@ export type AdvanceRequest = {
   updatedAt?: string;
 };
 
+// MR -> purchase enquiry -> PO journey behind one vendor payment request.
+export type AdvanceRequestTrail = {
+  request: AdvanceRequest;
+  materialRequirement: PurchaseEnquiry | null;
+  quotations: VendorQuotation[];
+  purchaseOrder: PurchaseOrder | null;
+};
+
 export type SubcontractorPaymentRequestStatus = 'pending' | 'accepted' | 'admin_approved' | 'rejected';
 
 export type SubcontractorPaymentRequest = {
