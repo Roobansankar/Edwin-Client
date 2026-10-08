@@ -40,6 +40,19 @@ const STATUS_LABELS: Record<string, string> = {
 
 const poBalance = (po: PurchaseOrder) => Number(po.totalWithGst || po.totalAmount) - Number(po.paidAmount || 0);
 
+// Same labels as Purchase Enquiry / Vendors.
+const PAYMENT_TERMS_LABELS: Record<string, string> = {
+  advance: 'Advance',
+  credit: 'Credit',
+  full_payment: 'Full Payment',
+};
+
+// The PO's payment terms, or the vendor's own terms when the PO has none.
+const paymentTermsLabel = (po?: PurchaseOrder | null, vendorTerms?: string | null) => {
+  const terms = po?.paymentTerms || vendorTerms;
+  return terms ? PAYMENT_TERMS_LABELS[terms] || terms : null;
+};
+
 export function AdvanceRequestClient({ projects, advanceRequests, purchaseOrders, bills, payments }: Props) {
   const [selectedPoId, setSelectedPoId] = useState<string | null>(null);
   const [vendorId, setVendorId] = useState('');
@@ -156,6 +169,14 @@ export function AdvanceRequestClient({ projects, advanceRequests, purchaseOrders
     { title: 'MR No', dataIndex: 'materialRequirementNo', render: (value?: string | null) => value || <Typography.Text type="secondary">-</Typography.Text> },
     { title: 'Amount', dataIndex: 'amount', align: 'right', render: (value: number | string) => formatCurrency(value) },
     {
+      title: 'Payment Terms',
+      key: 'paymentTerms',
+      render: (_, record) => {
+        const label = paymentTermsLabel(record.purchaseOrder, record.vendor?.paymentTerms);
+        return label ? <Tag color="blue">{label}</Tag> : <Typography.Text type="secondary">-</Typography.Text>;
+      },
+    },
+    {
       title: 'History',
       key: 'history',
       width: 190,
@@ -236,6 +257,12 @@ export function AdvanceRequestClient({ projects, advanceRequests, purchaseOrders
                 </Typography.Text>
                 <Typography.Text>
                   Balance: <Typography.Text strong>{formatCurrency(poBalance(selectedPo))}</Typography.Text>
+                </Typography.Text>
+                <Typography.Text>
+                  Payment Terms:{' '}
+                  {paymentTermsLabel(selectedPo, selectedPo.vendor?.paymentTerms)
+                    ? <Tag color="blue" className="m-0!">{paymentTermsLabel(selectedPo, selectedPo.vendor?.paymentTerms)}</Tag>
+                    : <Typography.Text type="secondary">-</Typography.Text>}
                 </Typography.Text>
                 {selectedPo.billFileUrl && (
                   <Button size="small" icon={<FilePdfOutlined />} href={selectedPo.billFileUrl} target="_blank">

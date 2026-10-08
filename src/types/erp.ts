@@ -118,6 +118,7 @@ export type Vendor = {  id: string;
   accountNumber?: string | null;
   ifscCode?: string | null;
   branch?: string | null;
+  paymentTerms?: string | null;
   createdAt?: string;
   updatedAt?: string;
 };

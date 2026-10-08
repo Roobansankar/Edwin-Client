@@ -31,7 +31,18 @@ const vendorSchema = z.object({
   accountNumber: z.string().optional(),
   ifscCode: z.string().optional(),
   branch: z.string().optional(),
+  paymentTerms: z.string().optional(),
 });
+
+// Same choices as Purchase Enquiry.
+const PAYMENT_TERMS_OPTIONS = [
+  { label: 'Advance', value: 'advance' },
+  { label: 'Credit', value: 'credit' },
+  { label: 'Full Payment', value: 'full_payment' },
+];
+const PAYMENT_TERMS_LABELS: Record<string, string> = Object.fromEntries(
+  PAYMENT_TERMS_OPTIONS.map((o) => [o.value, o.label]),
+);
 
 type VendorFormValues = z.infer<typeof vendorSchema>;
 
@@ -97,6 +108,7 @@ export function VendorsClient({ vendors, categories }: VendorsClientProps) {
       accountNumber: '',
       ifscCode: '',
       branch: '',
+      paymentTerms: '',
     },
   });
 
@@ -115,6 +127,7 @@ export function VendorsClient({ vendors, categories }: VendorsClientProps) {
       setValue('accountNumber', editingVendor.accountNumber || '');
       setValue('ifscCode', editingVendor.ifscCode || '');
       setValue('branch', editingVendor.branch || '');
+      setValue('paymentTerms', editingVendor.paymentTerms || '');
     } else {
       reset({
         name: '',
@@ -129,6 +142,7 @@ export function VendorsClient({ vendors, categories }: VendorsClientProps) {
         accountNumber: '',
         ifscCode: '',
         branch: '',
+        paymentTerms: '',
       });
     }
   }, [editingVendor, setValue, reset]);
@@ -163,24 +177,34 @@ export function VendorsClient({ vendors, categories }: VendorsClientProps) {
     {
       title: 'Name',
       dataIndex: 'name',
+      width: 200,
       sorter: (a, b) => a.name.localeCompare(b.name),
       render: (value: string) => <Typography.Text strong>{value}</Typography.Text>,
     },
     {
       title: 'Category',
       dataIndex: 'category',
+      width: 150,
       render: (value) => value || '-',
     },
     {
       title: 'GST Number',
       dataIndex: 'gstNumber',
+      width: 170,
       render: (value) => value || '-',
+    },
+    {
+      title: 'Payment Terms',
+      dataIndex: 'paymentTerms',
+      width: 140,
+      render: (value?: string | null) => (value ? PAYMENT_TERMS_LABELS[value] || value : '-'),
     },
     {
       title: 'Contact',
       key: 'contact',
+      width: 260,
       render: (_, record) => (
-        <Flex vertical gap={0}>
+        <Flex vertical gap={0} style={{ whiteSpace: 'normal', wordBreak: 'break-all' }}>
           {record.contactEmail && <Typography.Text className="text-xs">{record.contactEmail}</Typography.Text>}
           {record.contactPhone && <Typography.Text type="secondary" className="text-xs">{record.contactPhone}</Typography.Text>}
           {!record.contactEmail && !record.contactPhone && '-'}
@@ -190,14 +214,13 @@ export function VendorsClient({ vendors, categories }: VendorsClientProps) {
     {
       title: 'Created',
       dataIndex: 'createdAt',
-      width: 120,
+      width: 140,
       sorter: (a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime(),
       render: formatDate,
     },
     {
       title: 'Actions',
       key: 'actions',
-      fixed: 'right',
       width: 140,
       render: (_, record) => (
         <Space>
@@ -231,7 +254,9 @@ export function VendorsClient({ vendors, categories }: VendorsClientProps) {
     },
   ];
 
-  const submit = (values: VendorFormValues) => {
+  const submit = (formValues: VendorFormValues) => {
+    // Cleared payment terms are saved as null, not an empty string.
+    const values = { ...formValues, paymentTerms: formValues.paymentTerms || null };
     startTransition(async () => {
       try {
         if (editingVendor) {
@@ -328,7 +353,7 @@ export function VendorsClient({ vendors, categories }: VendorsClientProps) {
           columns={columns}
           rowKey="id"
           size="middle"
-          scroll={{ x: 800 }}
+          scroll={{ x: 1300 }}
           pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} vendors` }}
         />
       </Card>
@@ -347,6 +372,9 @@ export function VendorsClient({ vendors, categories }: VendorsClientProps) {
             </Descriptions.Item>
             <Descriptions.Item label="GST Number">{viewingVendor.gstNumber || '-'}</Descriptions.Item>
             <Descriptions.Item label="Category">{viewingVendor.category || '-'}</Descriptions.Item>
+            <Descriptions.Item label="Payment Terms">
+              {viewingVendor.paymentTerms ? PAYMENT_TERMS_LABELS[viewingVendor.paymentTerms] || viewingVendor.paymentTerms : '-'}
+            </Descriptions.Item>
             <Descriptions.Item label="State">{viewingVendor.state || '-'}</Descriptions.Item>
             <Descriptions.Item label="Address" styles={{ content: { whiteSpace: 'pre-wrap' } }}>
               {viewingVendor.address || '-'}
@@ -509,6 +537,23 @@ export function VendorsClient({ vendors, categories }: VendorsClientProps) {
                       </Space>
                     </>
                   )}
+                />
+              </Form.Item>
+            )}
+          />
+
+          <Controller
+            control={control}
+            name="paymentTerms"
+            render={({ field }) => (
+              <Form.Item label="Payment Terms">
+                <Select
+                  {...field}
+                  value={field.value || undefined}
+                  onChange={(v) => field.onChange(v || '')}
+                  allowClear
+                  placeholder="Select payment terms"
+                  options={PAYMENT_TERMS_OPTIONS}
                 />
               </Form.Item>
             )}

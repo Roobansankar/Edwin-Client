@@ -130,14 +130,34 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
   }, [purchaseOrders, searchText, dateRange]);
 
   const vendorQuotations = useMemo(() => vendorQuotationsProp || [], [vendorQuotationsProp]);
-  const usedQuotationKeys = useMemo(
-    () => new Set(purchaseOrders.filter((po) => po.materialRequirementNo).map((po) => `${po.vendorId}|${po.materialRequirementNo}`)),
-    [purchaseOrders],
-  );
-  const peOptions = useMemo(
-    () => approvedQuotations(vendorQuotations).filter((q) => !usedQuotationKeys.has(`${q.vendorId}|${q.materialRequirement?.enquiryNo || ''}`)),
-    [vendorQuotations, usedQuotationKeys],
-  );
+  // POs don't record which quotation they came from, so count them: for each
+  // vendor + MR, hide as many approved quotations as there are POs (oldest
+  // first). A vendor approved again for the same MR still shows up.
+  const poCountByKey = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const po of purchaseOrders) {
+      if (!po.materialRequirementNo) continue;
+      const key = `${po.vendorId}|${po.materialRequirementNo}`;
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    return counts;
+  }, [purchaseOrders]);
+  const peOptions = useMemo(() => {
+    const used = new Map<string, number>();
+    return approvedQuotations(vendorQuotations)
+      .slice()
+      .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''))
+      .filter((q) => {
+        const key = `${q.vendorId}|${q.materialRequirement?.enquiryNo || ''}`;
+        const consumed = used.get(key) || 0;
+        if (consumed < (poCountByKey.get(key) || 0)) {
+          used.set(key, consumed + 1);
+          return false;
+        }
+        return true;
+      })
+      .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  }, [vendorQuotations, poCountByKey]);
   const selectedQuotation = useMemo(
     () => peOptions.find((q) => q.id === selectedQuotationId) || null,
     [peOptions, selectedQuotationId],
