@@ -53,6 +53,7 @@ type PaymentsClientProps = {
   unpaidLabourSummary: UnpaidLabourWeekSummary[];
   unpaidExpenseSummary: UnpaidExpenseWeekSummary[];
   bills: PurchaseBill[];
+  initialTab?: string;
 };
 
 export function PaymentsClient({
@@ -67,6 +68,7 @@ export function PaymentsClient({
   unpaidLabourSummary,
   unpaidExpenseSummary,
   bills,
+  initialTab,
 }: PaymentsClientProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -452,6 +454,7 @@ export function PaymentsClient({
         advanceRequests={advanceRequests}
         subcontractorPaymentRequests={subcontractorPaymentRequests}
         bills={bills}
+        initialTab={initialTab}
       />
 
       <Card className={cardClassName}>

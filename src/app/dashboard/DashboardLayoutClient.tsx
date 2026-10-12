@@ -79,6 +79,8 @@ const navigationSections: Array<{ title: string; items: NavItem[]; allowedRoles?
     title: 'Workspace',
     items: [
       { key: '/dashboard', icon: <AppstoreOutlined />, label: 'Dashboard', allowedRoles: ['admin', 'accounts_manager', 'site_engineer', 'purchase_team'] },
+      // Every role: full notification history with All / Unread.
+      { key: '/dashboard/notifications', icon: <BellOutlined />, label: 'Notifications' },
       { key: '/dashboard/timesheet-attendance', icon: <CalendarOutlined />, label: 'Timesheet', allowedRoles: ['purchase_team'] },
       { key: '/dashboard/my-todos', icon: <FormOutlined />, label: 'To Do List', allowedRoles: ['purchase_team'] },
       { key: '/dashboard/expenses/new', icon: <WalletOutlined />, label: 'My Expenses', allowedRoles: ['purchase_team'] },
@@ -269,10 +271,15 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
     return () => { cancelled = true; };
   }, [fetchesAppNotifications, user, pathname]);
 
-  const markNotificationsSeen = () => {
-    if (!user) return;
-    setUnseenNotifCount(0);
-    void fetch('/api/backend/notifications/read-all', { method: 'PATCH' }).catch(() => {});
+  // Opening the bell no longer marks everything read: notifications stay
+  // unread (and listed under Unread on the Notifications page) until each one
+  // is opened.
+  const markNotificationsSeen = () => {};
+
+  const markNotificationRead = (id: string) => {
+    setAppNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+    setUnseenNotifCount((count) => Math.max(count - 1, 0));
+    void fetch(`/api/backend/notifications/${id}/read`, { method: 'PATCH' }).catch(() => {});
   };
 
   const [dismissedNotifIds, setDismissedNotifIds] = useState<Set<string>>(new Set());
@@ -426,6 +433,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                 }`}
                 onClick={() => {
                   setAdminNotifOpen(false);
+                  if (!n.isRead) markNotificationRead(n.id);
                   router.push(n.link || '/dashboard/advance-requests');
                 }}
               >
@@ -512,6 +520,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                 }`}
                 onClick={() => {
                   setNotifOpen(false);
+                  if (!n.isRead) markNotificationRead(n.id);
                   router.push(n.link || (user?.role === 'accounts_manager' ? '/dashboard/accounts/bills' : '/dashboard/material-requirement'));
                 }}
               >

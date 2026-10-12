@@ -56,7 +56,13 @@ async function loadPageData() {
   }
 }
 
-export default async function PaymentsPage() {
+type PageProps = {
+  searchParams: Promise<{ tab?: string }>;
+};
+
+export default async function PaymentsPage({ searchParams }: PageProps) {
+  // ?tab=vendor / labour / subcontractor / expenses opens that Payment Options tab (used by notification links).
+  const { tab } = await searchParams;
   const {
     payments, summary, projects, vendors, purchaseOrders, advanceRequests, subcontractWorkOrders,
     subcontractorPaymentRequests, unpaidLabourSummary, unpaidExpenseSummary, bills, error,
@@ -77,6 +83,7 @@ export default async function PaymentsPage() {
         unpaidLabourSummary={unpaidLabourSummary}
         unpaidExpenseSummary={unpaidExpenseSummary}
         bills={bills}
+        initialTab={tab}
       />
     </>
   );

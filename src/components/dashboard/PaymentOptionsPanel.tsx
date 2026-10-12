@@ -29,6 +29,8 @@ type Props = {
   advanceRequests: AdvanceRequest[];
   subcontractorPaymentRequests: SubcontractorPaymentRequest[];
   bills: PurchaseBill[];
+  // Tab to open first, e.g. "vendor" from a notification link.
+  initialTab?: string;
 };
 
 type RequestAction = 'accepted' | 'admin_approved' | 'rejected';
@@ -92,6 +94,7 @@ export function PaymentOptionsPanel({
   advanceRequests,
   subcontractorPaymentRequests,
   bills,
+  initialTab,
 }: Props) {
   const router = useRouter();
   const { message } = App.useApp();
@@ -329,7 +332,12 @@ export function PaymentOptionsPanel({
 
   return (
     <Card className={`${cardClassName} mb-6`} title={<Typography.Text strong className="text-[var(--text-primary)]!">Payment Options</Typography.Text>}>
-      <Tabs items={tabItems} />
+      <Tabs
+        // Re-opens on the linked tab when a notification is clicked while already on Payments.
+        key={initialTab || 'default'}
+        defaultActiveKey={PAYMENT_OPTIONS.some((o) => o.key === initialTab) ? initialTab : 'labour'}
+        items={tabItems}
+      />
 
       <Modal
         title={payRow ? `Pay ${payRow.name}` : 'Pay'}
