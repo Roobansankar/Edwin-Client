@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import {
   Button,
   Card,
@@ -120,7 +120,34 @@ type ReportsClientProps = {
   subcontractorBills: SubcontractorBill[];
   vendorQuotations: VendorQuotation[];
   role: string;
+  // Report page: every record in any status (pending, approved, rejected),
+  // with a status filter. Weekly Report (default) shows approved records only.
+  allStatuses?: boolean;
+  title?: string;
 };
+
+// Status filter on the Report page. Daily labour uses pending / approved / rejected.
+const REPORT_STATUS_OPTIONS = [
+  { label: 'Pending', value: 'pending' },
+  { label: 'Accounts Approved', value: 'admin_approved' },
+  { label: 'Approved', value: 'approved' },
+  { label: 'Rejected', value: 'rejected' },
+];
+
+// Daily labour report status shown on the Report page.
+const DAILY_STATUS_TAG: Record<string, { color: string; label: string }> = {
+  pending: { color: 'warning', label: 'Pending' },
+  approved: { color: 'success', label: 'Approved' },
+  rejected: { color: 'error', label: 'Rejected' },
+};
+
+// One status for a week of daily labour reports: rejected if any is rejected,
+// pending if any is pending, approved once all are approved.
+function weekReportStatus(reports: DailyLabourReport[]) {
+  if (reports.some((r) => r.status === 'rejected')) return 'rejected';
+  if (reports.some((r) => r.status !== 'approved')) return 'pending';
+  return 'approved';
+}
 
 export function ReportsClient({
   projects = [],
@@ -130,8 +157,21 @@ export function ReportsClient({
   subcontractorBills = [],
   vendorQuotations = [],
   role,
+  allStatuses = false,
+  title = 'Weekly Report',
 }: ReportsClientProps) {
   const [activeTab, setActiveTab] = useState('project');
+  const [statusFilter, setStatusFilter] = useState<string | undefined>();
+  // Bills and expenses: approved-only on Weekly Report, any status (optionally
+  // filtered) on Report.
+  const billStatusOk = useCallback(
+    (status?: string | null) => (allStatuses ? !statusFilter || status === statusFilter : status === ADMIN_APPROVED),
+    [allStatuses, statusFilter],
+  );
+  const dailyStatusOk = useCallback(
+    (status?: string | null) => (allStatuses ? !statusFilter || status === statusFilter : status === 'approved'),
+    [allStatuses, statusFilter],
+  );
   const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(ALL_PROJECTS);
   const [expProjectId, setExpProjectId] = useState<string | undefined>(ALL_PROJECTS);
   const [expDateRange, setExpDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
@@ -153,8 +193,8 @@ export function ReportsClient({
 
   const projectBills = useMemo(() => {
     if (!selectedProjectId) return [];
-    return bills.filter((b) => b.status === ADMIN_APPROVED && (selectedProjectId === ALL_PROJECTS || b.projectId === selectedProjectId) && inRange(b.billDate, projectDateRange));
-  }, [bills, selectedProjectId, projectDateRange]);
+    return bills.filter((b) => billStatusOk(b.status) && (selectedProjectId === ALL_PROJECTS || b.projectId === selectedProjectId) && inRange(b.billDate, projectDateRange));
+  }, [bills, selectedProjectId, projectDateRange, billStatusOk]);
 
   const projectSummary = useMemo(() => {
     let totalAmount = 0;
@@ -169,9 +209,9 @@ export function ReportsClient({
   const projectExpenses = useMemo(() => {
     if (!expProjectId) return [];
     return expenses
-      .filter((e) => e.status === ADMIN_APPROVED && (expProjectId === ALL_PROJECTS || e.projectId === expProjectId) && inRange(e.expenseDate, expDateRange))
+      .filter((e) => billStatusOk(e.status) && (expProjectId === ALL_PROJECTS || e.projectId === expProjectId) && inRange(e.expenseDate, expDateRange))
       .sort((a, b) => (b.expenseDate || '').localeCompare(a.expenseDate || ''));
-  }, [expenses, expProjectId, expDateRange]);
+  }, [expenses, expProjectId, expDateRange, billStatusOk]);
 
   const projectExpenseSummary = useMemo(() => {
     let total = 0;
@@ -182,10 +222,10 @@ export function ReportsClient({
   const filteredDailyLabour = useMemo(() => {
     // Only reports that Accounts & Admin have fully approved (report status 'approved').
     return dailyLabourReports
-      .filter((r) => r.status === 'approved')
+      .filter((r) => dailyStatusOk(r.status))
       .filter((r) => (!dlProjectId || r.projectId === dlProjectId) && inRange(r.reportDate, dlDateRange))
       .sort((a, b) => (b.reportDate || '').localeCompare(a.reportDate || ''));
-  }, [dailyLabourReports, dlProjectId, dlDateRange]);
+  }, [dailyLabourReports, dlProjectId, dlDateRange, dailyStatusOk]);
 
   // The generic Payment ledger doesn't carry a "vendor" / "subcontractor"
   // category of its own — which bucket a row belongs to is inferred from
@@ -212,9 +252,9 @@ export function ReportsClient({
     () => bills
       .filter((b) => !vbProjectId || vbProjectId === ALL_PROJECTS || b.projectId === vbProjectId)
       .filter((b) => inRange(b.billDate, vbDateRange))
-      .filter((b) => b.status === ADMIN_APPROVED)
+      .filter((b) => billStatusOk(b.status))
       .sort((a, b) => (b.billDate || '').localeCompare(a.billDate || '')),
-    [bills, vbProjectId, vbDateRange],
+    [bills, vbProjectId, vbDateRange, billStatusOk],
   );
 
   // Subcontractor bills for the Subcontractor Bills tab (dated by when they were raised).
@@ -222,9 +262,9 @@ export function ReportsClient({
     () => subcontractorBills
       .filter((b) => !sbProjectId || sbProjectId === ALL_PROJECTS || b.projectId === sbProjectId)
       .filter((b) => inRange(b.createdAt, sbDateRange))
-      .filter((b) => b.status === ADMIN_APPROVED)
+      .filter((b) => billStatusOk(b.status))
       .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')),
-    [subcontractorBills, sbProjectId, sbDateRange],
+    [subcontractorBills, sbProjectId, sbDateRange, billStatusOk],
   );
 
   const vendorBillsSummary = useMemo(() => {
@@ -358,7 +398,7 @@ export function ReportsClient({
           tradeAmount(t.worker),
           t.reportRemarks || '-',
           t.worker.reviewRemarks || '-',
-          'Approved',
+          DAILY_STATUS_TAG[weekReportStatus(week.reports)].label,
         ]),
       ),
     });
@@ -459,7 +499,13 @@ export function ReportsClient({
     { title: 'Reports', key: 'reports', align: 'right' as const, width: 90, render: (_, r) => r.reports.length },
     { title: 'Total Shift', key: 'totalShift', align: 'right' as const, width: 120, render: (_, r) => weekShiftTotal(r.reports) },
     { title: 'Amount', key: 'amount', align: 'right' as const, width: 140, render: (_, r) => formatCurrency(weekAmountTotal(r.reports)) },
-    { title: 'Status', key: 'status', width: 140, render: () => <Tag color="success">Approved</Tag> },
+    {
+      title: 'Status', key: 'status', width: 140,
+      render: (_, r) => {
+        const tag = DAILY_STATUS_TAG[weekReportStatus(r.reports)];
+        return <Tag color={tag.color}>{tag.label}</Tag>;
+      },
+    },
     {
       title: 'Days', key: 'days', width: 130,
       render: (_, r) => {
@@ -1112,8 +1158,18 @@ export function ReportsClient({
     <div>
       <Flex justify="space-between" align="center" className={pageHeaderClassName} gap={16} wrap="wrap">
         <Typography.Title level={3} className={pageTitleClassName}>
-          <FileTextOutlined className={titleIconClassName} /> Reports
+          <FileTextOutlined className={titleIconClassName} /> {title}
         </Typography.Title>
+        {allStatuses && (
+          <Select
+            allowClear
+            placeholder="All statuses"
+            style={{ width: 200 }}
+            value={statusFilter}
+            onChange={(v) => setStatusFilter(v || undefined)}
+            options={REPORT_STATUS_OPTIONS}
+          />
+        )}
       </Flex>
 
       <Card

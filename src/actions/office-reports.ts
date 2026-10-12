@@ -27,7 +27,7 @@ export async function createOfficeReport(data: FormData) {
       throw new Error(error.message || 'Failed to upload report');
     }
 
-    revalidatePath('/dashboard/reports');
+    revalidatePath('/dashboard/weekly-report');
     return res.json();
   } catch (error) {
     if (error instanceof Error) throw error;
@@ -48,7 +48,7 @@ export async function deleteOfficeReport(id: string) {
       throw new Error(error.message || 'Failed to delete report');
     }
 
-    revalidatePath('/dashboard/reports');
+    revalidatePath('/dashboard/weekly-report');
     return { success: true };
   } catch (error) {
     if (error instanceof Error) throw error;

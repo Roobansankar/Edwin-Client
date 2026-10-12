@@ -4,7 +4,8 @@ import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { App, Button, Card, Col, DatePicker, Descriptions, Drawer, Flex, Form, Input, InputNumber, Popconfirm, Row, Select, Space, Statistic, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { CheckOutlined, CloseOutlined, DollarOutlined, FilePdfOutlined, SearchOutlined } from '@ant-design/icons';
+import { CheckOutlined, CloseOutlined, DollarOutlined, EyeOutlined, FilePdfOutlined, SearchOutlined } from '@ant-design/icons';
+import Link from 'next/link';
 import dayjs from 'dayjs';
 import { respondAdvanceRequest } from '@/actions/advance-requests';
 import { createPayment } from '@/actions/payments';
@@ -44,6 +45,8 @@ type Props = {
   requests: AdvanceRequest[];
   bills: PurchaseBill[];
   payments: Payment[];
+  // Shown inside the Payments page's Vendor Payment tab: no page title.
+  embedded?: boolean;
 };
 
 type RequestRow = {
@@ -55,7 +58,7 @@ type RequestRow = {
   displayStatus: string;
 };
 
-export function AdvanceRequestsClient({ requests, bills, payments }: Props) {
+export function AdvanceRequestsClient({ requests, bills, payments, embedded = false }: Props) {
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [searchText, setSearchText] = useState('');
@@ -289,16 +292,28 @@ export function AdvanceRequestsClient({ requests, bills, payments }: Props) {
         </Tag>
       ),
     },
-    { title: 'Action', key: 'actions', width: 200, render: (_, r) => renderActions(r) },
+    {
+      title: 'Action', key: 'actions', width: 240,
+      render: (_, r) => (
+        <Flex gap={6} align="center" wrap="wrap">
+          <Link href={`/dashboard/advance/${r.request.id}`}>
+            <Button size="small" icon={<EyeOutlined />} title="View full journey" />
+          </Link>
+          {renderActions(r)}
+        </Flex>
+      ),
+    },
   ];
 
   return (
     <div className="flex flex-col gap-4">
-      <Flex justify="space-between" align="center" className={pageHeaderClassName} gap={16} wrap="wrap">
-        <Typography.Title level={3} className={pageTitleClassName}>
-          <DollarOutlined className={titleIconClassName} /> Vendor Payment Requests
-        </Typography.Title>
-      </Flex>
+      {!embedded && (
+        <Flex justify="space-between" align="center" className={pageHeaderClassName} gap={16} wrap="wrap">
+          <Typography.Title level={3} className={pageTitleClassName}>
+            <DollarOutlined className={titleIconClassName} /> Vendor Payment Requests
+          </Typography.Title>
+        </Flex>
+      )}
 
       <Row gutter={[12, 12]}>
         <Col xs={12} sm={6}>

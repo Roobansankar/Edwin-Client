@@ -1,20 +1,22 @@
 import { Alert } from 'antd';
 import { PaymentsClient } from '@/components/dashboard/PaymentsClient';
-import { fetchPayments, fetchPaymentsSummary, fetchProjects, fetchVendors, fetchPurchaseOrders, fetchAdvanceRequests, fetchSubcontractWorkOrders, fetchSubcontractorPaymentRequests, fetchUnpaidLabourWeeklySummary, fetchUnpaidExpenseWeeklySummary } from '@/lib/api';
+import { fetchPayments, fetchPaymentsSummary, fetchProjects, fetchVendors, fetchPurchaseOrders, fetchAdvanceRequests, fetchSubcontractWorkOrders, fetchSubcontractorPaymentRequests, fetchUnpaidLabourWeeklySummary, fetchUnpaidExpenseWeeklySummary, fetchBills } from '@/lib/api';
 
 async function loadPageData() {
   try {
-    const [paymentsRes, summary, projects, vendors, purchaseOrders, advanceRequests, subcontractWorkOrders, subcontractorPaymentRequests, unpaidLabourSummary, unpaidExpenseSummary] = await Promise.all([
+    const [paymentsRes, summary, projects, vendors, purchaseOrders, advanceRequests, subcontractWorkOrders, subcontractorPaymentRequests, unpaidLabourSummary, unpaidExpenseSummary, bills] = await Promise.all([
       fetchPayments('limit=5000'),
       fetchPaymentsSummary(),
       fetchProjects(),
       fetchVendors(),
       fetchPurchaseOrders(),
-      fetchAdvanceRequests('admin_approved'),
+      // All requests: the Payment Options tabs approve them and then pay them.
+      fetchAdvanceRequests(),
       fetchSubcontractWorkOrders(),
-      fetchSubcontractorPaymentRequests('admin_approved'),
+      fetchSubcontractorPaymentRequests(),
       fetchUnpaidLabourWeeklySummary(),
       fetchUnpaidExpenseWeeklySummary(),
+      fetchBills(),
     ]);
 
     // Server-side normalization
@@ -33,6 +35,7 @@ async function loadPageData() {
       subcontractorPaymentRequests,
       unpaidLabourSummary,
       unpaidExpenseSummary,
+      bills: Array.isArray(bills) ? bills : [],
     };
   } catch (error) {
     console.error('Payments Page Error:', error);
@@ -47,6 +50,7 @@ async function loadPageData() {
       subcontractorPaymentRequests: [],
       unpaidLabourSummary: [],
       unpaidExpenseSummary: [],
+      bills: [],
       error: error instanceof Error ? error.message : 'Unable to load payments data',
     };
   }
@@ -55,7 +59,7 @@ async function loadPageData() {
 export default async function PaymentsPage() {
   const {
     payments, summary, projects, vendors, purchaseOrders, advanceRequests, subcontractWorkOrders,
-    subcontractorPaymentRequests, unpaidLabourSummary, unpaidExpenseSummary, error,
+    subcontractorPaymentRequests, unpaidLabourSummary, unpaidExpenseSummary, bills, error,
   } = await loadPageData();
 
   return (
@@ -72,6 +76,7 @@ export default async function PaymentsPage() {
         subcontractorPaymentRequests={subcontractorPaymentRequests}
         unpaidLabourSummary={unpaidLabourSummary}
         unpaidExpenseSummary={unpaidExpenseSummary}
+        bills={bills}
       />
     </>
   );

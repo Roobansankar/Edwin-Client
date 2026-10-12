@@ -1,6 +1,6 @@
 'use client';
 
-import { Alert, Button, Card, Col, Row, Skeleton, Typography } from 'antd';
+import { Alert, Button, Card, Col, Row, Skeleton, Statistic, Typography } from 'antd';
 import {
   ReloadOutlined,
   ArrowUpOutlined,
@@ -15,7 +15,16 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import type { AccountsDashboardData, PayableCategory } from '@/types/erp';
 import { clientApiFetch } from '@/lib/client-api';
-import { KpiCard, cardClassName, formatCurrency, mutedTextClassName, pageTitleClassName } from './ui';
+import {
+  KpiCard,
+  cardClassName,
+  formatCurrency,
+  kpiCardClassNames,
+  mutedTextClassName,
+  pageTitleClassName,
+  secondaryTextClassName,
+  statisticClassNames,
+} from './ui';
 
 // One card per payable category. `href` is the page where that category
 // gets paid; `unit` labels the count shown under the amount.
@@ -131,25 +140,39 @@ export function AccountsManagerDashboardClient() {
             onClick={() => router.push('/dashboard/accounts/invoices')}
           />
         </Col>
-        <Col xs={24} sm={12} md={8}>
-          <KpiCard
-            tone="blue"
-            title="Inflow"
-            value={kpis ? formatCurrency(kpis.monthInflow) : '—'}
-            icon={<ArrowUpOutlined className="text-blue-500" />}
-            note={kpis ? 'Current month collections' : 'Not available'}
+        <Col xs={24} sm={12} md={16}>
+          {/* Inflow and outflow for the current month, side by side in one card. */}
+          <Card
+            className={`${kpiCardClassNames.blue} h-full cursor-pointer`}
+            size="small"
+            hoverable
             onClick={() => router.push('/dashboard/payments')}
-          />
-        </Col>
-        <Col xs={24} sm={12} md={8}>
-          <KpiCard
-            tone="amber"
-            title="Outflow"
-            value={kpis ? formatCurrency(kpis.monthOutflow) : '—'}
-            icon={<ArrowDownOutlined className="text-amber-500" />}
-            note={kpis ? 'Current month payments' : 'Not available'}
-            onClick={() => router.push('/dashboard/payments')}
-          />
+          >
+            <Typography.Text className={secondaryTextClassName}>Inflow &amp; Outflow (This Month)</Typography.Text>
+            <Row gutter={16} className="mt-2">
+              <Col span={12}>
+                <Statistic
+                  title={<Typography.Text className={secondaryTextClassName}>Inflow</Typography.Text>}
+                  value={kpis ? formatCurrency(kpis.monthInflow) : '—'}
+                  prefix={<ArrowUpOutlined className="text-emerald-500" />}
+                  classNames={statisticClassNames}
+                />
+              </Col>
+              <Col span={12}>
+                <Statistic
+                  title={<Typography.Text className={secondaryTextClassName}>Outflow</Typography.Text>}
+                  value={kpis ? formatCurrency(kpis.monthOutflow) : '—'}
+                  prefix={<ArrowDownOutlined className="text-amber-500" />}
+                  classNames={statisticClassNames}
+                />
+              </Col>
+            </Row>
+            {kpis && (
+              <Typography.Text className={`mt-1 block ${secondaryTextClassName}`} style={{ fontSize: 14 }}>
+                Net: <Typography.Text strong>{formatCurrency(Number(kpis.monthInflow || 0) - Number(kpis.monthOutflow || 0))}</Typography.Text>
+              </Typography.Text>
+            )}
+          </Card>
         </Col>
       </Row>
 

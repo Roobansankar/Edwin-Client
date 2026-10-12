@@ -43,6 +43,14 @@ const { Sider, Content, Header } = Layout;
 const { Text } = Typography;
 
 const SIDEBAR_WIDTH = 300;
+
+// Payment pages reached from the Payments page (not listed in the sidebar).
+const PAYMENTS_SUB_PAGES = [
+  '/dashboard/advance-requests',
+  '/dashboard/subcontractor-payment-requests',
+  '/dashboard/expense-payments',
+  '/dashboard/labour-payments',
+];
 const COLLAPSED_WIDTH = 60;
 
 type NavItem = {
@@ -77,7 +85,7 @@ const navigationSections: Array<{ title: string; items: NavItem[]; allowedRoles?
       { key: '/dashboard/vendors', icon: <TeamOutlined />, label: 'Vendors', allowedRoles: ['purchase_team'] },
       { key: '/dashboard/material-requirement', icon: <FileSearchOutlined />, label: 'Material Request', allowedRoles: ['purchase_team'] },
       { key: '/dashboard/purchase-enquiry', icon: <AuditOutlined />, label: 'Purchase Enquiry', allowedRoles: ['purchase_team'] },
-      { key: '/dashboard/purchase-orders', icon: <FileProtectOutlined />, label: 'Purchase Order', allowedRoles: ['purchase_team', 'accounts_manager'] },
+      { key: '/dashboard/purchase-orders', icon: <FileProtectOutlined />, label: 'Purchase Order', allowedRoles: ['purchase_team'] },
       { key: '/dashboard/material-received', icon: <InboxOutlined />, label: 'Material Received', allowedRoles: ['purchase_team'] },
       { key: '/dashboard/subcontractors', icon: <TeamOutlined />, label: 'Subcontractors', allowedRoles: ['purchase_team'] },
       { key: '/dashboard/subcontractor-enquiry', icon: <AuditOutlined />, label: 'Subcontractors Enquiry', allowedRoles: ['purchase_team'] },
@@ -85,7 +93,8 @@ const navigationSections: Array<{ title: string; items: NavItem[]; allowedRoles?
       { key: '/dashboard/subcontractor-work', icon: <TeamOutlined />, label: 'Subcontractor Work', allowedRoles: ['purchase_team'] },
 
       { key: '/dashboard/approvals', icon: <SafetyCertificateOutlined />, label: 'Approvals', allowedRoles: ['admin', 'accounts_manager'] },
-      { key: '/dashboard/reports', icon: <FileTextOutlined />, label: 'Reports', allowedRoles: ['admin', 'accounts_manager'] },
+      { key: '/dashboard/weekly-report', icon: <FileTextOutlined />, label: 'Weekly Report', allowedRoles: ['admin', 'accounts_manager'] },
+      { key: '/dashboard/all-reports', icon: <FileTextOutlined />, label: 'Report', allowedRoles: ['admin', 'accounts_manager'] },
       { key: '/dashboard/my-projects', icon: <ProjectOutlined />, label: 'My Projects', allowedRoles: ['site_engineer'] },
       { key: '/dashboard/new', icon: <FormOutlined />, label: 'Daily Entry List', allowedRoles: ['site_engineer'] },
       { key: '/dashboard/expenses/new', icon: <WalletOutlined />, label: 'Expense', allowedRoles: ['site_engineer'] },
@@ -110,15 +119,12 @@ const navigationSections: Array<{ title: string; items: NavItem[]; allowedRoles?
       { key: '/dashboard/accounts', icon: <BankOutlined />, label: 'Accounts', allowedRoles: ['admin', 'accounts_manager'] },
       { key: '/dashboard/expenses', icon: <WalletOutlined />, label: 'My Expenses', allowedRoles: ['admin', 'accounts_manager'] },
       { key: '/dashboard/payments', icon: <CreditCardOutlined />, label: 'Payments', allowedRoles: ['admin', 'accounts_manager'] },
+      { key: '/dashboard/accounts-ledger', icon: <BankOutlined />, label: 'Ledger', allowedRoles: ['admin', 'accounts_manager'] },
       { key: '/dashboard/timesheet-attendance', icon: <CalendarOutlined />, label: 'Timesheet', allowedRoles: ['accounts_manager'] },
-      { key: '/dashboard/accounts/invoices', icon: <FileProtectOutlined />, label: 'Invoices', allowedRoles: ['admin', 'accounts_manager'] },
-      { key: '/dashboard/accounts/bills', icon: <FileDoneOutlined />, label: 'Vendor Bills', allowedRoles: ['admin', 'accounts_manager', 'purchase_team'] },
-      { key: '/dashboard/accounts/subcontractor-bills', icon: <FileDoneOutlined />, label: 'Subcontractor Bills', allowedRoles: ['admin', 'accounts_manager', 'purchase_team'] },
+      { key: '/dashboard/accounts/invoices', icon: <FileProtectOutlined />, label: 'Invoices', allowedRoles: ['admin'] },
+      { key: '/dashboard/accounts/bills', icon: <FileDoneOutlined />, label: 'Vendor Bills', allowedRoles: ['admin', 'purchase_team'] },
+      { key: '/dashboard/accounts/subcontractor-bills', icon: <FileDoneOutlined />, label: 'Subcontractor Bills', allowedRoles: ['admin', 'purchase_team'] },
       { key: '/dashboard/site-engineer-attendance', icon: <TeamOutlined />, label: 'Timesheet Approvals', allowedRoles: ['admin'] },
-      { key: '/dashboard/advance-requests', icon: <DollarOutlined />, label: 'Vendor Payment Requests', allowedRoles: ['admin', 'accounts_manager'] },
-      { key: '/dashboard/subcontractor-payment-requests', icon: <DollarOutlined />, label: 'Subcontractor Payment Requests', allowedRoles: ['admin', 'accounts_manager'] },
-      { key: '/dashboard/expense-payments', icon: <DollarOutlined />, label: 'Expense Payments', allowedRoles: ['admin', 'accounts_manager'] },
-      { key: '/dashboard/labour-payments', icon: <DollarOutlined />, label: 'Labour Payments', allowedRoles: ['admin', 'accounts_manager'] },
     ],
   },
   {
@@ -376,6 +382,12 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
     // should both highlight "Daily Entry List" in the sidebar
     if (pathname.startsWith('/dashboard/daily-labour/')) {
       return '/dashboard/new';
+    }
+
+    // These pages are opened from the Payments page, not the sidebar, so keep
+    // "Payments" highlighted while on them.
+    if (PAYMENTS_SUB_PAGES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+      return '/dashboard/payments';
     }
 
     const match = navItems

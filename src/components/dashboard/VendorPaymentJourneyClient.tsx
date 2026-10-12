@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button, Card, Descriptions, Empty, Flex, Table, Tag, Typography } from 'antd';
 import { ArrowLeftOutlined, FilePdfOutlined, NodeIndexOutlined } from '@ant-design/icons';
 import { getApiBaseUrl } from '@/lib/api-url';
@@ -40,6 +40,7 @@ function StepCard({ step, title, children }: { step: number; title: string; chil
 // Full-page, read-only MR -> Purchase Enquiry -> Purchase Order journey for
 // one vendor payment request, opened from the eye icon on Vendor Payments.
 export function VendorPaymentJourneyClient({ trail }: { trail: AdvanceRequestTrail | null }) {
+  const router = useRouter();
   const mr = trail?.materialRequirement;
   const po = trail?.purchaseOrder;
   const chosenVendorId = trail?.request.vendorId;
@@ -55,9 +56,8 @@ export function VendorPaymentJourneyClient({ trail }: { trail: AdvanceRequestTra
             </Typography.Text>
           )}
         </Typography.Title>
-        <Link href="/dashboard/advance">
-          <Button icon={<ArrowLeftOutlined />}>Back to Vendor Payments</Button>
-        </Link>
+        {/* Opened from Vendor Payments (purchase team) or Payments (accounts / admin). */}
+        <Button icon={<ArrowLeftOutlined />} onClick={() => router.back()}>Back</Button>
       </Flex>
 
       {trail && (

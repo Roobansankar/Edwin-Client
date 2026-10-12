@@ -2,12 +2,14 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { App, Button, Card, DatePicker, Input, Modal, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
+import { App, Button, Card, DatePicker, Descriptions, Flex, Input, Modal, Popconfirm, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+import { CheckOutlined, CloseOutlined, DollarOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import type {
   AdvanceRequest,
   Payment,
+  PurchaseBill,
   SubcontractorPaymentRequest,
   UnpaidExpenseWeekSummary,
   UnpaidLabourWeekSummary,
@@ -15,7 +17,10 @@ import type {
 import { createLabourPayment } from '@/actions/labour-payments';
 import { createExpensePayment } from '@/actions/expense-payments';
 import { createPayment } from '@/actions/payments';
-import { cardClassName, formatCurrency, mutedTextClassName, weekRangeLabel } from './ui';
+import { respondSubcontractorPaymentRequest } from '@/actions/subcontractor-payment-requests';
+import { useAuthStore } from '@/store/auth';
+import { AdvanceRequestsClient } from './AdvanceRequestsClient';
+import { cardClassName, formatCurrency, formatDate, mutedTextClassName, weekRangeLabel } from './ui';
 
 type Props = {
   payments: Payment[];
@@ -23,23 +28,35 @@ type Props = {
   unpaidExpenseSummary: UnpaidExpenseWeekSummary[];
   advanceRequests: AdvanceRequest[];
   subcontractorPaymentRequests: SubcontractorPaymentRequest[];
+  bills: PurchaseBill[];
 };
 
-// One row of a payment option. `pay` records the payment through the
-// category's existing flow. Ledger rows also take a mode and reference.
-type PendingRow = {
+type RequestAction = 'accepted' | 'admin_approved' | 'rejected';
+
+// One row of the Labour, Subcontractor and Expenses tabs. Labour and expense
+// weeks are already approved; subcontractor requests carry their own approval
+// status, and only admin-approved ones can be paid. `pay` records the payment
+// through the category's existing flow; ledger rows also take a mode and reference.
+type PaymentRow = {
   key: string;
   ref: string;
   name: string;
   project: string;
   amount: number;
   ledger: boolean;
+  status: string;
   pay: (paymentDate: string, paymentMode: string, referenceNumber: string) => Promise<unknown>;
+  // Set for subcontractor requests.
+  request?: {
+    id: string;
+    respond: (action: RequestAction) => Promise<unknown>;
+    details: { label: string; value: React.ReactNode }[];
+  };
 };
 
 const PAYMENT_OPTIONS = [
   { key: 'labour', no: 1, label: 'Labour Payment' },
-  { key: 'material', no: 2, label: 'Material Payment' },
+  { key: 'vendor', no: 2, label: 'Vendor Payment' },
   { key: 'subcontractor', no: 3, label: 'Subcontractor Payment' },
   { key: 'expenses', no: 4, label: 'Expenses Payment' },
 ];
@@ -51,8 +68,13 @@ const MODE_OPTIONS = [
   { label: 'Cheque', value: 'cheque' },
 ];
 
-// Sum of the payments already recorded against each request, so a request
-// only shows while part of it is still owed.
+const STATUS_TAGS: Record<string, { color: string; label: string }> = {
+  pending: { color: 'orange', label: 'Pending' },
+  accepted: { color: 'blue', label: 'Accepted by Accounts' },
+  admin_approved: { color: 'gold', label: 'Payment Pending' },
+};
+
+// Sum of the payments already recorded against each request.
 function paidByKey(payments: Payment[], pick: (p: Payment) => string | null | undefined) {
   const map = new Map<string, number>();
   for (const p of payments) {
@@ -69,21 +91,23 @@ export function PaymentOptionsPanel({
   unpaidExpenseSummary,
   advanceRequests,
   subcontractorPaymentRequests,
+  bills,
 }: Props) {
   const router = useRouter();
   const { message } = App.useApp();
+  const user = useAuthStore((s) => s.user);
+  const isAdmin = user?.role === 'admin';
   const [isPending, startTransition] = useTransition();
-  const [payRow, setPayRow] = useState<PendingRow | null>(null);
+  const [payRow, setPayRow] = useState<PaymentRow | null>(null);
   const [paymentDate, setPaymentDate] = useState(dayjs());
   const [paymentMode, setPaymentMode] = useState('upi');
   const [referenceNumber, setReferenceNumber] = useState('');
 
-  const paidAdvance = useMemo(() => paidByKey(payments, (p) => p.advanceRequestId), [payments]);
   const paidSubcontractor = useMemo(() => paidByKey(payments, (p) => p.subcontractorPaymentRequestId), [payments]);
 
-  // Weekly labour and expenses: only approved entries that are not yet paid
-  // (the server summaries already leave out paid weeks).
-  const labourRows = useMemo<PendingRow[]>(() =>
+  // Weekly labour and expenses: approved entries not yet paid (the server
+  // summaries already leave out paid weeks).
+  const labourRows = useMemo<PaymentRow[]>(() =>
     unpaidLabourSummary.map((row) => ({
       key: `labour-${row.userId}-${row.weekStart}`,
       ref: weekRangeLabel(row.weekStart),
@@ -91,17 +115,12 @@ export function PaymentOptionsPanel({
       project: '-',
       amount: Number(row.totalAmount || 0),
       ledger: false,
-      pay: (paymentDate) => createLabourPayment({
-        userId: row.userId,
-        weekStart: row.weekStart,
-        weekEnd: row.weekEnd,
-        paymentDate,
-        status: 'paid',
-      }),
+      status: 'admin_approved',
+      pay: (date) => createLabourPayment({ userId: row.userId, weekStart: row.weekStart, weekEnd: row.weekEnd, paymentDate: date, status: 'paid' }),
     })),
   [unpaidLabourSummary]);
 
-  const expenseRows = useMemo<PendingRow[]>(() =>
+  const expenseRows = useMemo<PaymentRow[]>(() =>
     unpaidExpenseSummary.map((row) => ({
       key: `expenses-${row.userId}-${row.weekStart}`,
       ref: weekRangeLabel(row.weekStart),
@@ -109,74 +128,68 @@ export function PaymentOptionsPanel({
       project: '-',
       amount: Number(row.totalAmount || 0),
       ledger: false,
-      pay: (paymentDate) => createExpensePayment({
-        userId: row.userId,
-        weekStart: row.weekStart,
-        weekEnd: row.weekEnd,
-        paymentDate,
-        status: 'paid',
-      }),
+      status: 'admin_approved',
+      pay: (date) => createExpensePayment({ userId: row.userId, weekStart: row.weekStart, weekEnd: row.weekEnd, paymentDate: date, status: 'paid' }),
     })),
   [unpaidExpenseSummary]);
 
-  // Vendor payment requests that are admin approved and still owed.
-  const materialRows = useMemo<PendingRow[]>(() =>
-    advanceRequests
-      .map((r) => ({ r, pending: Number(r.amount || 0) - (paidAdvance.get(r.id) || 0) }))
-      .filter(({ pending }) => pending > 0)
-      .map(({ r, pending }) => ({
-        key: `material-${r.id}`,
-        ref: r.materialRequirementNo || '-',
-        name: r.vendor?.name || '-',
-        project: r.project?.name || '-',
-        amount: pending,
-        ledger: true,
-        pay: (paymentDate, paymentMode, referenceNumber) => createPayment({
-          paymentType: 'material',
-          advanceRequestId: r.id,
-          vendorId: r.vendorId,
-          projectId: r.projectId,
-          amount: pending,
-          paymentDate,
-          paymentMode,
-          referenceNumber: referenceNumber || undefined,
-        }),
-      })),
-  [advanceRequests, paidAdvance]);
-
-  // Subcontractor payment requests that are admin approved and still owed.
-  const subcontractorRows = useMemo<PendingRow[]>(() =>
+  // Subcontractor payment requests still open: waiting for approval, or
+  // approved and not fully paid. Rejected and fully paid requests drop out.
+  const subcontractorRows = useMemo<PaymentRow[]>(() =>
     subcontractorPaymentRequests
-      .map((r) => ({ r, pending: Number(r.amount || 0) - (paidSubcontractor.get(r.id) || 0) }))
-      .filter(({ pending }) => pending > 0)
-      .map(({ r, pending }) => ({
+      .filter((r) => r.status !== 'rejected')
+      .map((r) => {
+        const paid = paidSubcontractor.get(r.id) || 0;
+        return { r, paid, pending: Number(r.amount || 0) - paid };
+      })
+      .filter(({ r, pending }) => r.status !== 'admin_approved' || pending > 0)
+      .map(({ r, paid, pending }) => ({
         key: `subcontractor-${r.id}`,
         ref: r.subcontractWorkOrder?.woNumber || '-',
         name: r.subcontractor?.name || '-',
         project: r.project?.name || '-',
         amount: pending,
         ledger: true,
-        pay: (paymentDate, paymentMode, referenceNumber) => createPayment({
+        status: r.status,
+        pay: (date, mode, ref) => createPayment({
           paymentType: 'labour',
           subcontractorPaymentRequestId: r.id,
+          subcontractWorkOrderId: r.subcontractWorkOrderId || undefined,
           projectId: r.projectId,
           payeeName: r.subcontractor?.name || undefined,
           amount: pending,
-          paymentDate,
-          paymentMode,
-          referenceNumber: referenceNumber || undefined,
+          paymentDate: date,
+          paymentMode: mode,
+          referenceNumber: ref || undefined,
         }),
+        request: {
+          id: r.id,
+          respond: (action) => respondSubcontractorPaymentRequest(r.id, action),
+          details: [
+            { label: 'WO Number', value: r.subcontractWorkOrder?.woNumber || '-' },
+            { label: 'WO Total', value: r.subcontractWorkOrder?.totalAmount ? formatCurrency(r.subcontractWorkOrder.totalAmount) : '-' },
+            { label: 'Requested Amount', value: formatCurrency(r.amount) },
+            { label: 'Paid So Far', value: formatCurrency(paid) },
+            { label: 'Requested On', value: formatDate(r.createdAt) },
+            { label: 'Notes', value: r.notes || '-' },
+            {
+              label: 'Work Order',
+              value: r.subcontractWorkOrder?.workorderUrl ? (
+                <Button type="link" size="small" className="p-0!" href={r.subcontractWorkOrder.workorderUrl} target="_blank">View</Button>
+              ) : '-',
+            },
+          ],
+        },
       })),
   [subcontractorPaymentRequests, paidSubcontractor]);
 
-  const rowsByOption: Record<string, PendingRow[]> = {
+  const rowsByOption: Record<string, PaymentRow[]> = {
     labour: labourRows,
-    material: materialRows,
     subcontractor: subcontractorRows,
     expenses: expenseRows,
   };
 
-  const openPay = (row: PendingRow) => {
+  const openPay = (row: PaymentRow) => {
     setPaymentDate(dayjs());
     setPaymentMode('upi');
     setReferenceNumber('');
@@ -198,32 +211,97 @@ export function PaymentOptionsPanel({
     });
   };
 
-  const columns: ColumnsType<PendingRow> = [
+  const handleRespond = (row: PaymentRow, action: RequestAction) => {
+    if (!row.request) return;
+    const respond = row.request.respond;
+    startTransition(async () => {
+      try {
+        await respond(action);
+        message.success(
+          action === 'accepted' ? 'Accepted — waiting for admin approval'
+            : action === 'admin_approved' ? 'Approved — ready to pay'
+              : 'Request rejected',
+        );
+        router.refresh();
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : 'Failed to update the request');
+      }
+    });
+  };
+
+  const rejectButton = (r: PaymentRow) => (
+    <Popconfirm title="Reject this request?" okText="Yes" cancelText="No" okButtonProps={{ danger: true }} onConfirm={() => handleRespond(r, 'rejected')}>
+      <Button size="small" danger icon={<CloseOutlined />} loading={isPending}>Reject</Button>
+    </Popconfirm>
+  );
+
+  // Approve first (accounts accepts, admin gives final approval), then pay.
+  const renderAction = (r: PaymentRow) => {
+    if (r.status === 'admin_approved') {
+      return <Button type="primary" size="small" icon={<DollarOutlined />} onClick={() => openPay(r)}>Pay</Button>;
+    }
+    if (r.status === 'pending') {
+      return (
+        <Flex gap={6} wrap="wrap">
+          <Popconfirm title="Accept this request?" description="Admin still gives the final approval." okText="Yes, accept" cancelText="No" onConfirm={() => handleRespond(r, 'accepted')}>
+            <Button size="small" type="primary" ghost icon={<CheckOutlined />} loading={isPending}>Accept</Button>
+          </Popconfirm>
+          {rejectButton(r)}
+        </Flex>
+      );
+    }
+    if (r.status === 'accepted') {
+      if (!isAdmin) return <Typography.Text type="secondary" className="text-xs">Awaiting admin approval</Typography.Text>;
+      return (
+        <Flex gap={6} wrap="wrap">
+          <Popconfirm title="Give final approval?" description="It can be paid once approved." okText="Yes, approve" cancelText="No" onConfirm={() => handleRespond(r, 'admin_approved')}>
+            <Button size="small" type="primary" ghost icon={<CheckOutlined />} loading={isPending}>Approve</Button>
+          </Popconfirm>
+          {rejectButton(r)}
+        </Flex>
+      );
+    }
+    return null;
+  };
+
+  const columns: ColumnsType<PaymentRow> = [
     { title: 'S.No', key: 'sno', width: 70, render: (_, __, i) => i + 1 },
-    { title: 'Week / Ref', dataIndex: 'ref', key: 'ref', width: 170 },
+    { title: 'Week / Ref', dataIndex: 'ref', key: 'ref', width: 160 },
     { title: 'Name', dataIndex: 'name', key: 'name', width: 200 },
     { title: 'Project', dataIndex: 'project', key: 'project', width: 180 },
     { title: 'Amount', key: 'amount', align: 'right', width: 140, render: (_, r) => formatCurrency(r.amount) },
     {
-      title: 'Status', key: 'status', width: 170,
-      render: () => <Tag color="gold">Payment Pending</Tag>,
+      title: 'Status', key: 'status', width: 190,
+      render: (_, r) => {
+        const tag = STATUS_TAGS[r.status] || { color: 'default', label: r.status };
+        return <Tag color={tag.color}>{tag.label}</Tag>;
+      },
     },
-    {
-      title: 'Action', key: 'action', width: 110,
-      render: (_, r) => <Button type="primary" size="small" onClick={() => openPay(r)}>Pay</Button>,
-    },
+    { title: 'Action', key: 'action', width: 200, render: (_, r) => renderAction(r) },
   ];
 
   const tabItems = PAYMENT_OPTIONS.map((option) => {
+    // Vendor Payment is the full Vendor Payment Requests screen.
+    if (option.key === 'vendor') {
+      return {
+        key: option.key,
+        label: `${option.no}. ${option.label}`,
+        children: <AdvanceRequestsClient requests={advanceRequests} bills={bills} payments={payments} embedded />,
+      };
+    }
+
     const rows = rowsByOption[option.key];
-    const total = rows.reduce((sum, r) => sum + r.amount, 0);
+    const payable = rows.filter((r) => r.status === 'admin_approved');
+    const payableTotal = payable.reduce((sum, r) => sum + r.amount, 0);
+    const awaiting = rows.length - payable.length;
     return {
       key: option.key,
       label: `${option.no}. ${option.label}`,
       children: (
         <div>
           <Typography.Text className={`mb-3 block ${mutedTextClassName}`}>
-            Pending: <Typography.Text strong className="text-[var(--text-primary)]!">{formatCurrency(total)}</Typography.Text> ({rows.length} {rows.length === 1 ? 'item' : 'items'})
+            Ready to pay: <Typography.Text strong className="text-[var(--text-primary)]!">{formatCurrency(payableTotal)}</Typography.Text> ({payable.length} {payable.length === 1 ? 'item' : 'items'})
+            {awaiting > 0 && <> · Awaiting approval: <Typography.Text strong className="text-[var(--text-primary)]!">{awaiting}</Typography.Text></>}
           </Typography.Text>
           <Table
             dataSource={rows}
@@ -231,8 +309,18 @@ export function PaymentOptionsPanel({
             rowKey="key"
             size="middle"
             pagination={{ pageSize: 10 }}
-            scroll={{ x: 1100 }}
-            locale={{ emptyText: 'No approved items waiting for payment' }}
+            scroll={{ x: 1140 }}
+            locale={{ emptyText: 'Nothing waiting for approval or payment' }}
+            expandable={{
+              rowExpandable: (r) => !!r.request,
+              expandedRowRender: (r) => (
+                <Descriptions size="small" column={{ xs: 1, md: 2, lg: 3 }}>
+                  {r.request?.details.map((d) => (
+                    <Descriptions.Item key={d.label} label={d.label}>{d.value}</Descriptions.Item>
+                  ))}
+                </Descriptions>
+              ),
+            }}
           />
         </div>
       ),

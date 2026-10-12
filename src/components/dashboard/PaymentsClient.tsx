@@ -9,7 +9,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import dayjs from 'dayjs';
 import { createPayment, syncExpensesToLedger } from '@/actions/payments';
-import type { AdvanceRequest, Payment, Project, PurchaseOrder, SubcontractWorkOrder, SubcontractorPaymentRequest, UnpaidExpenseWeekSummary, UnpaidLabourWeekSummary, Vendor } from '@/types/erp';
+import type { AdvanceRequest, Payment, Project, PurchaseBill, PurchaseOrder, SubcontractWorkOrder, SubcontractorPaymentRequest, UnpaidExpenseWeekSummary, UnpaidLabourWeekSummary, Vendor } from '@/types/erp';
 import { PaymentOptionsPanel } from './PaymentOptionsPanel';
 import {
   StatusTag,
@@ -23,7 +23,6 @@ import {
 } from './ui';
 
 const { Title, Text } = Typography;
-
 const paymentSchema = z.object({
   paymentType: z.string().min(1, 'Select category'),
   payeeName: z.string().optional(),
@@ -53,6 +52,7 @@ type PaymentsClientProps = {
   subcontractorPaymentRequests: SubcontractorPaymentRequest[];
   unpaidLabourSummary: UnpaidLabourWeekSummary[];
   unpaidExpenseSummary: UnpaidExpenseWeekSummary[];
+  bills: PurchaseBill[];
 };
 
 export function PaymentsClient({
@@ -66,6 +66,7 @@ export function PaymentsClient({
   subcontractorPaymentRequests,
   unpaidLabourSummary,
   unpaidExpenseSummary,
+  bills,
 }: PaymentsClientProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -450,6 +451,7 @@ export function PaymentsClient({
         unpaidExpenseSummary={unpaidExpenseSummary}
         advanceRequests={advanceRequests}
         subcontractorPaymentRequests={subcontractorPaymentRequests}
+        bills={bills}
       />
 
       <Card className={cardClassName}>
@@ -527,7 +529,7 @@ export function PaymentsClient({
                       showSearch
                       placeholder="Choose an admin-approved vendor payment request"
                       optionFilterProp="label"
-                      options={advanceRequests.map((ar) => ({
+                      options={advanceRequests.filter((ar) => ar.status === 'admin_approved').map((ar) => ({
                         label: `${ar.vendor?.name || ''} — ${formatCurrency(ar.amount)}${ar.materialRequirementNo ? ` (${ar.materialRequirementNo})` : ''}`,
                         value: ar.id,
                       }))}
@@ -591,7 +593,7 @@ export function PaymentsClient({
                       showSearch
                       placeholder="Choose an admin-approved subcontractor payment request"
                       optionFilterProp="label"
-                      options={subcontractorPaymentRequests.map((r) => ({
+                      options={subcontractorPaymentRequests.filter((r) => r.status === 'admin_approved').map((r) => ({
                         label: `${r.subcontractor?.name || ''} — ${formatCurrency(r.amount)}${r.subcontractWorkOrder?.woNumber ? ` (${r.subcontractWorkOrder.woNumber})` : ''}`,
                         value: r.id,
                       }))}
