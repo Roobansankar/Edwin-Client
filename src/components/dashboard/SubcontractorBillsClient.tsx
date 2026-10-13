@@ -7,7 +7,7 @@ import { App, Button, Card, DatePicker, Drawer, Flex, Form, Input, InputNumber, 
 import type { ColumnsType } from 'antd/es/table';
 import { DeleteOutlined, EditOutlined, EyeOutlined, FileDoneOutlined, PlusOutlined, HistoryOutlined, SearchOutlined, UploadOutlined, FileTextOutlined, FileExcelOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import {
   createSubcontractorBill,
@@ -64,6 +64,10 @@ type Props = {
   userRole: string;
 };
 
+// Subcontractor's default payment terms (set on the Subcontractors page).
+const PAYMENT_TERMS_LABELS: Record<string, string> = { advance: 'Advance', credit: 'Credit', full_payment: 'Full Payment' };
+const termsLabel = (v?: string | null) => (v ? PAYMENT_TERMS_LABELS[v] || v : '');
+
 export function SubcontractorBillsClient({ bills, subcontractors, projects, workOrders, userRole }: Props) {
   const canManagePayments = userRole === 'admin' || userRole === 'accounts_manager';
   // Recording a bill is purchase team's job (same split as Vendor Bills);
@@ -116,6 +120,7 @@ export function SubcontractorBillsClient({ bills, subcontractors, projects, work
       projectId: undefined,
     },
   });
+  const selectedSubcontractorId = useWatch({ control, name: 'subcontractorId' });
 
   const paymentForm = useForm<PaymentFormValues>({
     resolver: zodResolver(paymentSchema),
@@ -273,11 +278,18 @@ export function SubcontractorBillsClient({ bills, subcontractors, projects, work
       render: (_value, record) => record.subcontractor?.name || '-',
     },
     {
+      title: 'Payment Terms',
+      key: 'paymentTerms',
+      width: 130,
+      render: (_, record) => termsLabel(record.subcontractor?.paymentTerms) || '-',
+    },
+    {
       title: 'Total Amount',
       dataIndex: 'amount',
       align: 'right',
       render: (value) => formatCurrency(value),
     },
+
     {
       title: 'Doc',
       dataIndex: 'billFileUrl',
@@ -372,10 +384,12 @@ export function SubcontractorBillsClient({ bills, subcontractors, projects, work
             <Button
               size="small"
               type="primary"
-              disabled={record.status === 'approved'}
+              // Paid only after admin's final approval.
+              disabled={record.status !== 'approved' || Number(record.amount) - Number(record.paidAmount || 0) <= 0}
+              title={record.status !== 'approved' ? 'Waiting for admin approval' : undefined}
               onClick={() => {
                 setPaymentBill(record);
-                paymentForm.setValue('amount', Number(record.amount) - Number(record.paidAmount));
+                paymentForm.setValue('amount', Number(record.amount) - Number(record.paidAmount || 0));
               }}
             >
               Cash Outflow
@@ -513,6 +527,13 @@ export function SubcontractorBillsClient({ bills, subcontractors, projects, work
                 </Form.Item>
               )}
             />
+            <Form.Item label="Payment Terms" className="flex-1">
+              <Input
+                value={termsLabel(subcontractors.find((s) => s.id === selectedSubcontractorId)?.paymentTerms)}
+                placeholder={selectedSubcontractorId ? 'Not set for this subcontractor' : 'Select a subcontractor'}
+                disabled
+              />
+            </Form.Item>
             <Controller
               control={control}
               name="amount"
@@ -649,7 +670,7 @@ export function SubcontractorBillsClient({ bills, subcontractors, projects, work
             <Typography.Title level={5} style={{ margin: '4px 0' }}>{paymentBill.billNumber}</Typography.Title>
             <Flex justify="space-between" className="mt-2!">
               <Typography.Text>Total: {formatCurrency(paymentBill.amount)}</Typography.Text>
-              <Typography.Text>Balance: {formatCurrency(Number(paymentBill.amount) - Number(paymentBill.paidAmount))}</Typography.Text>
+              <Typography.Text>Balance: {formatCurrency(Number(paymentBill.amount) - Number(paymentBill.paidAmount || 0))}</Typography.Text>
             </Flex>
           </div>
         )}

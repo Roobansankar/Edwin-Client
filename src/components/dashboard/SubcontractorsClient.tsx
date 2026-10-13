@@ -32,9 +32,20 @@ const subcontractorSchema = z.object({
   accountNumber: z.string().optional(),
   ifscCode: z.string().optional(),
   branch: z.string().optional(),
+  paymentTerms: z.string().optional(),
 });
 
 type SubcontractorFormValues = z.infer<typeof subcontractorSchema>;
+
+// Same choices as Vendors.
+const PAYMENT_TERMS_OPTIONS = [
+  { label: 'Advance', value: 'advance' },
+  { label: 'Credit', value: 'credit' },
+  { label: 'Full Payment', value: 'full_payment' },
+];
+const PAYMENT_TERMS_LABELS: Record<string, string> = Object.fromEntries(
+  PAYMENT_TERMS_OPTIONS.map((o) => [o.value, o.label]),
+);
 
 type SubcontractorsClientProps = {
   subcontractors: Subcontractor[];
@@ -114,6 +125,7 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
       accountNumber: '',
       ifscCode: '',
       branch: '',
+      paymentTerms: '',
     },
   });
 
@@ -132,6 +144,7 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
       setValue('accountNumber', editingSubcontractor.accountNumber || '');
       setValue('ifscCode', editingSubcontractor.ifscCode || '');
       setValue('branch', editingSubcontractor.branch || '');
+      setValue('paymentTerms', editingSubcontractor.paymentTerms || '');
     } else {
       reset({
         name: '',
@@ -147,6 +160,7 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
         accountNumber: '',
         ifscCode: '',
         branch: '',
+        paymentTerms: '',
       });
     }
   }, [editingSubcontractor, setValue, reset]);
@@ -193,6 +207,12 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
       title: 'GST Number',
       dataIndex: 'gstNumber',
       render: (value) => value || '-',
+    },
+    {
+      title: 'Payment Terms',
+      dataIndex: 'paymentTerms',
+      width: 140,
+      render: (value?: string | null) => (value ? PAYMENT_TERMS_LABELS[value] || value : '-'),
     },
     {
       title: 'Contact Person',
@@ -253,7 +273,8 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
     },
   ];
 
-  const submit = (values: SubcontractorFormValues) => {
+  const submit = (formValues: SubcontractorFormValues) => {
+    const values = { ...formValues, paymentTerms: formValues.paymentTerms || null };
     startTransition(async () => {
       try {
         if (editingSubcontractor) {
@@ -448,6 +469,23 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
               )}
             />
           </div>
+
+          <Controller
+            control={control}
+            name="paymentTerms"
+            render={({ field }) => (
+              <Form.Item label="Payment Terms">
+                <Select
+                  {...field}
+                  value={field.value || undefined}
+                  onChange={(v) => field.onChange(v || '')}
+                  allowClear
+                  placeholder="Select payment terms"
+                  options={PAYMENT_TERMS_OPTIONS}
+                />
+              </Form.Item>
+            )}
+          />
 
           <Typography.Title level={5} className="mt-2!">Bank Details</Typography.Title>
 

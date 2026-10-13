@@ -20,6 +20,7 @@ import { createPayment } from '@/actions/payments';
 import { respondSubcontractorPaymentRequest } from '@/actions/subcontractor-payment-requests';
 import { useAuthStore } from '@/store/auth';
 import { AdvanceRequestsClient } from './AdvanceRequestsClient';
+import { SubcontractorPaymentRequestsClient } from './SubcontractorPaymentRequestsClient';
 import { cardClassName, formatCurrency, formatDate, mutedTextClassName, weekRangeLabel } from './ui';
 
 type Props = {
@@ -290,6 +291,15 @@ export function PaymentOptionsPanel({
         key: option.key,
         label: `${option.no}. ${option.label}`,
         children: <AdvanceRequestsClient requests={advanceRequests} bills={bills} payments={payments} embedded />,
+      };
+    }
+    // Subcontractor Payment is the full Subcontractor Payment Requests screen
+    // (admin sets the final amount there on approval).
+    if (option.key === 'subcontractor') {
+      return {
+        key: option.key,
+        label: `${option.no}. ${option.label}`,
+        children: <SubcontractorPaymentRequestsClient requests={subcontractorPaymentRequests} payments={payments} embedded />,
       };
     }
 

@@ -107,6 +107,9 @@ export function SubcontractorDetailsClient({ subcontractor, workOrders }: Subcon
             <Tag color="blue">{subcontractor.workCategory?.name}</Tag>
           </Descriptions.Item>
           <Descriptions.Item label="GST Number">{subcontractor.gstNumber || '-'}</Descriptions.Item>
+          <Descriptions.Item label="Payment Terms">
+            {{ advance: 'Advance', credit: 'Credit', full_payment: 'Full Payment' }[subcontractor.paymentTerms || ''] || subcontractor.paymentTerms || '-'}
+          </Descriptions.Item>
           <Descriptions.Item label="Contact Person">{subcontractor.contactPerson || '-'}</Descriptions.Item>
           <Descriptions.Item label="Phone">{subcontractor.phone || '-'}</Descriptions.Item>
           <Descriptions.Item label="Email">{subcontractor.email || '-'}</Descriptions.Item>

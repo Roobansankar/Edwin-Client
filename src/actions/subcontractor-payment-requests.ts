@@ -42,13 +42,17 @@ export async function createSubcontractorPaymentRequest(data: {
   }
 }
 
-export async function respondSubcontractorPaymentRequest(id: string, action: 'accepted' | 'admin_approved' | 'rejected') {
+export async function respondSubcontractorPaymentRequest(
+  id: string,
+  action: 'accepted' | 'admin_approved' | 'rejected',
+  approvedAmount?: number,
+) {
   try {
     const headers = await getAuthHeaders();
     const res = await fetch(`${getApiBaseUrl()}/subcontractor-payment-requests/${id}/respond`, {
       method: 'PATCH',
       headers,
-      body: JSON.stringify({ action }),
+      body: JSON.stringify(approvedAmount !== undefined ? { action, approvedAmount } : { action }),
     });
 
     if (!res.ok) {

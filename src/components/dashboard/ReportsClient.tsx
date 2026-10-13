@@ -6,9 +6,11 @@ import {
   Card,
   Col,
   DatePicker,
+  Descriptions,
   Empty,
   Flex,
   Input,
+  Modal,
   Row,
   Select,
   Table,
@@ -23,6 +25,7 @@ import {
   FileExcelOutlined,
   FilePdfOutlined,
   FileTextOutlined,
+  HistoryOutlined,
   ProjectOutlined,
   TeamOutlined,
   WalletOutlined,
@@ -110,7 +113,10 @@ function reportSpanCell(t: DailyTradeRow, children: ReactNode) {
 }
 
 // Expense and bill rows are only reported once Admin has approved them.
+// Expenses: admin_approved is the final admin step. Vendor and subcontractor
+// bills: admin_approved is Accounts Approved; 'approved' is Admin Approved.
 const ADMIN_APPROVED = 'admin_approved';
+const BILL_ADMIN_APPROVED = 'approved';
 
 // Sentinel value for the "All Projects" option in the Project Report dropdown.
 const ALL_PROJECTS = '__all_projects__';
@@ -194,10 +200,23 @@ export function ReportsClient({
 }: ReportsClientProps) {
   const [activeTab, setActiveTab] = useState('project');
   const [statusFilter, setStatusFilter] = useState<string | undefined>();
+  // Payment History popup for a vendor / subcontractor bill row.
+  const [history, setHistory] = useState<{
+    title: string;
+    valueLabel: string;
+    value: number | string | null | undefined;
+    paid: number;
+    balance: number;
+    payments: { id: string; paymentDate: string; amount: number | string; paymentMode?: string | null; referenceNumber?: string | null }[];
+  } | null>(null);
   // Bills and expenses: approved-only on Weekly Report, any status (optionally
   // filtered) on Report.
   const billStatusOk = useCallback(
     (status?: string | null) => (allStatuses ? !statusFilter || status === statusFilter : status === ADMIN_APPROVED),
+    [allStatuses, statusFilter],
+  );
+  const purchaseBillStatusOk = useCallback(
+    (status?: string | null) => (allStatuses ? !statusFilter || status === statusFilter : status === BILL_ADMIN_APPROVED),
     [allStatuses, statusFilter],
   );
   const dailyStatusOk = useCallback(
@@ -225,8 +244,8 @@ export function ReportsClient({
 
   const projectBills = useMemo(() => {
     if (!selectedProjectId) return [];
-    return bills.filter((b) => billStatusOk(b.status) && (selectedProjectId === ALL_PROJECTS || b.projectId === selectedProjectId) && inRange(b.billDate, projectDateRange));
-  }, [bills, selectedProjectId, projectDateRange, billStatusOk]);
+    return bills.filter((b) => purchaseBillStatusOk(b.status) && (selectedProjectId === ALL_PROJECTS || b.projectId === selectedProjectId) && inRange(b.billDate, projectDateRange));
+  }, [bills, selectedProjectId, projectDateRange, purchaseBillStatusOk]);
 
   const projectSummary = useMemo(() => {
     let totalAmount = 0;
@@ -323,9 +342,9 @@ export function ReportsClient({
     () => bills
       .filter((b) => !vbProjectId || vbProjectId === ALL_PROJECTS || b.projectId === vbProjectId)
       .filter((b) => inRange(b.billDate, vbDateRange))
-      .filter((b) => billStatusOk(b.status))
+      .filter((b) => purchaseBillStatusOk(b.status))
       .sort((a, b) => (b.billDate || '').localeCompare(a.billDate || '')),
-    [bills, vbProjectId, vbDateRange, billStatusOk],
+    [bills, vbProjectId, vbDateRange, purchaseBillStatusOk],
   );
 
   // Subcontractor bills for the Subcontractor Bills tab (dated by when they were raised).
@@ -333,9 +352,9 @@ export function ReportsClient({
     () => subcontractorBills
       .filter((b) => !sbProjectId || sbProjectId === ALL_PROJECTS || b.projectId === sbProjectId)
       .filter((b) => inRange(b.createdAt, sbDateRange))
-      .filter((b) => billStatusOk(b.status))
+      .filter((b) => purchaseBillStatusOk(b.status))
       .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')),
-    [subcontractorBills, sbProjectId, sbDateRange, billStatusOk],
+    [subcontractorBills, sbProjectId, sbDateRange, purchaseBillStatusOk],
   );
 
   const vendorBillsSummary = useMemo(() => {
@@ -352,7 +371,8 @@ export function ReportsClient({
     let total = 0;
     let paid = 0;
     for (const b of subcontractorBillRows) {
-      total += Number(b.amount || 0) + Number(b.gstAmount || 0);
+      // amount is the Total Bill Amount (as on the Subcontractor Bills page).
+      total += Number(b.amount || 0);
       paid += Number(b.paidAmount || 0);
     }
     return { count: subcontractorBillRows.length, total, paid, balance: total - paid };
@@ -509,12 +529,12 @@ export function ReportsClient({
     exportToExcel({
       filename: 'Subcontractor-Bills-Report',
       sheetName: 'Subcontractor Bills',
-      headers: ['Subcontractor', 'Project', 'WO Number', 'Requested Amount', 'WO Amount', 'Notes', 'Requested At', 'Status'],
+      headers: ['Subcontractor', 'Project', 'WO Number', 'Total Amount', 'WO Amount', 'Notes', 'Requested At', 'Status'],
       rows: subcontractorBillRows.map((b) => [
         b.subcontractor?.name || '-',
         b.project?.name || '-',
         b.subcontractWorkOrder?.woNumber || '-',
-        Number(b.amount || 0) + Number(b.gstAmount || 0),
+        Number(b.amount || 0),
         b.subcontractWorkOrder ? Number(b.subcontractWorkOrder.totalAmount || 0) : '-',
         b.notes || '-',
         b.createdAt ? formatDate(b.createdAt) : '-',
@@ -691,6 +711,18 @@ export function ReportsClient({
     },
   };
 
+  // History cell: balance plus a button opening the payment history popup
+  // (same as the Payments page's vendor tab).
+  const historyCell = (payments: unknown[], balance: number, open: () => void) => (
+    <Flex vertical gap={4}>
+      {payments.length === 0 && <Typography.Text type="secondary" className="text-xs">No payments yet</Typography.Text>}
+      <Typography.Text strong className="text-xs">Balance: {formatCurrency(Math.max(balance, 0))}</Typography.Text>
+      {payments.length > 0 && (
+        <Button size="small" icon={<HistoryOutlined />} onClick={open}>History</Button>
+      )}
+    </Flex>
+  );
+
   // Same column layout as the Approvals / Bills pages, read-only here.
   const vendorBillColumns: ColumnsType<PurchaseBill> = [
     { title: 'S.No', key: 'sno', width: 60, render: (_, __, i) => i + 1 },
@@ -705,8 +737,8 @@ export function ReportsClient({
     },
     { title: 'PO Number', key: 'poNumber', width: 130, render: (_, r) => r.purchaseOrder?.poNumber || '-' },
     { title: 'Bill No', dataIndex: 'billNumber', width: 130, render: (v: string) => <Typography.Text strong>{v}</Typography.Text> },
-    { title: 'Vendor', key: 'vendor', width: 160, render: (_, r) => r.vendor?.name || '-' },
-    { title: 'Project', key: 'project', width: 160, render: (_, r) => r.project?.name || r.purchaseOrder?.project?.name || '-' },
+    { title: 'Vendor', key: 'vendor', width: 180, ellipsis: true, render: (_, r) => r.vendor?.name || '-' },
+    { title: 'Project', key: 'project', width: 220, ellipsis: true, render: (_, r) => r.project?.name || r.purchaseOrder?.project?.name || '-' },
     { title: 'Status', dataIndex: 'status', width: 150, render: (v: string) => <StatusTag value={v} /> },
     {
       title: 'GST', dataIndex: 'gstAmount', align: 'right' as const, width: 110,
@@ -735,20 +767,14 @@ export function ReportsClient({
         );
         const poValue = r.purchaseOrder ? (r.purchaseOrder.totalWithGst || r.purchaseOrder.totalAmount) : r.amount;
         const balance = Number(r.amount) - Number(r.paidAmount || 0);
-        const ordinal = (n: number) => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`);
-        return (
-          <Flex vertical gap={0}>
-            <Typography.Text className="text-xs">PO Value: {formatCurrency(poValue)}</Typography.Text>
-            {payments.length === 0 ? (
-              <Typography.Text type="secondary" className="text-xs">No payments yet</Typography.Text>
-            ) : (
-              payments.slice(0, 2).map((p, i) => (
-                <Typography.Text key={p.id} className="text-xs">{ordinal(i + 1)} Payment: {formatCurrency(p.amount)}</Typography.Text>
-              ))
-            )}
-            <Typography.Text strong className="text-xs">Balance Payment: {formatCurrency(balance)}</Typography.Text>
-          </Flex>
-        );
+        return historyCell(payments, balance, () => setHistory({
+          title: `${r.billNumber}${r.vendor?.name ? ` — ${r.vendor.name}` : ''}`,
+          valueLabel: 'PO Value',
+          value: poValue,
+          paid: Number(r.paidAmount || 0),
+          balance,
+          payments,
+        }));
       },
     },
     { title: 'Bill Date', dataIndex: 'billDate', width: 110, render: (v?: string) => formatDate(v) },
@@ -756,12 +782,12 @@ export function ReportsClient({
 
   const subcontractorBillColumns: ColumnsType<SubcontractorBill> = [
     { title: 'S.No', key: 'sno', width: 60, render: (_, __, i) => i + 1 },
-    { title: 'Subcontractor', key: 'subcontractor', width: 170, render: (_, r) => r.subcontractor?.name || '-' },
-    { title: 'Project', key: 'project', width: 170, render: (_, r) => r.project?.name || '-' },
-    { title: 'WO Number', key: 'woNumber', width: 140, render: (_, r) => r.subcontractWorkOrder?.woNumber || '-' },
+    { title: 'Subcontractor', key: 'subcontractor', width: 180, ellipsis: true, render: (_, r) => r.subcontractor?.name || '-' },
+    { title: 'Project', key: 'project', width: 220, ellipsis: true, render: (_, r) => r.project?.name || '-' },
+    { title: 'WO Number', key: 'woNumber', width: 150, ellipsis: true, render: (_, r) => r.subcontractWorkOrder?.woNumber || '-' },
     {
-      title: 'Requested Amount', key: 'requested', width: 150, align: 'right' as const,
-      render: (_, r) => formatCurrency(Number(r.amount) + Number(r.gstAmount || 0)),
+      title: 'Total Amount', key: 'requested', width: 150, align: 'right' as const,
+      render: (_, r) => formatCurrency(r.amount),
     },
     {
       title: 'WO Amount', key: 'woAmount', width: 140, align: 'right' as const,
@@ -785,22 +811,15 @@ export function ReportsClient({
           (a, b) => new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime(),
         );
         const woValue = r.subcontractWorkOrder?.totalAmount;
-        const requested = Number(r.amount) + Number(r.gstAmount || 0);
-        const balance = requested - Number(r.paidAmount || 0);
-        const ordinal = (n: number) => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`);
-        return (
-          <Flex vertical gap={0}>
-            <Typography.Text className="text-xs">WO Value: {woValue != null ? formatCurrency(woValue) : '-'}</Typography.Text>
-            {payments.length === 0 ? (
-              <Typography.Text type="secondary" className="text-xs">No payments yet</Typography.Text>
-            ) : (
-              payments.slice(0, 2).map((p, i) => (
-                <Typography.Text key={p.id} className="text-xs">{ordinal(i + 1)} Payment: {formatCurrency(p.amount)}</Typography.Text>
-              ))
-            )}
-            <Typography.Text strong className="text-xs">Balance Payment: {formatCurrency(balance)}</Typography.Text>
-          </Flex>
-        );
+        const balance = Number(r.amount) - Number(r.paidAmount || 0);
+        return historyCell(payments, balance, () => setHistory({
+          title: `${r.subcontractor?.name || 'Subcontractor bill'}${r.subcontractWorkOrder?.woNumber ? ` — ${r.subcontractWorkOrder.woNumber}` : ''}`,
+          valueLabel: 'WO Value',
+          value: woValue,
+          paid: Number(r.paidAmount || 0),
+          balance,
+          payments,
+        }));
       },
     },
     { title: 'Requested At', key: 'requestedAt', width: 120, render: (_, r) => formatDate(r.createdAt) },
@@ -1353,6 +1372,41 @@ export function ReportsClient({
           <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
         )}
       </Card>
+
+      <Modal
+        title={`Payment History — ${history?.title || ''}`}
+        open={!!history}
+        onCancel={() => setHistory(null)}
+        footer={[<Button key="close" onClick={() => setHistory(null)}>Close</Button>]}
+        width={700}
+      >
+        {history && (
+          <Flex vertical gap={12}>
+            <Descriptions
+              size="small"
+              column={{ xs: 1, sm: 3 }}
+              items={[
+                { key: 'value', label: history.valueLabel, children: history.value != null ? formatCurrency(history.value) : '-' },
+                { key: 'paid', label: 'Paid', children: formatCurrency(history.paid) },
+                { key: 'balance', label: 'Balance', children: formatCurrency(Math.max(history.balance, 0)) },
+              ]}
+            />
+            <Table
+              dataSource={history.payments}
+              pagination={false}
+              size="small"
+              rowKey="id"
+              locale={{ emptyText: 'No payments recorded yet' }}
+              columns={[
+                { title: 'Date', dataIndex: 'paymentDate', render: (v: string) => formatDate(v) },
+                { title: 'Amount', dataIndex: 'amount', align: 'right', render: (v: number | string) => formatCurrency(v) },
+                { title: 'Mode', dataIndex: 'paymentMode', render: (v?: string | null) => v?.toUpperCase() || '-' },
+                { title: 'Reference', dataIndex: 'referenceNumber', render: (v?: string | null) => v || '-' },
+              ]}
+            />
+          </Flex>
+        )}
+      </Modal>
     </div>
   );
 }

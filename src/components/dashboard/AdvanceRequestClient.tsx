@@ -170,6 +170,11 @@ export function AdvanceRequestClient({ projects, advanceRequests, purchaseOrders
     { title: 'MR No', dataIndex: 'materialRequirementNo', render: (value?: string | null) => value || <Typography.Text type="secondary">-</Typography.Text> },
     { title: 'Amount', dataIndex: 'amount', align: 'right', render: (value: number | string) => formatCurrency(value) },
     {
+      // Final amount admin approved for payment.
+      title: 'Final Amount', dataIndex: 'approvedAmount', align: 'right',
+      render: (value?: number | string | null) => (value !== null && value !== undefined && value !== '' ? formatCurrency(value) : '-'),
+    },
+    {
       title: 'Payment Terms',
       key: 'paymentTerms',
       render: (_, record) => {

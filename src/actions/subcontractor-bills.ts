@@ -61,7 +61,30 @@ export async function updateSubcontractorBillStatus(id: string, status: string) 
     const res = await fetch(`${getApiBaseUrl()}/subcontractor-bills/${id}/status`, {
       method: 'PATCH', headers, body: JSON.stringify({ status }),
     });
-    if (!res.ok) throw new Error('Failed to update bill status');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to update bill status' }));
+      throw new Error(error.message || 'Failed to update bill status');
+    }
+    revalidatePath('/dashboard/accounts/subcontractor-bills');
+    revalidatePath('/dashboard/approvals');
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error('Something went wrong. Please try again.');
+  }
+}
+
+// Accounts ticks the Enquiry (SCR) or Work Order as checked on the bill page.
+export async function markSubcontractorBillDocumentChecked(id: string, document: 'enquiry' | 'workOrder') {
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${getApiBaseUrl()}/subcontractor-bills/${id}/document-check`, {
+      method: 'PATCH', headers, body: JSON.stringify({ document }),
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Failed to mark document as checked' }));
+      throw new Error(error.message || 'Failed to mark document as checked');
+    }
     revalidatePath('/dashboard/accounts/subcontractor-bills');
     revalidatePath('/dashboard/approvals');
     return res.json();

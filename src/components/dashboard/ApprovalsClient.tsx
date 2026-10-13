@@ -887,43 +887,68 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
     },
   };
 
-  // Work-order view: what was requested against the WO, with its payments.
+  // Same layout as the vendor Bills tab: bill amounts, payments and balance.
   const subcontractorBillColumns: ColumnsType<SubcontractorBill> = [
     { title: 'S.No', key: 'sno', width: 60, render: (_, __, i) => i + 1 },
-    { title: 'Subcontractor', key: 'subcontractor', width: 170, render: (_, r) => r.subcontractor?.name || '-' },
-    { title: 'Project', key: 'project', width: 170, render: (_, r) => r.project?.name || '-' },
-    { title: 'WO Number', key: 'woNumber', width: 140, render: (_, r) => r.subcontractWorkOrder?.woNumber || '-' },
-    {
-      title: 'Requested Amount', key: 'requestedAmount', width: 150, align: 'right',
-      render: (_, r) => formatCurrency(Number(r.amount) + Number(r.gstAmount || 0)),
-    },
-    {
-      title: 'WO Amount', key: 'woAmount', width: 140, align: 'right',
-      render: (_, r) => r.subcontractWorkOrder
-        ? formatCurrency(r.subcontractWorkOrder.totalAmount)
-        : <Typography.Text type="secondary">-</Typography.Text>,
-    },
+    { title: 'Created Date', dataIndex: 'createdAt', width: 110, render: (v?: string) => formatDate(v) },
+    { title: 'WO Number', key: 'woNumber', width: 130, render: (_, r) => r.subcontractWorkOrder?.woNumber || '-' },
     {
       title: 'Work Order', key: 'workOrder', width: 110,
       render: (_, r) => r.subcontractWorkOrder?.workorderUrl ? (
-        <Button type="link" size="small" icon={<FilePdfOutlined />} href={r.subcontractWorkOrder.workorderUrl} target="_blank">
+        <Button type="link" size="small" className="px-0!" icon={<FilePdfOutlined />} href={r.subcontractWorkOrder.workorderUrl} target="_blank">
           View
         </Button>
       ) : <Typography.Text type="secondary">-</Typography.Text>,
     },
+    { title: 'Bill No', dataIndex: 'billNumber', width: 130, render: (v: string) => <Typography.Text strong>{v}</Typography.Text> },
+    { title: 'Subcontractor', key: 'subcontractor', width: 160, render: (_, r) => r.subcontractor?.name || '-' },
+    { title: 'Project', key: 'project', width: 160, render: (_, r) => r.project?.name || '-' },
     {
-      title: 'Notes', key: 'notes', width: 200, ellipsis: true,
-      render: (_, r) => r.notes || '-',
+      title: 'Status', dataIndex: 'status', width: 170,
+      render: (value, record) => (
+        <Select
+          value={value}
+          size="small"
+          variant="borderless"
+          className="w-full"
+          popupMatchSelectWidth={false}
+          disabled={isPending}
+          // Same role-based choices as vendor bills: accounts approves first,
+          // admin gives the final decision.
+          options={isAdmin ? ADMIN_BILL_DECISION_OPTIONS : BILL_DECISION_OPTIONS}
+          onChange={(newStatus) => handleSubcontractorBillStatusChange(record.id, newStatus)}
+        />
+      ),
     },
     {
-      title: 'History', key: 'history', width: 220,
+      title: 'GST', dataIndex: 'gstAmount', align: 'right', width: 110,
+      render: (value) => Number(value) > 0 ? formatCurrency(value) : <Typography.Text type="secondary">-</Typography.Text>,
+    },
+    {
+      // Entered as the Total Bill Amount (same as the Subcontractor Bills page).
+      title: 'Total Amount', dataIndex: 'amount', align: 'right', width: 130,
+      render: (value) => <Typography.Text strong>{formatCurrency(value)}</Typography.Text>,
+    },
+
+    {
+      title: 'Paid Amount', dataIndex: 'paidAmount', align: 'right', width: 120,
+      render: (value) => Number(value) > 0 ? formatCurrency(value) : <Typography.Text type="secondary">-</Typography.Text>,
+    },
+    {
+      title: 'Balance Amount', key: 'balanceAmount', align: 'right', width: 130,
+      render: (_, r) => {
+        const balance = Number(r.amount) - Number(r.paidAmount || 0);
+        return <Typography.Text strong={balance > 0}>{formatCurrency(balance)}</Typography.Text>;
+      },
+    },
+    {
+      title: 'History', key: 'history', width: 200,
       render: (_, r) => {
         const payments = [...(r.payments || [])].sort(
           (a, b) => new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime(),
         );
         const woValue = r.subcontractWorkOrder?.totalAmount;
-        const requested = Number(r.amount) + Number(r.gstAmount || 0);
-        const balance = requested - Number(r.paidAmount || 0);
+        const balance = Number(r.amount) - Number(r.paidAmount || 0);
         const ordinal = (n: number) => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`);
         return (
           <Flex vertical gap={0}>
@@ -940,22 +965,15 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
         );
       },
     },
+    { title: 'Bill Date', dataIndex: 'billDate', width: 110, render: formatDate },
     {
-      title: 'Requested At', key: 'requestedAt', width: 120,
-      render: (_, r) => formatDate(r.createdAt),
-    },
-    {
-      title: 'Status', dataIndex: 'status', width: 170,
-      render: (value, record) => (
-        <Select
-          value={value}
+      title: 'Action', key: 'actions', width: 90,
+      render: (_, record) => (
+        <Button
           size="small"
-          variant="borderless"
-          className="w-full"
-          popupMatchSelectWidth={false}
-          disabled={isPending}
-          options={APPROVAL_STATUS_OPTIONS}
-          onChange={(newStatus) => handleSubcontractorBillStatusChange(record.id, newStatus)}
+          icon={<EyeOutlined />}
+          title="View bill details"
+          onClick={() => router.push(`/dashboard/accounts/subcontractor-bills/${record.id}`)}
         />
       ),
     },

@@ -1,4 +1,6 @@
 import { Alert } from 'antd';
+import { redirect } from 'next/navigation';
+import { getUserFromToken } from '@/lib/auth';
 import { PaymentsClient } from '@/components/dashboard/PaymentsClient';
 import { fetchPayments, fetchPaymentsSummary, fetchProjects, fetchVendors, fetchPurchaseOrders, fetchAdvanceRequests, fetchSubcontractWorkOrders, fetchSubcontractorPaymentRequests, fetchUnpaidLabourWeeklySummary, fetchUnpaidExpenseWeeklySummary, fetchBills } from '@/lib/api';
 
@@ -63,6 +65,13 @@ type PageProps = {
 export default async function PaymentsPage({ searchParams }: PageProps) {
   // ?tab=vendor / labour / subcontractor / expenses opens that Payment Options tab (used by notification links).
   const { tab } = await searchParams;
+
+  // Payments is accounts/admin only; the purchase team lands here from old
+  // notification links, so send them to their own payment pages instead.
+  const user = await getUserFromToken();
+  if (user?.role === 'purchase_team') {
+    redirect(tab === 'subcontractor' ? '/dashboard/subcontractor-payments' : '/dashboard/advance');
+  }
   const {
     payments, summary, projects, vendors, purchaseOrders, advanceRequests, subcontractWorkOrders,
     subcontractorPaymentRequests, unpaidLabourSummary, unpaidExpenseSummary, bills, error,

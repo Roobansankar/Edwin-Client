@@ -2,9 +2,9 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { App, Button, Card, Col, DatePicker, Descriptions, Drawer, Flex, Form, Input, InputNumber, Popconfirm, Row, Select, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { App, Button, Card, Col, DatePicker, Descriptions, Drawer, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Statistic, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { CheckOutlined, CloseOutlined, DollarOutlined, EyeOutlined, FilePdfOutlined, SearchOutlined } from '@ant-design/icons';
+import { CheckOutlined, CloseOutlined, DollarOutlined, EyeOutlined, FilePdfOutlined, HistoryOutlined, SearchOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import dayjs from 'dayjs';
 import { respondAdvanceRequest } from '@/actions/advance-requests';
@@ -32,6 +32,12 @@ const STATUS_LABELS: Record<string, string> = {
   rejected: 'REJECTED',
 };
 
+// Amount accounts must pay: admin's final amount when set, else the request amount.
+const payableAmount = (r: AdvanceRequest) =>
+  r.approvedAmount !== null && r.approvedAmount !== undefined && r.approvedAmount !== ''
+    ? Number(r.approvedAmount)
+    : Number(r.amount || 0);
+
 const STATUS_OPTIONS = [
   { label: 'All', value: '' },
   { label: 'Pending', value: 'pending' },
@@ -58,6 +64,12 @@ type RequestRow = {
   // First bill raised against the request's PO; the eye icon opens it.
   billId: string | null;
   displayStatus: string;
+  // Payments recorded against this request, oldest first.
+  paymentList: Payment[];
+  // Whole-PO view (same as the purchase team's Vendor Payments page): PO total
+  // incl. GST, all payments on the PO and what is still owed to the vendor.
+  // Null when the request has no PO.
+  po: { total: number; paid: number; balance: number; payments: Payment[] } | null;
 };
 
 export function AdvanceRequestsClient({ requests, bills, payments, embedded = false }: Props) {
@@ -71,14 +83,23 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
   const isAdmin = user?.role === 'admin';
 
   const rows = useMemo<RequestRow[]>(() => {
-    const paidById = new Map<string, { total: number; lastDate: string | null }>();
+    const paidById = new Map<string, { total: number; lastDate: string | null; list: Payment[] }>();
     for (const p of payments) {
       if (!p.advanceRequestId) continue;
-      const current = paidById.get(p.advanceRequestId) || { total: 0, lastDate: null };
+      const current = paidById.get(p.advanceRequestId) || { total: 0, lastDate: null, list: [] };
+      current.list.push(p);
       current.total += Number(p.amount || 0);
       const date = p.paymentDate ? p.paymentDate.split('T')[0] : null;
       if (date && (!current.lastDate || date > current.lastDate)) current.lastDate = date;
       paidById.set(p.advanceRequestId, current);
+    }
+
+    const paymentsByPo = new Map<string, Payment[]>();
+    for (const p of payments) {
+      if (!p.purchaseOrderId) continue;
+      const list = paymentsByPo.get(p.purchaseOrderId) || [];
+      list.push(p);
+      paymentsByPo.set(p.purchaseOrderId, list);
     }
 
     const billNumbersByPo = new Map<string, string[]>();
@@ -92,7 +113,7 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
     return requests.map((request) => {
       const payment = paidById.get(request.id);
       const paid = payment?.total || 0;
-      const balance = Number(request.amount || 0) - paid;
+      const balance = payableAmount(request) - paid;
       const isPaid = request.status === 'admin_approved' && paid > 0 && balance <= 0;
       const billNumbers = request.purchaseOrderId ? billNumbersByPo.get(request.purchaseOrderId) : undefined;
       return {
@@ -103,6 +124,15 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
         billNo: billNumbers?.join(', ') || '-',
         billId: request.purchaseOrderId ? bills.find((b) => b.purchaseOrderId === request.purchaseOrderId)?.id || null : null,
         displayStatus: isPaid ? 'paid' : request.status,
+        paymentList: [...(payment?.list || [])].sort((a, b) => (a.paymentDate || '').localeCompare(b.paymentDate || '')),
+        po: (() => {
+          if (!request.purchaseOrderId) return null;
+          const poPayments = [...(paymentsByPo.get(request.purchaseOrderId) || [])]
+            .sort((a, b) => (a.paymentDate || '').localeCompare(b.paymentDate || ''));
+          const total = Number(request.purchaseOrder?.totalWithGst || request.purchaseOrder?.totalAmount || 0);
+          const poPaid = poPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+          return { total, paid: poPaid, balance: total - poPaid, payments: poPayments };
+        })(),
       };
     });
   }, [requests, payments, bills]);
@@ -139,15 +169,16 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
     [rows],
   );
 
-  const handleRespond = (id: string, action: 'accepted' | 'admin_approved' | 'rejected') => {
+  const handleRespond = (id: string, action: 'accepted' | 'admin_approved' | 'rejected', approvedAmount?: number) => {
     startTransition(async () => {
       try {
-        await respondAdvanceRequest(id, action);
+        await respondAdvanceRequest(id, action, approvedAmount);
+        if (action === 'admin_approved') setApproveTarget(null);
         message.success(
           action === 'accepted'
             ? 'Accepted — awaiting final admin approval'
             : action === 'admin_approved'
-              ? 'Vendor payment request given final approval'
+              ? `Approved — final amount ${formatCurrency(approvedAmount ?? 0)} sent to accounts`
               : 'Request rejected',
         );
       } catch (error) {
@@ -156,6 +187,15 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
     });
   };
 
+  // Admin final approval: admin enters the final amount accounts will pay.
+  const [approveTarget, setApproveTarget] = useState<AdvanceRequest | null>(null);
+  const [approveAmount, setApproveAmount] = useState<number | null>(null);
+  const openApprove = (r: AdvanceRequest) => {
+    setApproveTarget(r);
+    setApproveAmount(Number(r.amount || 0));
+  };
+
+  const [historyRow, setHistoryRow] = useState<RequestRow | null>(null);
   const [payTarget, setPayTarget] = useState<RequestRow | null>(null);
   const [payAmount, setPayAmount] = useState(0);
   const [payDate, setPayDate] = useState(dayjs());
@@ -235,17 +275,9 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
       }
       return (
         <Flex gap={6} wrap="wrap">
-          <Popconfirm
-            title="Give final approval?"
-            description={`Marks the ${formatCurrency(record.amount)} request as fully approved — it will count toward the vendor's advance on Purchase Orders.`}
-            onConfirm={() => handleRespond(record.id, 'admin_approved')}
-            okText="Yes, approve"
-            cancelText="No"
-          >
-            <Button size="small" type="primary" ghost icon={<CheckOutlined />} loading={isPending}>
-              Approve
-            </Button>
-          </Popconfirm>
+          <Button size="small" type="primary" ghost icon={<CheckOutlined />} loading={isPending} onClick={() => openApprove(record)}>
+            Approve
+          </Button>
           <Popconfirm
             title="Reject this request?"
             onConfirm={() => handleRespond(record.id, 'rejected')}
@@ -285,6 +317,32 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
     {
       title: 'Amount', key: 'amount', width: 130, align: 'right',
       render: (_, r) => <Typography.Text strong>{formatCurrency(r.request.amount)}</Typography.Text>,
+    },
+    {
+      // Final amount fixed by admin on approval — what accounts pays.
+      title: 'Final Amount', key: 'approvedAmount', width: 140, align: 'right',
+      render: (_, r) => {
+        const v = r.request.approvedAmount;
+        if (v === null || v === undefined || v === '') return <Typography.Text type="secondary">-</Typography.Text>;
+        const changed = Number(v) !== Number(r.request.amount);
+        return <Typography.Text strong type={changed ? 'warning' : 'success'}>{formatCurrency(v)}</Typography.Text>;
+      },
+    },
+    {
+      title: 'History', key: 'history', width: 160,
+      render: (_, r) => {
+        const list = r.po ? r.po.payments : r.paymentList;
+        const balance = r.po ? r.po.balance : r.balance;
+        return (
+          <Flex vertical gap={4}>
+            {list.length === 0 && <Typography.Text type="secondary" className="text-xs">No payments yet</Typography.Text>}
+            <Typography.Text strong className="text-xs">Balance: {formatCurrency(Math.max(balance, 0))}</Typography.Text>
+            {list.length > 0 && (
+              <Button size="small" icon={<HistoryOutlined />} onClick={() => setHistoryRow(r)}>History</Button>
+            )}
+          </Flex>
+        );
+      },
     },
     { title: 'Pay Date', key: 'payDate', width: 110, align: 'right', render: (_, r) => (r.payDate ? dayjs(r.payDate).format('DD-MMM') : '-') },
     {
@@ -398,8 +456,12 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
                     { key: 'mr', label: 'MR Ref', children: r.materialRequirementNo || r.purchaseOrder?.materialRequirementNo || '-' },
                     { key: 'po', label: 'PO Number', children: r.purchaseOrder?.poNumber || '-' },
                     { key: 'poTotal', label: 'PO Total', children: poTotal ? formatCurrency(poTotal) : '-' },
-                    { key: 'paid', label: 'Paid so far', children: formatCurrency(row.paid) },
-                    { key: 'balance', label: 'Balance', children: formatCurrency(Math.max(row.balance, 0)) },
+                    { key: 'requested', label: 'Requested Amount', children: formatCurrency(r.amount) },
+                    { key: 'final', label: 'Final Amount (Admin)', children: r.approvedAmount ? formatCurrency(r.approvedAmount) : '-' },
+                    { key: 'paid', label: 'Paid (this request)', children: formatCurrency(row.paid) },
+                    { key: 'reqBalance', label: 'Left to pay (this request)', children: formatCurrency(Math.max(row.balance, 0)) },
+                    { key: 'poPaid', label: 'Paid on PO', children: row.po ? formatCurrency(row.po.paid) : '-' },
+                    { key: 'balance', label: 'PO Balance', children: row.po ? formatCurrency(Math.max(row.po.balance, 0)) : '-' },
                     { key: 'notes', label: 'Notes', children: r.notes || '-' },
                     {
                       key: 'doc', label: 'PO Document',
@@ -444,6 +506,9 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
                 <Input value={payTarget.request.purchaseOrder.poNumber} disabled />
               </Form.Item>
             )}
+            <Form.Item label="Final Amount Approved by Admin">
+              <Input value={formatCurrency(payableAmount(payTarget.request))} disabled />
+            </Form.Item>
             <Form.Item label={`Amount Paid (balance ${formatCurrency(Math.max(payTarget.balance, 0))})`} required>
               <InputNumber
                 className="w-full"
@@ -484,6 +549,85 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
           </Form>
         )}
       </Drawer>
+
+      <Modal
+        title={`Payment History — ${historyRow?.request.vendor?.name || ''}${historyRow?.request.purchaseOrder?.poNumber ? ` (${historyRow.request.purchaseOrder.poNumber})` : ''}`}
+        open={!!historyRow}
+        onCancel={() => setHistoryRow(null)}
+        footer={[<Button key="close" onClick={() => setHistoryRow(null)}>Close</Button>]}
+        width={700}
+      >
+        {historyRow && (
+          <Flex vertical gap={12}>
+            <Descriptions
+              size="small"
+              column={{ xs: 1, sm: 3 }}
+              items={[
+                ...(historyRow.po
+                  ? [
+                      { key: 'total', label: 'PO Total', children: formatCurrency(historyRow.po.total) },
+                      { key: 'paid', label: 'Paid', children: formatCurrency(historyRow.po.paid) },
+                      { key: 'balance', label: 'Balance', children: formatCurrency(Math.max(historyRow.po.balance, 0)) },
+                    ]
+                  : [
+                      { key: 'final', label: 'Amount to Pay', children: formatCurrency(payableAmount(historyRow.request)) },
+                      { key: 'paid', label: 'Paid', children: formatCurrency(historyRow.paid) },
+                      { key: 'balance', label: 'Balance', children: formatCurrency(Math.max(historyRow.balance, 0)) },
+                    ]),
+              ]}
+            />
+            <Table
+              dataSource={historyRow.po ? historyRow.po.payments : historyRow.paymentList}
+              pagination={false}
+              size="small"
+              rowKey="id"
+              locale={{ emptyText: 'No payments recorded yet' }}
+              columns={[
+                { title: 'Date', dataIndex: 'paymentDate', render: (v: string) => formatDate(v) },
+                { title: 'Amount', dataIndex: 'amount', align: 'right', render: (v: number | string) => formatCurrency(v) },
+                { title: 'Mode', dataIndex: 'paymentMode', render: (v: string) => v?.toUpperCase() || '-' },
+                { title: 'Reference', dataIndex: 'referenceNumber', render: (v?: string | null) => v || '-' },
+              ]}
+            />
+          </Flex>
+        )}
+      </Modal>
+
+      <Modal
+        title="Final approval — set amount to pay"
+        open={!!approveTarget}
+        onCancel={() => setApproveTarget(null)}
+        okText="Approve"
+        confirmLoading={isPending}
+        okButtonProps={{ disabled: !approveAmount || approveAmount <= 0 }}
+        onOk={() => approveTarget && approveAmount && handleRespond(approveTarget.id, 'admin_approved', approveAmount)}
+        destroyOnHidden
+      >
+        {approveTarget && (
+          <Form layout="vertical">
+            <Form.Item label="Vendor">
+              <Input value={approveTarget.vendor?.name || '-'} disabled />
+            </Form.Item>
+            <Form.Item label="Requested Amount">
+              <Input value={formatCurrency(approveTarget.amount)} disabled />
+            </Form.Item>
+            <Form.Item
+              label="Final Amount to Pay"
+              required
+              extra="Accounts will pay this amount. Accounts and the purchase team are notified."
+            >
+              <InputNumber
+                className="w-full"
+                prefix="₹"
+                min={1}
+                value={approveAmount}
+                onChange={(v) => setApproveAmount(v === null ? null : Number(v))}
+                autoFocus
+              />
+            </Form.Item>
+          </Form>
+        )}
+      </Modal>
     </div>
   );
 }

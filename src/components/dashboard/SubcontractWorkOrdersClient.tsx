@@ -15,6 +15,7 @@ import {
   Popconfirm,
   Space,
   Table,
+  Tag,
   Typography,
   App,
   Select,
@@ -96,6 +97,8 @@ const getFileIcon = (filename: string) => {
   if (ext.endsWith('.doc') || ext.endsWith('.docx')) return <FileTextOutlined className="text-blue-500" />;
   return <FileUnknownOutlined className="text-gray-500" />;
 };
+
+const PAYMENT_TERMS_LABELS: Record<string, string> = { advance: 'Advance', credit: 'Credit', full_payment: 'Full Payment' };
 
 export function SubcontractWorkOrdersClient({
   workOrders,
@@ -419,6 +422,16 @@ export function SubcontractWorkOrdersClient({
       width: 150,
     },
     {
+      // Subcontractor's default payment terms (set on the Subcontractors page).
+      title: 'Payment Terms',
+      key: 'paymentTerms',
+      width: 130,
+      render: (_, record) => {
+        const v = record.subcontractor?.paymentTerms || subcontractors.find((s) => s.id === record.subcontractorId)?.paymentTerms;
+        return v ? <Tag color="blue">{PAYMENT_TERMS_LABELS[v] || v}</Tag> : <Typography.Text type="secondary">-</Typography.Text>;
+      },
+    },
+    {
       title: 'Category',
       dataIndex: ['workCategory', 'name'],
       key: 'category',
@@ -694,6 +707,16 @@ export function SubcontractWorkOrdersClient({
                 </Form.Item>
               )}
             />
+            <Form.Item label="Payment Terms" className="flex-1">
+              <Input
+                value={(() => {
+                  const v = subcontractors.find((s) => s.id === selectedSubcontractorId)?.paymentTerms;
+                  return v ? PAYMENT_TERMS_LABELS[v] || v : '';
+                })()}
+                placeholder={selectedSubcontractorId ? 'Not set for this subcontractor' : 'Select a subcontractor'}
+                disabled
+              />
+            </Form.Item>
             <Controller
               control={control}
               name="workCategoryId"

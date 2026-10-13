@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { App, Button, Card, Col, DatePicker, Descriptions, Drawer, Flex, Form, Input, InputNumber, Popconfirm, Row, Select, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { App, Button, Card, Col, DatePicker, Descriptions, Drawer, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Statistic, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { CheckOutlined, CloseOutlined, DollarOutlined, FileTextOutlined, SearchOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -11,6 +11,12 @@ import { createPayment } from '@/actions/payments';
 import type { Payment, SubcontractorPaymentRequest } from '@/types/erp';
 import { useAuthStore } from '@/store/auth';
 import { cardClassName, formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
+
+// Amount accounts must pay: admin's final amount when set, else the request amount.
+const payableAmount = (r: SubcontractorPaymentRequest) =>
+  r.approvedAmount !== null && r.approvedAmount !== undefined && r.approvedAmount !== ''
+    ? Number(r.approvedAmount)
+    : Number(r.amount || 0);
 
 // Status shown in the table. The request stays 'admin_approved' in the
 // database (the payment rules depend on that), and it is shown as Paid once
@@ -42,6 +48,8 @@ const STATUS_OPTIONS = [
 type Props = {
   requests: SubcontractorPaymentRequest[];
   payments: Payment[];
+  // Shown inside the Payments page's Subcontractor Payment tab: no page title.
+  embedded?: boolean;
 };
 
 type RequestRow = {
@@ -52,7 +60,7 @@ type RequestRow = {
   displayStatus: string;
 };
 
-export function SubcontractorPaymentRequestsClient({ requests, payments }: Props) {
+export function SubcontractorPaymentRequestsClient({ requests, payments, embedded = false }: Props) {
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [searchText, setSearchText] = useState('');
@@ -84,7 +92,7 @@ export function SubcontractorPaymentRequestsClient({ requests, payments }: Props
     return requests.map((request) => {
       const payment = paidById.get(request.id);
       const paid = payment?.total || 0;
-      const balance = Number(request.amount || 0) - paid;
+      const balance = payableAmount(request) - paid;
       const isPaid = request.status === 'admin_approved' && paid > 0 && balance <= 0;
       return {
         request,
@@ -128,15 +136,16 @@ export function SubcontractorPaymentRequestsClient({ requests, payments }: Props
     [rows],
   );
 
-  const handleRespond = (id: string, action: 'accepted' | 'admin_approved' | 'rejected') => {
+  const handleRespond = (id: string, action: 'accepted' | 'admin_approved' | 'rejected', approvedAmount?: number) => {
     startTransition(async () => {
       try {
-        await respondSubcontractorPaymentRequest(id, action);
+        await respondSubcontractorPaymentRequest(id, action, approvedAmount);
+        if (action === 'admin_approved') setApproveTarget(null);
         message.success(
           action === 'accepted'
             ? 'Accepted — awaiting final admin approval'
             : action === 'admin_approved'
-              ? 'Payment request given final approval'
+              ? `Approved — final amount ${formatCurrency(approvedAmount ?? 0)} sent to accounts`
               : 'Request rejected',
         );
       } catch (error) {
@@ -149,6 +158,14 @@ export function SubcontractorPaymentRequestsClient({ requests, payments }: Props
   // Master Ledger (/dashboard/payments) — same as filling in that page's
   // "Record Direct Payment" form by hand and picking this request there,
   // just without leaving this page.
+  // Admin final approval: admin enters the final amount accounts will pay.
+  const [approveTarget, setApproveTarget] = useState<SubcontractorPaymentRequest | null>(null);
+  const [approveAmount, setApproveAmount] = useState<number | null>(null);
+  const openApprove = (r: SubcontractorPaymentRequest) => {
+    setApproveTarget(r);
+    setApproveAmount(Number(r.amount || 0));
+  };
+
   const [payTarget, setPayTarget] = useState<RequestRow | null>(null);
   const [payAmount, setPayAmount] = useState(0);
   const [payDate, setPayDate] = useState(dayjs());
@@ -228,17 +245,9 @@ export function SubcontractorPaymentRequestsClient({ requests, payments }: Props
       }
       return (
         <Flex gap={8}>
-          <Popconfirm
-            title="Give final approval?"
-            description={`Marks the ${formatCurrency(record.amount)} request as fully approved.`}
-            onConfirm={() => handleRespond(record.id, 'admin_approved')}
-            okText="Yes, approve"
-            cancelText="No"
-          >
-            <Button size="small" type="primary" ghost icon={<CheckOutlined />} loading={isPending}>
-              Final Approve
-            </Button>
-          </Popconfirm>
+          <Button size="small" type="primary" ghost icon={<CheckOutlined />} loading={isPending} onClick={() => openApprove(record)}>
+            Final Approve
+          </Button>
           <Popconfirm
             title="Reject this request?"
             onConfirm={() => handleRespond(record.id, 'rejected')}
@@ -279,6 +288,16 @@ export function SubcontractorPaymentRequestsClient({ requests, payments }: Props
       title: 'Amount', key: 'amount', width: 130, align: 'right',
       render: (_, r) => <Typography.Text strong>{formatCurrency(r.request.amount)}</Typography.Text>,
     },
+    {
+      // Final amount fixed by admin on approval — what accounts pays.
+      title: 'Final Amount', key: 'approvedAmount', width: 140, align: 'right',
+      render: (_, r) => {
+        const v = r.request.approvedAmount;
+        if (v === null || v === undefined || v === '') return <Typography.Text type="secondary">-</Typography.Text>;
+        const changed = Number(v) !== Number(r.request.amount);
+        return <Typography.Text strong type={changed ? 'warning' : 'success'}>{formatCurrency(v)}</Typography.Text>;
+      },
+    },
     { title: 'Pay Date', key: 'payDate', width: 110, align: 'right', render: (_, r) => (r.payDate ? dayjs(r.payDate).format('DD-MMM') : '-') },
     {
       title: 'Status', key: 'status', width: 170,
@@ -293,11 +312,13 @@ export function SubcontractorPaymentRequestsClient({ requests, payments }: Props
 
   return (
     <div>
-      <Flex justify="space-between" align="center" className={pageHeaderClassName} gap={16} wrap="wrap">
-        <Typography.Title level={3} className={pageTitleClassName}>
-          <DollarOutlined className={titleIconClassName} /> Subcontractor Payment Requests
-        </Typography.Title>
-      </Flex>
+      {!embedded && (
+        <Flex justify="space-between" align="center" className={pageHeaderClassName} gap={16} wrap="wrap">
+          <Typography.Title level={3} className={pageTitleClassName}>
+            <DollarOutlined className={titleIconClassName} /> Subcontractor Payment Requests
+          </Typography.Title>
+        </Flex>
+      )}
 
       <Card className={cardClassName}>
         <Row gutter={[16, 16]} className="mb-4">
@@ -366,6 +387,8 @@ export function SubcontractorPaymentRequestsClient({ requests, payments }: Props
                   items={[
                     { key: 'project', label: 'Project', children: r.project?.name || '-' },
                     { key: 'woTotal', label: 'WO Total', children: r.subcontractWorkOrder?.totalAmount ? formatCurrency(r.subcontractWorkOrder.totalAmount) : '-' },
+                    { key: 'requestedAmt', label: 'Requested Amount', children: formatCurrency(r.amount) },
+                    { key: 'final', label: 'Final Amount (Admin)', children: r.approvedAmount ? formatCurrency(r.approvedAmount) : '-' },
                     { key: 'paid', label: 'Paid so far', children: formatCurrency(row.paid) },
                     { key: 'balance', label: 'Balance', children: formatCurrency(Math.max(row.balance, 0)) },
                     { key: 'requested', label: 'Requested At', children: r.createdAt ? formatDate(r.createdAt) : '-' },
@@ -413,6 +436,9 @@ export function SubcontractorPaymentRequestsClient({ requests, payments }: Props
                 <Input value={payTarget.request.subcontractWorkOrder.woNumber} disabled />
               </Form.Item>
             )}
+            <Form.Item label="Final Amount Approved by Admin">
+              <Input value={formatCurrency(payableAmount(payTarget.request))} disabled />
+            </Form.Item>
             <Form.Item label={`Amount Paid (balance ${formatCurrency(Math.max(payTarget.balance, 0))})`} required>
               <InputNumber
                 className="w-full"
@@ -453,6 +479,42 @@ export function SubcontractorPaymentRequestsClient({ requests, payments }: Props
           </Form>
         )}
       </Drawer>
+
+      <Modal
+        title="Final approval — set amount to pay"
+        open={!!approveTarget}
+        onCancel={() => setApproveTarget(null)}
+        okText="Approve"
+        confirmLoading={isPending}
+        okButtonProps={{ disabled: !approveAmount || approveAmount <= 0 }}
+        onOk={() => approveTarget && approveAmount && handleRespond(approveTarget.id, 'admin_approved', approveAmount)}
+        destroyOnHidden
+      >
+        {approveTarget && (
+          <Form layout="vertical">
+            <Form.Item label="Subcontractor">
+              <Input value={approveTarget.subcontractor?.name || '-'} disabled />
+            </Form.Item>
+            <Form.Item label="Requested Amount">
+              <Input value={formatCurrency(approveTarget.amount)} disabled />
+            </Form.Item>
+            <Form.Item
+              label="Final Amount to Pay"
+              required
+              extra="Accounts will pay this amount. Accounts and the purchase team are notified."
+            >
+              <InputNumber
+                className="w-full"
+                prefix="₹"
+                min={1}
+                value={approveAmount}
+                onChange={(v) => setApproveAmount(v === null ? null : Number(v))}
+                autoFocus
+              />
+            </Form.Item>
+          </Form>
+        )}
+      </Modal>
     </div>
   );
 }

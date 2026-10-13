@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { Button, Card, DatePicker, Flex, Form, Input, InputNumber, Modal, Select, Table, Tag, Typography, App } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
-import { DollarOutlined, FileTextOutlined, HistoryOutlined, SearchOutlined } from '@ant-design/icons';
+import { DollarOutlined, EyeOutlined, FileTextOutlined, HistoryOutlined, SearchOutlined } from '@ant-design/icons';
+import Link from 'next/link';
 import { createSubcontractorPaymentRequest } from '@/actions/subcontractor-payment-requests';
 import type { Project, SubcontractWorkOrder, SubcontractorPaymentRequest, SubcontractorBill, Payment } from '@/types/erp';
 import {
@@ -164,6 +165,11 @@ export function SubcontractorPaymentRequestClient({ projects, workOrders, reques
     { title: 'SCR No', key: 'scrNo', width: 120, render: (_, record) => record.subcontractWorkOrder?.scrNo || <Typography.Text type="secondary">-</Typography.Text> },
     { title: 'Amount', dataIndex: 'amount', align: 'right', width: 120, render: (value: number | string) => formatCurrency(value) },
     {
+      // Final amount admin approved for payment.
+      title: 'Final Amount', dataIndex: 'approvedAmount', align: 'right', width: 130,
+      render: (value?: number | string | null) => (value !== null && value !== undefined && value !== '' ? formatCurrency(value) : '-'),
+    },
+    {
       title: 'History',
       key: 'history',
       width: 190,
@@ -189,6 +195,25 @@ export function SubcontractorPaymentRequestClient({ projects, workOrders, reques
     },
     { title: 'Requested At', dataIndex: 'createdAt', width: 120, render: formatDate },
     { title: 'Status', key: 'status', width: 140, render: (_, record) => <Tag color={STATUS_COLORS[record.status] || 'default'}>{STATUS_LABELS[record.status] || record.status.toUpperCase()}</Tag> },
+    {
+      title: 'Actions',
+      key: 'actions',
+      width: 90,
+      align: 'center',
+      render: (_, record) => {
+        // Opens the subcontractor bill raised against this request's work order.
+        const bill = record.subcontractWorkOrderId
+          ? subcontractorBills.find((b) => b.subcontractWorkOrderId === record.subcontractWorkOrderId)
+          : undefined;
+        return bill ? (
+          <Link href={`/dashboard/accounts/subcontractor-bills/${bill.id}`}>
+            <Button size="small" icon={<EyeOutlined />} title={`View bill ${bill.billNumber}`} />
+          </Link>
+        ) : (
+          <Button size="small" icon={<EyeOutlined />} disabled title="No bill raised against this work order yet" />
+        );
+      },
+    },
   ];
 
   return (
@@ -321,7 +346,7 @@ export function SubcontractorPaymentRequestClient({ projects, workOrders, reques
             )}
           </div>
         ) : (
-          <Table dataSource={filteredRequests} columns={columns} rowKey="id" size="middle" scroll={{ x: 1250 }} pagination={{ pageSize: 10 }} locale={{ emptyText: 'No subcontractor payment requests yet' }} />
+          <Table dataSource={filteredRequests} columns={columns} rowKey="id" size="middle" scroll={{ x: 1450 }} pagination={{ pageSize: 10 }} locale={{ emptyText: 'No subcontractor payment requests yet' }} />
         )}
       </Card>
 

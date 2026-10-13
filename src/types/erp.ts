@@ -138,6 +138,7 @@ export type Subcontractor = {
   accountNumber?: string | null;
   ifscCode?: string | null;
   branch?: string | null;
+  paymentTerms?: string | null;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -609,6 +610,9 @@ export type SubcontractorBill = {
   billFileUrl?: string | null;
   billFileKey?: string | null;
   notes?: string | null;
+  // Ticked by accounts on the bill page before Accounts Approval.
+  enquiryChecked?: boolean;
+  woChecked?: boolean;
   payments?: Payment[];
   createdAt: string;
   updatedAt: string;
@@ -617,6 +621,11 @@ export type SubcontractorBill = {
 export type SubcontractorBillTrail = {
   bill: SubcontractorBill;
   subcontractWorkOrder: SubcontractWorkOrder | null;
+  // Enquiry (SCR) the Work Order came from, and work done logged against it.
+  enquiry?: SubcontractorEnquiry | null;
+  // All subcontractors' quotations on the same SCR, for comparison.
+  enquiries?: SubcontractorEnquiry[];
+  works?: SubcontractorWork[];
 };
 
 export type Payment = {
@@ -747,6 +756,8 @@ export type AdvanceRequest = {
   purchaseOrderId?: string | null;
   purchaseOrder?: PurchaseOrder | null;
   amount: number | string;
+  // Final amount admin approved for payment (null = pay the requested amount).
+  approvedAmount?: number | string | null;
   notes?: string | null;
   status: AdvanceRequestStatus;
   requestedById: string;
@@ -775,6 +786,8 @@ export type SubcontractorPaymentRequest = {
   subcontractWorkOrderId?: string | null;
   subcontractWorkOrder?: SubcontractWorkOrder | null;
   amount: number | string;
+  // Final amount admin approved for payment (null = pay the requested amount).
+  approvedAmount?: number | string | null;
   notes?: string | null;
   status: SubcontractorPaymentRequestStatus;
   requestedById: string;
