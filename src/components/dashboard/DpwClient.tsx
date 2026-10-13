@@ -1,16 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { App, Button, Card, Flex, Select, Tag, Typography, Table, Space, Drawer, Tooltip } from 'antd';
+import { useState, useEffect, useMemo } from 'react';
+import { App, Button, Card, DatePicker, Flex, Input, Select, Tag, Typography, Table, Space, Drawer, Tooltip } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { CalendarOutlined, PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
+import { CalendarOutlined, PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, SearchOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { deleteDailyLabourReport } from '@/actions/daily-labour';
 import { DpwForm } from './DpwForm';
 import type { DailyLabourReport, Project, Trade, Team, DailyWorker } from '@/types/erp';
-import { pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
+import { pageHeaderClassName, pageTitleClassName, titleIconClassName, weekRangeLabel, weekStartOf } from './ui';
+
+// One row of the weekly Daily Entry List: a site engineer's reports for one
+// project in one Monday-to-Sunday week.
+type WeekRow = { key: string; weekStart: string; reports: DailyLabourReport[] };
 
 type Props = {
   reports: DailyLabourReport[];
@@ -40,6 +44,36 @@ export function DpwClient({
   const [viewOpen, setViewOpen] = useState(false);
   const [editingReport, setEditingReport] = useState<DailyLabourReport | undefined>(undefined);
   const [viewingReport, setViewingReport] = useState<DailyLabourReport | undefined>(undefined);
+  const [searchText, setSearchText] = useState('');
+  const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
+  const [statusFilter, setStatusFilter] = useState<string | undefined>();
+
+  const filteredReports = useMemo(() => {
+    const q = searchText.trim().toLowerCase();
+    const from = dateRange[0]?.format('YYYY-MM-DD');
+    const to = dateRange[1]?.format('YYYY-MM-DD');
+    return reports.filter((r) => {
+      if (statusFilter && (r.status || 'pending') !== statusFilter) return false;
+      if (from && to) {
+        const d = (r.reportDate || '').split('T')[0];
+        if (d < from || d > to) return false;
+      }
+      if (q) {
+        const haystack = [
+          r.project?.name,
+          r.project?.projectCode,
+          r.createdBy?.name,
+          r.remarks,
+          ...(r.workers || []).flatMap((w) => [w.trade, w.tradeRel?.team?.name]),
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [reports, searchText, dateRange, statusFilter]);
 
   // Sync open state when defaultOpen prop changes (e.g. sidebar navigation)
   useEffect(() => {
@@ -104,6 +138,70 @@ export function DpwClient({
   const getTotalCount = (workers: DailyWorker[]) => {
     return workers.reduce((acc, w) => acc + (Number(w.count) || 1), 0);
   };
+
+  // Reports grouped by week, project and site engineer (same grouping as the
+  // Approvals page's Daily Labour List), newest week first.
+  const weekRows = useMemo<WeekRow[]>(() => {
+    const groups = new Map<string, WeekRow>();
+    for (const r of filteredReports) {
+      const weekStart = weekStartOf(r.reportDate)?.format('YYYY-MM-DD') || '';
+      const key = `${weekStart}|${r.projectId || ''}|${r.createdById || r.createdBy?.id || ''}`;
+      const group = groups.get(key);
+      if (group) group.reports.push(r);
+      else groups.set(key, { key, weekStart, reports: [r] });
+    }
+    return [...groups.values()]
+      .map((g) => ({ ...g, reports: [...g.reports].sort((a, b) => (a.reportDate || '').localeCompare(b.reportDate || '')) }))
+      .sort((a, b) => b.weekStart.localeCompare(a.weekStart));
+  }, [filteredReports]);
+
+  const [expandedWeeks, setExpandedWeeks] = useState<string[]>([]);
+
+  const weekColumns: ColumnsType<WeekRow> = [
+    { title: 'S.No', key: 'sno', width: 70, render: (_, __, i) => i + 1 },
+    { title: 'Week', key: 'week', width: 150, render: (_, w) => <Typography.Text strong>{weekRangeLabel(w.weekStart)}</Typography.Text> },
+    { title: 'Project Code', key: 'project', width: 150, render: (_, w) => w.reports[0]?.project?.projectCode || 'N/A' },
+    { title: 'Site Engineer', key: 'engineer', width: 180, render: (_, w) => w.reports[0]?.createdBy?.name || '-' },
+    { title: 'Days', key: 'days', width: 80, align: 'right', render: (_, w) => w.reports.length },
+    {
+      title: 'Headcount', key: 'headcount', width: 110, align: 'right',
+      render: (_, w) => w.reports.reduce((sum, r) => sum + getTotalCount(r.workers || []), 0),
+    },
+    {
+      title: 'Total Shift', key: 'totalShift', width: 110, align: 'right',
+      render: (_, w) => w.reports.reduce(
+        (sum, r) => sum + (r.workers || []).reduce((s, x) => s + (Number(x.count) || 1) * (Number(x.shift) || 0), 0),
+        0,
+      ),
+    },
+    {
+      title: 'Status', key: 'status', width: 130,
+      render: (_, w) => {
+        // Rejected if any day is rejected, pending if any is still pending.
+        const status = w.reports.some((r) => r.status === 'rejected')
+          ? 'rejected'
+          : w.reports.some((r) => r.status !== 'approved') ? 'pending' : 'approved';
+        const color = status === 'approved' ? 'success' : status === 'rejected' ? 'error' : 'default';
+        return <Tag color={color}>{status}</Tag>;
+      },
+    },
+    {
+      title: 'Action', key: 'action', width: 150,
+      render: (_, w) => {
+        const open = expandedWeeks.includes(w.key);
+        return (
+          <Button
+            size="small"
+            type={open ? 'default' : 'primary'}
+            ghost={!open}
+            onClick={() => setExpandedWeeks((keys) => (open ? keys.filter((k) => k !== w.key) : [...keys, w.key]))}
+          >
+            {open ? 'Hide days' : `Review (${w.reports.length})`}
+          </Button>
+        );
+      },
+    },
+  ];
 
   const columns: ColumnsType<DailyLabourReport> = [
     {
@@ -249,6 +347,36 @@ export function DpwClient({
         )}
       </Flex>
 
+      <Flex gap={12} wrap="wrap" style={{ marginTop: '14px' }}>
+        <Input.Search
+          placeholder="Search project, team, trade, remarks..."
+          allowClear
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+          style={{ width: 300 }}
+        />
+        <DatePicker.RangePicker
+          value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
+          onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+          allowClear
+          format="DD-MM-YYYY"
+          placeholder={['From date', 'To date']}
+        />
+        <Select
+          allowClear
+          placeholder="Filter by status"
+          style={{ width: 180 }}
+          value={statusFilter}
+          onChange={(v) => setStatusFilter(v || undefined)}
+          options={[
+            { label: 'Pending', value: 'pending' },
+            { label: 'Approved', value: 'approved' },
+            { label: 'Rejected', value: 'rejected' },
+          ]}
+        />
+      </Flex>
+
       <Card
         className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
         style={{ marginTop: '14px' }}
@@ -256,16 +384,32 @@ export function DpwClient({
       >
         <Table
           className="mantis-table"
-          dataSource={reports}
-          columns={columns}
-          rowKey="id"
+          dataSource={weekRows}
+          columns={weekColumns}
+          rowKey="key"
           size="middle"
           pagination={{
             pageSize: 10,
             showSizeChanger: true,
-            showTotal: (total) => `${total} reports`,
+            showTotal: (total) => `${total} weeks · ${filteredReports.length} reports`,
           }}
-          scroll={{ x: 1000 }}
+          scroll={{ x: 1100 }}
+          expandable={{
+            expandedRowKeys: expandedWeeks,
+            onExpand: (expanded, w) =>
+              setExpandedWeeks((keys) => (expanded ? [...keys, w.key] : keys.filter((k) => k !== w.key))),
+            // The week's daily reports, with the usual view / edit / delete actions.
+            expandedRowRender: (w) => (
+              <Table
+                dataSource={w.reports}
+                columns={columns}
+                rowKey="id"
+                size="small"
+                pagination={false}
+                scroll={{ x: 1000 }}
+              />
+            ),
+          }}
         />
       </Card>
 

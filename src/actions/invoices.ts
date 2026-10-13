@@ -149,7 +149,11 @@ export async function deleteBill(id: string) {
     const res = await fetch(`${getApiBaseUrl()}/bills/${id}`, {
       method: 'DELETE', headers,
     });
-    if (!res.ok) throw new Error('Failed to delete bill');
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      const msg = Array.isArray(body?.message) ? body.message.join(', ') : body?.message;
+      throw new Error(msg || 'Failed to delete bill');
+    }
     revalidatePath('/dashboard/accounts/bills');
     return { success: true };
   } catch (error) {

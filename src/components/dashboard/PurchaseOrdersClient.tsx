@@ -437,10 +437,10 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
   )}] : [];
 
   // Purchase team gets a simplified, purchasing-focused column set/order
-  // (no GST / Paid / Balance / Payment Terms breakdown - that's an accounts
-  // concern); admin and accounts_manager keep the full detailed table.
+  // (no GST / Paid / Balance breakdown - that's an accounts concern); admin
+  // and accounts_manager keep the full detailed table.
   const columns: ColumnsType<PurchaseOrder> = isPurchaseTeam
-    ? [colSno, colMrRef, colPoNumber, colCreatedDate, colProject, colVendor, colBillFile, colPoPdf, colTotalWithGst, colStatus, ...actionColumns]
+    ? [colSno, colMrRef, colPoNumber, colCreatedDate, colProject, colVendor, colPaymentTerms, colBillFile, colPoPdf, colTotalWithGst, colStatus, ...actionColumns]
     : [colSno, colPoNumber, colMrRef, colExpectedDate, colPaymentTerms, colVendor, colProject, colStatus, colGst, colTotalWithGst, colPaidAmount, colBalanceTotal, colHistory, colBillFile, colPoPdf, colCreatedDate, ...actionColumns];
 
   return (

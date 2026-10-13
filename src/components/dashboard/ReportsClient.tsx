@@ -8,6 +8,7 @@ import {
   DatePicker,
   Empty,
   Flex,
+  Input,
   Row,
   Select,
   Table,
@@ -25,7 +26,9 @@ import {
   ProjectOutlined,
   TeamOutlined,
   WalletOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
+import Link from 'next/link';
 import type { Project, PurchaseBill, Expense, DailyLabourReport, DailyWorker, SubcontractorBill, VendorQuotation } from '@/types/erp';
 import { exportToExcel } from '@/lib/excel';
 import {
@@ -126,6 +129,35 @@ type ReportsClientProps = {
   title?: string;
 };
 
+// One row of the weekly Expenses tab: one person's expenses for one project in one week.
+type ExpenseWeekRow = {
+  key: string;
+  weekStart: string;
+  name: string;
+  role: string;
+  projectName: string;
+  expenses: Expense[];
+};
+
+// Team filter on the Expenses tab, by the submitter's role.
+const EXPENSE_ROLE_FILTERS: { label: string; value: string | undefined }[] = [
+  { label: 'All', value: undefined },
+  { label: 'Site Engineer', value: 'site_engineer' },
+  { label: 'Purchase Team', value: 'purchase_team' },
+  { label: 'Office Team', value: 'office_staff' },
+  { label: 'Accounts Team', value: 'accounts_manager' },
+];
+
+// One status for a week of expenses: rejected only if all are rejected,
+// pending if any is still pending, admin approved once all are, else approved.
+function expenseWeekStatus(expenses: Expense[]): { label: string; color: string } {
+  const statuses = expenses.map((e) => e.status || 'pending');
+  if (statuses.every((s) => s === 'rejected')) return { label: 'Rejected', color: 'error' };
+  if (statuses.some((s) => s === 'pending')) return { label: 'Pending', color: 'warning' };
+  if (statuses.every((s) => s === 'admin_approved' || s === 'rejected')) return { label: 'Admin Approved', color: 'purple' };
+  return { label: 'Approved', color: 'success' };
+}
+
 // Status filter on the Report page. Daily labour uses pending / approved / rejected.
 const REPORT_STATUS_OPTIONS = [
   { label: 'Pending', value: 'pending' },
@@ -206,12 +238,33 @@ export function ReportsClient({
     return { count: projectBills.length, totalAmount, totalPaid, outstanding: totalAmount - totalPaid };
   }, [projectBills]);
 
+  // Expenses tab: team (submitter role) filter and expanded weeks.
+  const [expRoleFilter, setExpRoleFilter] = useState<string | undefined>();
+  const [expandedExpenseWeeks, setExpandedExpenseWeeks] = useState<string[]>([]);
+
   const projectExpenses = useMemo(() => {
     if (!expProjectId) return [];
     return expenses
       .filter((e) => billStatusOk(e.status) && (expProjectId === ALL_PROJECTS || e.projectId === expProjectId) && inRange(e.expenseDate, expDateRange))
+      .filter((e) => !expRoleFilter || e.creator?.role === expRoleFilter)
       .sort((a, b) => (b.expenseDate || '').localeCompare(a.expenseDate || ''));
-  }, [expenses, expProjectId, expDateRange, billStatusOk]);
+  }, [expenses, expProjectId, expDateRange, billStatusOk, expRoleFilter]);
+
+  // Expenses grouped by week (Monday to Sunday), person and project, newest
+  // week first, same as the Approvals page.
+  const expenseWeekRows = useMemo<ExpenseWeekRow[]>(() => {
+    const groups = new Map<string, ExpenseWeekRow>();
+    for (const e of projectExpenses) {
+      const weekStart = weekStartOf(e.expenseDate)?.format('YYYY-MM-DD') || '';
+      const name = e.creator?.name || '-';
+      const projectName = e.project?.name || '-';
+      const key = `${weekStart}|${e.createdBy || e.creator?.id || name}|${e.projectId || projectName}`;
+      const group = groups.get(key);
+      if (group) group.expenses.push(e);
+      else groups.set(key, { key, weekStart, name, role: e.creator?.role || '', projectName, expenses: [e] });
+    }
+    return [...groups.values()].sort((a, b) => b.weekStart.localeCompare(a.weekStart) || a.name.localeCompare(b.name));
+  }, [projectExpenses]);
 
   const projectExpenseSummary = useMemo(() => {
     let total = 0;
@@ -219,13 +272,31 @@ export function ReportsClient({
     return { count: projectExpenses.length, total };
   }, [projectExpenses]);
 
+  const [dlSearch, setDlSearch] = useState('');
+
   const filteredDailyLabour = useMemo(() => {
-    // Only reports that Accounts & Admin have fully approved (report status 'approved').
+    const q = dlSearch.trim().toLowerCase();
+    // Weekly Report: approved reports only. Report: any status (optionally filtered).
     return dailyLabourReports
       .filter((r) => dailyStatusOk(r.status))
       .filter((r) => (!dlProjectId || r.projectId === dlProjectId) && inRange(r.reportDate, dlDateRange))
+      .filter((r) => {
+        if (!q) return true;
+        // Site engineer, project, trade and remarks are all searchable.
+        const haystack = [
+          r.createdBy?.name,
+          r.project?.name,
+          r.project?.projectCode,
+          r.remarks,
+          ...(r.workers || []).flatMap((w) => [w.trade, w.tradeRel?.team?.name]),
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(q);
+      })
       .sort((a, b) => (b.reportDate || '').localeCompare(a.reportDate || ''));
-  }, [dailyLabourReports, dlProjectId, dlDateRange, dailyStatusOk]);
+  }, [dailyLabourReports, dlProjectId, dlDateRange, dailyStatusOk, dlSearch]);
 
   // The generic Payment ledger doesn't carry a "vendor" / "subcontractor"
   // category of its own — which bucket a row belongs to is inferred from
@@ -357,6 +428,10 @@ export function ReportsClient({
       filename: `Project-Expenses-${expProjectId && expProjectId !== ALL_PROJECTS ? (projectNameById.get(expProjectId) || 'report') : 'all'}`,
       sheetName: 'Expenses',
       headers: [
+        'Week',
+        'Submitted By',
+        'Team',
+        'Project',
         'Expense Date',
         'Category',
         'Expense Type',
@@ -367,6 +442,10 @@ export function ReportsClient({
         'Remarks',
       ],
       rows: projectExpenses.map((e) => [
+        weekRangeLabel(e.expenseDate),
+        e.creator?.name || '-',
+        e.creator?.role ? titleCase(e.creator.role) : '-',
+        e.project?.name || '-',
         e.expenseDate ? formatDate(e.expenseDate) : '-',
         e.category ? titleCase(e.category) : '-',
         e.expenseType?.name || '-',
@@ -487,6 +566,62 @@ export function ReportsClient({
     { title: 'Amount', dataIndex: 'amount', width: 120, align: 'right' as const, render: (v: number) => formatCurrency(v) },
     { title: 'Status', dataIndex: 'status', width: 130, render: (v: string) => <Tag color="blue">{titleCase(v)}</Tag> },
     { title: 'Remarks', dataIndex: 'remarks', width: 160, render: (v: string) => v || '-' },
+  ];
+
+  // Week row of the Expenses tab; "View" expands to that week's expenses.
+  const expenseWeekColumns: ColumnsType<ExpenseWeekRow> = [
+    { title: 'S.No', key: 'sno', align: 'right' as const, width: 70, render: (_, __, i) => i + 1 },
+    { title: 'Week', key: 'week', width: 150, render: (_, r) => weekRangeLabel(r.weekStart) },
+    {
+      title: 'Name', key: 'name', width: 200,
+      render: (_, r) => (
+        <Flex vertical gap={0}>
+          <Typography.Text strong>{r.name}</Typography.Text>
+          {r.role && <Typography.Text type="secondary" className="text-[10px] uppercase">{r.role.replace('_', ' ')}</Typography.Text>}
+        </Flex>
+      ),
+    },
+    { title: 'Project', key: 'project', width: 200, render: (_, r) => r.projectName },
+    { title: 'Expenses', key: 'count', align: 'right' as const, width: 100, render: (_, r) => r.expenses.length },
+    {
+      title: 'Amount', key: 'amount', align: 'right' as const, width: 140,
+      render: (_, r) => formatCurrency(r.expenses.filter((e) => e.status !== 'rejected').reduce((s, e) => s + Number(e.amount || 0), 0)),
+    },
+    {
+      title: 'Status', key: 'status', width: 150,
+      render: (_, r) => {
+        const s = expenseWeekStatus(r.expenses);
+        return <Tag color={s.color}>{s.label}</Tag>;
+      },
+    },
+    {
+      title: 'Action', key: 'view', width: 180,
+      render: (_, r) => {
+        const open = expandedExpenseWeeks.includes(r.key);
+        const first = r.expenses[0];
+        // Same full-details page as the Approvals page's eye icon.
+        const detailHref = `/dashboard/approvals/expenses-week?${new URLSearchParams({
+          week: r.weekStart,
+          user: first?.createdBy || first?.creator?.id || '',
+          project: first?.projectId || 'none',
+        }).toString()}`;
+        return (
+          <Flex gap={6}>
+            <Link href={detailHref}>
+              <Button size="small" icon={<EyeOutlined />} title="View full details" />
+            </Link>
+            <Button
+              size="small"
+              type={open ? 'default' : 'primary'}
+              ghost={!open}
+              onClick={() => setExpandedExpenseWeeks((keys) => (open ? keys.filter((k) => k !== r.key) : [...keys, r.key]))}
+            >
+              {open ? 'Hide' : `View (${r.expenses.length})`}
+            </Button>
+          </Flex>
+        );
+      },
+    },
   ];
 
 
@@ -850,6 +985,20 @@ export function ReportsClient({
               </Button>
             </Flex>
 
+            <Flex gap={8} wrap="wrap" align="center" className="mb-4!">
+              <Typography.Text type="secondary">Submitted by:</Typography.Text>
+              {EXPENSE_ROLE_FILTERS.map((f) => (
+                <Button
+                  key={f.label}
+                  size="small"
+                  type={expRoleFilter === f.value ? 'primary' : 'default'}
+                  onClick={() => setExpRoleFilter(f.value)}
+                >
+                  {f.label}
+                </Button>
+              ))}
+            </Flex>
+
             <Row gutter={[16, 16]} className="mb-4">
               <Col xs={12} sm={6}>
                 <Card
@@ -885,13 +1034,28 @@ export function ReportsClient({
             >
               <Table
                 className="mantis-table"
-                dataSource={projectExpenses}
-                columns={expenseColumns}
-                rowKey="id"
+                dataSource={expenseWeekRows}
+                columns={expenseWeekColumns}
+                rowKey="key"
                 size="middle"
-                scroll={{ x: 1100 }}
-                pagination={{ pageSize: 10, showTotal: (total) => `${total} expenses` }}
-                locale={{ emptyText: 'No expenses for this project yet' }}
+                scroll={{ x: 1150 }}
+                pagination={{ pageSize: 10, showTotal: (total) => `${total} weeks · ${projectExpenses.length} expenses` }}
+                locale={{ emptyText: 'No expenses for the selected filters' }}
+                expandable={{
+                  expandedRowKeys: expandedExpenseWeeks,
+                  onExpand: (expanded, r) =>
+                    setExpandedExpenseWeeks((keys) => (expanded ? [...keys, r.key] : keys.filter((k) => k !== r.key))),
+                  expandedRowRender: (r) => (
+                    <Table
+                      size="small"
+                      rowKey="id"
+                      dataSource={[...r.expenses].sort((a, b) => (a.expenseDate || '').localeCompare(b.expenseDate || ''))}
+                      columns={expenseColumns}
+                      pagination={false}
+                      scroll={{ x: 1100 }}
+                    />
+                  ),
+                }}
               />
             </Card>
       </div>
@@ -926,6 +1090,13 @@ export function ReportsClient({
               onChange={(dates) => setDlDateRange(dates ? [dates[0], dates[1]] : [null, null])}
               allowClear
               placeholder={['From', 'To']}
+            />
+            <Input.Search
+              placeholder="Search site engineer, project, trade..."
+              allowClear
+              value={dlSearch}
+              onChange={(e) => setDlSearch(e.target.value)}
+              style={{ width: 280 }}
             />
           </Flex>
           <Button

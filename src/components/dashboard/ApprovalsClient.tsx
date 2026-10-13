@@ -154,6 +154,15 @@ function setTradeStatus(reportId: string, workerId: string, status: string, rema
   });
 }
 
+// Team filter on the Expenses tab, by the submitter's role.
+const EXPENSE_ROLE_FILTERS: { label: string; value: string | undefined }[] = [
+  { label: 'All', value: undefined },
+  { label: 'Site Engineer', value: 'site_engineer' },
+  { label: 'Purchase Team', value: 'purchase_team' },
+  { label: 'Office Team', value: 'office_staff' },
+  { label: 'Accounts Team', value: 'accounts_manager' },
+];
+
 // Accounts verifies each expense, but only admin can give the final Admin Approved.
 const EXPENSE_VERIFY_STATUS_OPTIONS = APPROVAL_STATUS_OPTIONS.filter((o) => o.value !== 'admin_approved');
 
@@ -172,6 +181,8 @@ type Props = {
   vendorQuotations: VendorQuotation[];
   expenses: Expense[];
   dailyReports: DailyLabourReport[];
+  // Tab to open first, e.g. "bills" from a notification link.
+  initialTab?: string;
 };
 
 // One row of the weekly Expenses view: everything one person raised in one
@@ -211,7 +222,9 @@ function expenseWeekStatus(expenses: Expense[]): { label: string; color: string 
   return { label: 'Approved', color: 'processing' };
 }
 
-export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, expenses, dailyReports }: Props) {
+const APPROVAL_TAB_KEYS = ['daily', 'bills', 'subBills', 'expenses'];
+
+export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, expenses, dailyReports, initialTab }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
@@ -243,16 +256,26 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
   const canApproveBill = user?.role === 'admin' || user?.role === 'accounts_manager';
 
   useEffect(() => {
+    // A tab named in the link (e.g. from a notification) wins over the
+    // remembered one.
+    if (initialTab && APPROVAL_TAB_KEYS.includes(initialTab)) {
+      setActiveTabState(initialTab);
+      try { sessionStorage.setItem(ACTIVE_TAB_STORAGE_KEY, initialTab); } catch { /* ignore */ }
+      return;
+    }
     try {
       const saved = sessionStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
       if (saved) setActiveTabState(saved);
     } catch { /* sessionStorage unavailable — fall back to default tab */ }
-  }, []);
+  }, [initialTab]);
 
   const setActiveTab = (key: string) => {
     setActiveTabState(key);
     try { sessionStorage.setItem(ACTIVE_TAB_STORAGE_KEY, key); } catch { /* ignore */ }
   };
+
+  // Expenses tab: show only expenses submitted by one team (role).
+  const [expenseRoleFilter, setExpenseRoleFilter] = useState<string | undefined>();
 
   const filteredExpenses = useMemo(() => {
     const from = dateRange[0]?.format('YYYY-MM-DD');
@@ -263,6 +286,7 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
         if (d < from || d > to) return false;
       }
       if (statusFilter && e.status !== statusFilter) return false;
+      if (expenseRoleFilter && e.creator?.role !== expenseRoleFilter) return false;
       if (searchText) {
         const q = searchText.toLowerCase();
         const haystack = [e.description, e.category, e.creator?.name, e.expenseType?.name, e.trade?.name]
@@ -273,7 +297,7 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
       }
       return true;
     });
-  }, [expenses, dateRange, searchText, statusFilter]);
+  }, [expenses, dateRange, searchText, statusFilter, expenseRoleFilter]);
 
   // Expenses grouped by week (Monday to Sunday), person and project, newest week first.
   const expenseWeekRows = useMemo<ExpenseWeekRow[]>(() => {
@@ -333,7 +357,20 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
         if (d < from || d > to) return false;
       }
       if (statusFilter && r.status !== statusFilter) return false;
-      if (searchText && !r.project?.name?.toLowerCase().includes(searchText.toLowerCase())) return false;
+      if (searchText) {
+        // Site engineer, project, trade and remarks are all searchable.
+        const haystack = [
+          r.createdBy?.name,
+          r.project?.name,
+          r.project?.projectCode,
+          r.remarks,
+          ...(r.workers || []).flatMap((w) => [w.trade, w.tradeRel?.team?.name]),
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(searchText.toLowerCase())) return false;
+      }
       return true;
     });
   }, [dailyReports, dateRange, searchText, statusFilter]);
@@ -642,9 +679,11 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
     { title: 'Overall Remarks', key: 'overallRemarks', width: 220, ellipsis: true, render: (_, t) => reportSpanCell(t, t.reportRemarks || '-') },
     { title: 'Trade Remarks', key: 'tradeRemarks', width: 200, ellipsis: true, render: (_, t) => t.worker.reviewRemarks || '-' },
     {
+      // One eye icon per report (day), spanning its trade rows.
       title: 'View', key: 'view', width: 70,
-      render: (_, t) => (
-        <Button size="small" icon={<EyeOutlined />} onClick={() => router.push(`/dashboard/daily-labour/${t.reportId}`)} title="View Details" />
+      render: (_, t) => reportSpanCell(
+        t,
+        <Button size="small" icon={<EyeOutlined />} onClick={() => router.push(`/dashboard/daily-labour/${t.reportId}`)} title="View Details" />,
       ),
     },
   ];
@@ -761,8 +800,15 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
         const open = expandedWeeks.includes(r.key);
         const targets = weekApprovalTargets(r.expenses, isAdmin);
         const weekLabelText = weekRangeLabel(r.weekStart);
+        const first = r.expenses[0];
+        const detailHref = `/dashboard/approvals/expenses-week?${new URLSearchParams({
+          week: r.weekStart,
+          user: first?.createdBy || first?.creator?.id || '',
+          project: first?.projectId || 'none',
+        }).toString()}`;
         return (
           <Flex gap={6} wrap="wrap">
+            <Button size="small" icon={<EyeOutlined />} title="View full details" onClick={() => router.push(detailHref)} />
             <Button
               size="small"
               type={open ? 'default' : 'primary'}
@@ -1133,7 +1179,24 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
             {
               key: 'expenses',
               label: <span><WalletOutlined /> Expenses</span>,
-              children: renderContent(expenseCounts, expenseWeekRows, expenseWeekColumns, 'No expenses found', 900, expenseWeekTableProps),
+              children: (
+                <>
+                  <Flex gap={8} wrap="wrap" align="center" className="mb-4!">
+                    <Typography.Text type="secondary">Submitted by:</Typography.Text>
+                    {EXPENSE_ROLE_FILTERS.map((f) => (
+                      <Button
+                        key={f.label}
+                        size="small"
+                        type={expenseRoleFilter === f.value ? 'primary' : 'default'}
+                        onClick={() => setExpenseRoleFilter(f.value)}
+                      >
+                        {f.label}
+                      </Button>
+                    ))}
+                  </Flex>
+                  {renderContent(expenseCounts, expenseWeekRows, expenseWeekColumns, 'No expenses found', 900, expenseWeekTableProps)}
+                </>
+              ),
             },
           ]}
         />

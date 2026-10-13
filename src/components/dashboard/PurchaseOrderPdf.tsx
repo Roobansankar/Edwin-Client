@@ -313,6 +313,10 @@ export function PurchaseOrderPdf({ purchaseOrder }: Props) {
               <Text style={styles.headerBoxLabel}>Date</Text>
             </View>
             <Text style={styles.headerBoxValue}>{formatDate(purchaseOrder.createdAt || '')}</Text>
+            <View style={[styles.headerBox, { marginTop: 6 }]}>
+              <Text style={styles.headerBoxLabel}>MR No</Text>
+            </View>
+            <Text style={styles.headerBoxValue}>{purchaseOrder.materialRequirementNo || '-'}</Text>
           </View>
         </View>
 

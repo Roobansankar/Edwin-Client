@@ -30,7 +30,13 @@ async function loadPageData(): Promise<PageData> {
   }
 }
 
-export default async function ApprovalsPage() {
+type PageProps = {
+  searchParams: Promise<{ tab?: string }>;
+};
+
+export default async function ApprovalsPage({ searchParams }: PageProps) {
+  // ?tab=daily / bills / subBills / expenses opens that tab (used by notification links).
+  const { tab } = await searchParams;
   const { bills, subcontractorBills, vendorQuotations, expenses, dailyReports, error } = await loadPageData();
   return (
     <>
@@ -41,6 +47,7 @@ export default async function ApprovalsPage() {
         subcontractorBills={subcontractorBills}
         vendorQuotations={vendorQuotations}
         dailyReports={dailyReports}
+        initialTab={tab}
       />
     </>
   );

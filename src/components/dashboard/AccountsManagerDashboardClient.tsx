@@ -30,7 +30,7 @@ import {
 // gets paid; `unit` labels the count shown under the amount.
 const PAYABLE_CARDS: Array<{ key: PayableCategory; title: string; icon: React.ReactNode; unit: string; href: string }> = [
   { key: 'labour', title: 'Labour Payable', icon: <TeamOutlined className="text-rose-500" />, unit: 'pending weekly payments', href: '/dashboard/labour-payments' },
-  { key: 'material', title: 'Material Payable', icon: <ShoppingCartOutlined className="text-rose-500" />, unit: 'pending POs', href: '/dashboard/accounts/bills' },
+  { key: 'material', title: 'Material Payable', icon: <ShoppingCartOutlined className="text-rose-500" />, unit: 'unpaid bills', href: '/dashboard/accounts/bills' },
   { key: 'subcontractor', title: 'Sub Contractor Payable', icon: <SolutionOutlined className="text-rose-500" />, unit: 'pending work orders', href: '/dashboard/subcontractor-payment-requests' },
   { key: 'expenses', title: 'Expenses Payable', icon: <WalletOutlined className="text-rose-500" />, unit: 'pending weekly payments', href: '/dashboard/expense-payments' },
 ];
