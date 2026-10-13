@@ -55,6 +55,8 @@ type RequestRow = {
   balance: number;
   payDate: string | null;
   billNo: string;
+  // First bill raised against the request's PO; the eye icon opens it.
+  billId: string | null;
   displayStatus: string;
 };
 
@@ -99,6 +101,7 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
         balance,
         payDate: payment?.lastDate || null,
         billNo: billNumbers?.join(', ') || '-',
+        billId: request.purchaseOrderId ? bills.find((b) => b.purchaseOrderId === request.purchaseOrderId)?.id || null : null,
         displayStatus: isPaid ? 'paid' : request.status,
       };
     });
@@ -296,9 +299,14 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
       title: 'Action', key: 'actions', width: 240,
       render: (_, r) => (
         <Flex gap={6} align="center" wrap="wrap">
-          <Link href={`/dashboard/advance/${r.request.id}`}>
-            <Button size="small" icon={<EyeOutlined />} title="View full journey" />
-          </Link>
+          {r.billId ? (
+            // Opens the vendor bill raised against this request's PO.
+            <Link href={`/dashboard/accounts/bills/${r.billId}`}>
+              <Button size="small" icon={<EyeOutlined />} title={`View bill ${r.billNo}`} />
+            </Link>
+          ) : (
+            <Button size="small" icon={<EyeOutlined />} disabled title="No bill raised against this PO yet" />
+          )}
           {renderActions(r)}
         </Flex>
       ),

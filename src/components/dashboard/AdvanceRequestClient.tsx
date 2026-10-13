@@ -209,11 +209,17 @@ export function AdvanceRequestClient({ projects, advanceRequests, purchaseOrders
       key: 'actions',
       width: 90,
       align: 'center',
-      render: (_, record) => (
-        <Link href={`/dashboard/advance/${record.id}`}>
-          <Button size="small" icon={<EyeOutlined />} title="View full journey" />
-        </Link>
-      ),
+      render: (_, record) => {
+        // Opens the vendor bill raised against this request's PO.
+        const bill = record.purchaseOrderId ? bills.find((b) => b.purchaseOrderId === record.purchaseOrderId) : undefined;
+        return bill ? (
+          <Link href={`/dashboard/accounts/bills/${bill.id}`}>
+            <Button size="small" icon={<EyeOutlined />} title={`View bill ${bill.billNumber}`} />
+          </Link>
+        ) : (
+          <Button size="small" icon={<EyeOutlined />} disabled title="No bill raised against this PO yet" />
+        );
+      },
     },
   ];
 

@@ -26,12 +26,29 @@ export const missingDocs = (bill: PurchaseBill) =>
   DOC_KEYS.filter((d) => !docChecked(bill, d)).map((d) => DOC_LABEL[d]);
 
 // Accounts approval step is labelled "Accounts Approved" on the bill pages.
-export const BILL_STATUS_OPTIONS = [
+// Purchase bill statuses: admin_approved = Accounts Approved (first step),
+// approved = Admin Approved (final). Options a role cannot set are shown
+// disabled so the current status still displays.
+export const ACCOUNTS_BILL_STATUS_OPTIONS = [
   { label: 'Pending', value: 'pending' },
   { label: 'Accounts Approved', value: 'admin_approved' },
-  { label: 'Approved', value: 'approved' },
-  { label: 'Rejected', value: 'rejected' },
+  { label: 'Accounts Rejected', value: 'rejected' },
+  { label: 'Admin Approved', value: 'approved', disabled: true },
 ];
+export const ADMIN_BILL_STATUS_OPTIONS = [
+  { label: 'Pending', value: 'pending', disabled: true },
+  { label: 'Accounts Approved', value: 'admin_approved', disabled: true },
+  { label: 'Admin Approved', value: 'approved' },
+  { label: 'Admin Rejected', value: 'rejected' },
+];
+
+// Read-only label and colour for a bill status (e.g. for the purchase team).
+export const BILL_STATUS_TAG: Record<string, { label: string; color: string }> = {
+  pending: { label: 'Pending', color: 'warning' },
+  admin_approved: { label: 'Accounts Approved', color: 'processing' },
+  approved: { label: 'Admin Approved', color: 'success' },
+  rejected: { label: 'Rejected', color: 'error' },
+};
 
 type Props = {
   bill: PurchaseBill;

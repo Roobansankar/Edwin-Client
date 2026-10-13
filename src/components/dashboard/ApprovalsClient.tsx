@@ -16,7 +16,7 @@ import { updateSubcontractorBillStatus } from '@/actions/subcontractor-bills';
 import { updateExpenseStatus } from '@/actions/expenses';
 import type { PurchaseBill, Expense, DailyLabourReport, DailyWorker, SubcontractorBill, VendorQuotation } from '@/types/erp';
 import { clientApiFetch } from '@/lib/client-api';
-import { BillDocumentsMenu, missingDocs } from './BillDocumentsMenu';
+import { missingDocs } from './BillDocumentsMenu';
 import {
   StatusTag,
   cardClassName,
@@ -172,7 +172,16 @@ const BILL_DECISION_OPTIONS = [
   { label: 'Pending', value: 'pending' },
   { label: 'Accounts Approved', value: 'admin_approved' },
   { label: 'Accounts Rejected', value: 'rejected' },
-  { label: 'Approved', value: 'approved', disabled: true },
+  { label: 'Admin Approved', value: 'approved', disabled: true },
+];
+
+// Admin gives the final decision after accounts; the earlier stages are shown
+// disabled so the current status still displays.
+const ADMIN_BILL_DECISION_OPTIONS = [
+  { label: 'Pending', value: 'pending', disabled: true },
+  { label: 'Accounts Approved', value: 'admin_approved', disabled: true },
+  { label: 'Admin Approved', value: 'approved' },
+  { label: 'Admin Rejected', value: 'rejected' },
 ];
 
 type Props = {
@@ -965,12 +974,22 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
         return (
           <Flex vertical gap={0}>
             <Typography.Text className="text-xs">{formatDate(vq.createdAt)}</Typography.Text>
-            {vq.quotationUrl && (
-              <Button type="link" size="small" className="px-0! h-auto!" icon={<FilePdfOutlined />} href={vq.quotationUrl} target="_blank">
-                Quotation
-              </Button>
-            )}
+            <Typography.Text type="secondary" className="text-xs">{formatCurrency(vq.totalWithGst || vq.totalAmount || 0)}</Typography.Text>
           </Flex>
+        );
+      },
+    },
+    {
+      // The vendor's quotation file for this bill's MR.
+      title: 'Quotation', key: 'quotation', width: 110,
+      render: (_, r) => {
+        const url = enquiryFor(r)?.quotationUrl;
+        return url ? (
+          <Button type="link" size="small" className="px-0!" icon={<FilePdfOutlined />} href={url} target="_blank">
+            View
+          </Button>
+        ) : (
+          <Typography.Text type="secondary">-</Typography.Text>
         );
       },
     },
@@ -988,7 +1007,7 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
           className="w-full"
           popupMatchSelectWidth={false}
           disabled={isPending}
-          options={BILL_DECISION_OPTIONS}
+          options={isAdmin ? ADMIN_BILL_DECISION_OPTIONS : BILL_DECISION_OPTIONS}
           onChange={(newStatus) => handleBillStatusChange(record, newStatus)}
         />
       ) : (
@@ -1039,11 +1058,22 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
         );
       },
     },
-    {
-      title: 'Action', key: 'actions', width: 170,
-      render: (_, record) => <BillDocumentsMenu bill={record} canApprove={canApproveBill} />,
-    },
     { title: 'Bill Date', dataIndex: 'billDate', width: 110, render: formatDate },
+    {
+      // Documents are checked on the bill detail page.
+      title: 'Action', key: 'actions', width: 90,
+      render: (_, record) => {
+        const missing = missingDocs(record).length;
+        return (
+          <Button
+            size="small"
+            icon={<EyeOutlined />}
+            title={missing ? `View & check documents (${3 - missing}/3 checked)` : 'View bill details'}
+            onClick={() => router.push(`/dashboard/accounts/bills/${record.id}`)}
+          />
+        );
+      },
+    },
   ];
 
   const renderContent = <T extends object>(
@@ -1169,7 +1199,7 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
             {
               key: 'bills',
               label: <span><FileDoneOutlined /> Purchase Bills (Material)</span>,
-              children: renderContent(billCounts, filteredBills, billColumns, 'No purchase bills', 2210),
+              children: renderContent(billCounts, filteredBills, billColumns, 'No purchase bills', 2320),
             },
             {
               key: 'subBills',

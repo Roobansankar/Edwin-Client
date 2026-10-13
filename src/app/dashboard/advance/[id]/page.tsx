@@ -1,6 +1,7 @@
 import { Alert } from 'antd';
+import { redirect } from 'next/navigation';
 import { VendorPaymentJourneyClient } from '@/components/dashboard/VendorPaymentJourneyClient';
-import { fetchAdvanceRequestTrail } from '@/lib/api';
+import { fetchAdvanceRequestTrail, fetchBills } from '@/lib/api';
 import type { AdvanceRequestTrail } from '@/types/erp';
 
 type PageProps = {
@@ -18,9 +19,18 @@ async function loadTrail(id: string): Promise<{ trail: AdvanceRequestTrail | nul
   }
 }
 
+// Vendor payment requests open their vendor bill's detail page. This page is
+// only shown when no bill has been raised against the request's PO yet.
 export default async function VendorPaymentJourneyPage({ params }: PageProps) {
   const { id } = await params;
   const { trail, error } = await loadTrail(id);
+
+  const poId = trail?.request.purchaseOrderId;
+  if (poId) {
+    const bills = await fetchBills().catch(() => []);
+    const bill = Array.isArray(bills) ? bills.find((b) => b.purchaseOrderId === poId) : undefined;
+    if (bill) redirect(`/dashboard/accounts/bills/${bill.id}`);
+  }
 
   return (
     <>

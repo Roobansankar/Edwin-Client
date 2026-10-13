@@ -585,6 +585,8 @@ export type BillTrail = {
   bill: PurchaseBill;
   materialRequirement: PurchaseEnquiry | null;
   vendorQuotation: VendorQuotation | null;
+  // Every vendor's quotation against the same MR, for the enquiry comparison.
+  quotations?: VendorQuotation[];
   materialReceived: MaterialReceived[];
 };
 

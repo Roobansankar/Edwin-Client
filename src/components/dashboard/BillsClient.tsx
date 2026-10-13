@@ -3,7 +3,7 @@
 import { useState, useMemo, useTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { App, Button, Card, DatePicker, Drawer, Flex, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Typography, Upload, Divider } from 'antd';
+import { App, Button, Card, DatePicker, Drawer, Flex, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, Typography, Upload, Divider } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DeleteOutlined, EditOutlined, EyeOutlined, FileDoneOutlined, PlusOutlined, HistoryOutlined, SearchOutlined, UploadOutlined, FileTextOutlined, FileExcelOutlined, FilePdfOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -14,7 +14,7 @@ import { createPayment } from '@/actions/payments';
 import { getApiBaseUrl } from '@/lib/api-url';
 import { exportToExcel } from '@/lib/excel';
 import type { Vendor, Project, PurchaseBill, PurchaseOrder, VendorQuotation } from '@/types/erp';
-import { BillDocumentsMenu, BILL_STATUS_OPTIONS, missingDocs } from './BillDocumentsMenu';
+import { ACCOUNTS_BILL_STATUS_OPTIONS, ADMIN_BILL_STATUS_OPTIONS, BILL_STATUS_TAG, missingDocs } from './BillDocumentsMenu';
 import { PaymentMode, BillStatus } from '@/types/erp';
 import {
   StatusTag,
@@ -484,12 +484,35 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
           className="w-full"
           popupMatchSelectWidth={false}
           disabled={isPending}
-          options={BILL_STATUS_OPTIONS}
+          options={userRole === 'admin' ? ADMIN_BILL_STATUS_OPTIONS : ACCOUNTS_BILL_STATUS_OPTIONS}
           onChange={(newStatus) => handleBillStatusSelect(record, newStatus)}
         />
       ) : (
-        <StatusTag value={value} />
+        <Tag color={BILL_STATUS_TAG[value]?.color || 'default'}>{BILL_STATUS_TAG[value]?.label || value}</Tag>
       ),
+    },
+    {
+      title: 'Created Date',
+      dataIndex: 'createdAt',
+      width: 110,
+      render: (value?: string) => formatDate(value),
+    },
+    {
+      title: 'GST',
+      dataIndex: 'gstAmount',
+      align: 'right',
+      width: 110,
+      render: (value) => Number(value) > 0 ? formatCurrency(value) : <Typography.Text type="secondary">-</Typography.Text>,
+    },
+    {
+      title: 'Balance Amount',
+      key: 'balanceAmount',
+      align: 'right',
+      width: 130,
+      render: (_value, record) => {
+        const balance = Number(record.amount) - Number(record.paidAmount || 0);
+        return <Typography.Text strong={balance > 0}>{formatCurrency(balance)}</Typography.Text>;
+      },
     },
     {
       title: 'Action',
@@ -504,7 +527,6 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
               title="View bill details"
               onClick={() => router.push(`/dashboard/accounts/bills/${record.id}`)}
             />
-            <BillDocumentsMenu bill={record} canApprove={canApproveBill} />
             {record.status === 'pending' && (
               <>
                 <Button
@@ -546,29 +568,6 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
             )}
           </Space>
         );
-      },
-    },
-    {
-      title: 'Created Date',
-      dataIndex: 'createdAt',
-      width: 110,
-      render: (value?: string) => formatDate(value),
-    },
-    {
-      title: 'GST',
-      dataIndex: 'gstAmount',
-      align: 'right',
-      width: 110,
-      render: (value) => Number(value) > 0 ? formatCurrency(value) : <Typography.Text type="secondary">-</Typography.Text>,
-    },
-    {
-      title: 'Balance Amount',
-      key: 'balanceAmount',
-      align: 'right',
-      width: 130,
-      render: (_value, record) => {
-        const balance = Number(record.amount) - Number(record.paidAmount || 0);
-        return <Typography.Text strong={balance > 0}>{formatCurrency(balance)}</Typography.Text>;
       },
     },
   ];
