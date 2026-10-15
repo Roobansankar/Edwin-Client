@@ -26,6 +26,7 @@ const itemColumns: ColumnsType<LineItem> = [
 
 type LedgerRow = {
   key: string;
+  orderId: string;
   date: string;
   type: 'Debit' | 'Credit';
   entityName?: string;
@@ -49,7 +50,7 @@ function buildLedgerColumns(refLabel: string, entityLabel?: string): ColumnsType
     },
     ...(entityLabel ? [{ title: entityLabel, dataIndex: 'entityName', width: 160 } as ColumnsType<LedgerRow>[number]] : []),
     { title: refLabel, dataIndex: 'refNo', width: 130, render: (v: string) => <Typography.Text strong>{v}</Typography.Text> },
-    { title: 'Purchase Items', dataIndex: 'items', ellipsis: { showTitle: true } },
+    { title: 'Items / Description', dataIndex: 'items', ellipsis: { showTitle: true } },
     { title: 'Credit', dataIndex: 'credit', align: 'right', width: 120, render: (v: number) => v ? formatCurrency(v) : <Typography.Text type="secondary">-</Typography.Text> },
     { title: 'Debit', dataIndex: 'debit', align: 'right', width: 120, render: (v: number) => v ? formatCurrency(v) : <Typography.Text type="secondary">-</Typography.Text> },
     { title: 'Balance', dataIndex: 'balance', align: 'right', width: 130, render: (v: number) => <Typography.Text strong>{formatCurrency(v)}</Typography.Text> },
@@ -57,13 +58,13 @@ function buildLedgerColumns(refLabel: string, entityLabel?: string): ColumnsType
   ];
 }
 
-const paymentHistoryColumns: ColumnsType<Payment> = [
-  { title: 'Date', dataIndex: 'paymentDate', width: 120, render: formatDate },
-  { title: 'Amount', dataIndex: 'amount', align: 'right', width: 130, render: (v: number | string) => formatCurrency(v) },
-  { title: 'Mode', dataIndex: 'paymentMode', width: 100, render: (v: string) => v?.toUpperCase() },
-  { title: 'Reference', dataIndex: 'referenceNumber', width: 140, render: (v?: string | null) => v || '-' },
-  { title: 'Notes', dataIndex: 'notes', render: (v?: string | null) => v || '-' },
-];
+function orderLedgerRows(rows: LedgerRow[], orderId: string): LedgerRow[] {
+  let balance = 0;
+  return rows.filter((row) => row.orderId === orderId).map((row) => {
+    balance += row.debit - row.credit;
+    return { ...row, balance };
+  });
+}
 
 const ALL = 'all';
 
@@ -111,14 +112,13 @@ export function PurchaseLedgerClient({ vendors, purchaseOrders, subcontractors, 
     return { count: vendorPOs.length, total, paid, balance: total - paid };
   }, [vendorPOs]);
 
-  // Running statement of every PO (Debit) and payment against it (Credit),
-  // oldest first, with a cumulative Balance - a classic passbook-style
-  // ledger alongside the PO-by-PO breakdown above.
+  // Order and payment transactions, oldest first, shown inside each order.
   const vendorLedgerRows = useMemo<LedgerRow[]>(() => {
-    type RawTxn = { date: string; type: LedgerRow['type']; entityName: string; refNo: string; items: string; amount: number; narration: string };
+    type RawTxn = { orderId: string; date: string; type: LedgerRow['type']; entityName: string; refNo: string; items: string; amount: number; narration: string };
     const txns: RawTxn[] = [];
     for (const po of vendorPOs) {
       txns.push({
+        orderId: po.id,
         date: po.createdAt || '',
         type: 'Debit',
         entityName: po.vendor?.name || '-',
@@ -129,13 +129,14 @@ export function PurchaseLedgerClient({ vendors, purchaseOrders, subcontractors, 
       });
       for (const p of payments.filter((pay) => pay.purchaseOrderId === po.id)) {
         txns.push({
+          orderId: po.id,
           date: p.paymentDate,
           type: 'Credit',
           entityName: po.vendor?.name || '-',
           refNo: po.poNumber,
           items: '-',
           amount: Number(p.amount || 0),
-          narration: `Payment${p.paymentMode ? ` via ${p.paymentMode.toUpperCase()}` : ''}${p.referenceNumber ? ` (Ref: ${p.referenceNumber})` : ''}`,
+          narration: `Payment${p.paymentMode ? ` via ${p.paymentMode.toUpperCase()}` : ''}${p.referenceNumber ? ` (Ref: ${p.referenceNumber})` : ''}${p.notes ? ` ? ${p.notes}` : ''}`,
         });
       }
     }
@@ -145,6 +146,7 @@ export function PurchaseLedgerClient({ vendors, purchaseOrders, subcontractors, 
       balance += t.type === 'Debit' ? t.amount : -t.amount;
       return {
         key: `${t.refNo}-${i}`,
+        orderId: t.orderId,
         date: t.date,
         type: t.type,
         entityName: t.entityName,
@@ -190,10 +192,11 @@ export function PurchaseLedgerClient({ vendors, purchaseOrders, subcontractors, 
   }, [subcontractorWOs]);
 
   const subcontractorLedgerRows = useMemo<LedgerRow[]>(() => {
-    type RawTxn = { date: string; type: LedgerRow['type']; entityName: string; refNo: string; items: string; amount: number; narration: string };
+    type RawTxn = { orderId: string; date: string; type: LedgerRow['type']; entityName: string; refNo: string; items: string; amount: number; narration: string };
     const txns: RawTxn[] = [];
     for (const wo of subcontractorWOs) {
       txns.push({
+        orderId: wo.id,
         date: wo.createdAt || '',
         type: 'Debit',
         entityName: wo.subcontractor?.name || '-',
@@ -204,13 +207,14 @@ export function PurchaseLedgerClient({ vendors, purchaseOrders, subcontractors, 
       });
       for (const p of payments.filter((pay) => pay.subcontractWorkOrderId === wo.id)) {
         txns.push({
+          orderId: wo.id,
           date: p.paymentDate,
           type: 'Credit',
           entityName: wo.subcontractor?.name || '-',
           refNo: wo.woNumber,
           items: '-',
           amount: Number(p.amount || 0),
-          narration: `Payment${p.paymentMode ? ` via ${p.paymentMode.toUpperCase()}` : ''}${p.referenceNumber ? ` (Ref: ${p.referenceNumber})` : ''}`,
+          narration: `Payment${p.paymentMode ? ` via ${p.paymentMode.toUpperCase()}` : ''}${p.referenceNumber ? ` (Ref: ${p.referenceNumber})` : ''}${p.notes ? ` ? ${p.notes}` : ''}`,
         });
       }
     }
@@ -220,6 +224,7 @@ export function PurchaseLedgerClient({ vendors, purchaseOrders, subcontractors, 
       balance += t.type === 'Debit' ? t.amount : -t.amount;
       return {
         key: `${t.refNo}-${i}`,
+        orderId: t.orderId,
         date: t.date,
         type: t.type,
         entityName: t.entityName,
@@ -269,14 +274,7 @@ export function PurchaseLedgerClient({ vendors, purchaseOrders, subcontractors, 
     { title: 'Status', dataIndex: 'status', width: 130, render: (v) => <StatusTag value={v} /> },
   ];
 
-  const vendorLedgerColumns = useMemo(
-    () => buildLedgerColumns('PO No', showingAllVendors ? 'Vendor' : undefined),
-    [showingAllVendors],
-  );
-  const subcontractorLedgerColumns = useMemo(
-    () => buildLedgerColumns('WO No', showingAllSubcontractors ? 'Subcontractor' : undefined),
-    [showingAllSubcontractors],
-  );
+  const orderLedgerColumns = buildLedgerColumns('Order No');
 
   const tabItems = [
     {
@@ -356,7 +354,7 @@ export function PurchaseLedgerClient({ vendors, purchaseOrders, subcontractors, 
                           locale={{ emptyText: 'No purchase orders for this vendor yet' }}
                           expandable={{
                             expandedRowRender: (po) => {
-                              const history = payments.filter((p) => p.purchaseOrderId === po.id);
+                              const history = orderLedgerRows(vendorLedgerRows, po.id);
                               const items = (po.items || []).map((item, i) => ({ ...item, _key: item.id || `${po.id}-item-${i}` }));
                               return (
                                 <Space orientation="vertical" size={16} className="w-full">
@@ -372,37 +370,21 @@ export function PurchaseLedgerClient({ vendors, purchaseOrders, subcontractors, 
                                     />
                                   </div>
                                   <div>
-                                    <Typography.Text strong className="mb-2 block">Payment History</Typography.Text>
+                                    <Typography.Text strong className="mb-2 block">Transactions</Typography.Text>
                                     <Table
                                       size="small"
                                       dataSource={history}
-                                      columns={paymentHistoryColumns}
-                                      rowKey="id"
+                                      columns={orderLedgerColumns}
+                                      scroll={{ x: 1100 }}
+                                      rowKey="key"
                                       pagination={false}
-                                      locale={{ emptyText: 'No payments recorded yet' }}
+                                      locale={{ emptyText: 'No transactions recorded yet' }}
                                     />
                                   </div>
                                 </Space>
                               );
                             },
                           }}
-                        />
-                      </Card>
-                    ),
-                  },
-                  {
-                    key: 'ledger',
-                    label: 'Ledger',
-                    children: (
-                      <Card className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!" styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}>
-                        <Table
-                          dataSource={vendorLedgerRows}
-                          columns={vendorLedgerColumns}
-                          rowKey="key"
-                          size="middle"
-                          scroll={{ x: showingAllVendors ? 1320 : 1160 }}
-                          pagination={{ pageSize: 15 }}
-                          locale={{ emptyText: 'No transactions for this vendor yet' }}
                         />
                       </Card>
                     ),
@@ -490,39 +472,23 @@ export function PurchaseLedgerClient({ vendors, purchaseOrders, subcontractors, 
                           locale={{ emptyText: 'No work orders for this subcontractor yet' }}
                           expandable={{
                             expandedRowRender: (wo) => {
-                              const history = payments.filter((p) => p.subcontractWorkOrderId === wo.id);
+                              const history = orderLedgerRows(subcontractorLedgerRows, wo.id);
                               return (
                                 <div>
-                                  <Typography.Text strong className="mb-2 block">Payment History</Typography.Text>
+                                  <Typography.Text strong className="mb-2 block">Transactions</Typography.Text>
                                   <Table
                                     size="small"
                                     dataSource={history}
-                                    columns={paymentHistoryColumns}
-                                    rowKey="id"
+                                    columns={orderLedgerColumns}
+                                      scroll={{ x: 1100 }}
+                                    rowKey="key"
                                     pagination={false}
-                                    locale={{ emptyText: 'No payments recorded yet' }}
+                                    locale={{ emptyText: 'No transactions recorded yet' }}
                                   />
                                 </div>
                               );
                             },
                           }}
-                        />
-                      </Card>
-                    ),
-                  },
-                  {
-                    key: 'ledger',
-                    label: 'Ledger',
-                    children: (
-                      <Card className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!" styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}>
-                        <Table
-                          dataSource={subcontractorLedgerRows}
-                          columns={subcontractorLedgerColumns}
-                          rowKey="key"
-                          size="middle"
-                          scroll={{ x: showingAllSubcontractors ? 1320 : 1160 }}
-                          pagination={{ pageSize: 15 }}
-                          locale={{ emptyText: 'No transactions for this subcontractor yet' }}
                         />
                       </Card>
                     ),

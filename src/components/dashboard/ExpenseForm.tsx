@@ -17,7 +17,12 @@ const expenseSchema = z.object({
   expenseTypeId: z.string().min(1, 'Select an expense type'),
   description: z.string().min(2, 'Enter a description'),
   amount: z.number().positive('Amount must be greater than zero'),
-  expenseDate: z.string().min(1, 'Select a date'),
+  expenseDate: z.string().min(1, 'Select a date').refine(
+    (value) => /^\d{4}-\d{2}-\d{2}$/.test(value)
+      && dayjs(value).isValid()
+      && dayjs(value).format('YYYY-MM-DD') === value,
+    'Select a valid date',
+  ),
   projectId: z.string().optional(),
   tradeId: z.string().optional(),
   remarks: z.string().optional(),
@@ -41,6 +46,7 @@ export function ExpenseForm({ projects, trades, expenseTypes, initialValues, onS
   const [isPending, startTransition] = useTransition();
   const [isAddingType, setIsAddingType] = useState(false);
   const [newTypeName, setNewTypeName] = useState('');
+  const [addedExpenseTypes, setAddedExpenseTypes] = useState<ExpenseType[]>([]);
   const { message } = App.useApp();
   const { user } = useAuthStore();
   const [fileList, setFileList] = useState<any[]>([]);
@@ -82,12 +88,12 @@ export function ExpenseForm({ projects, trades, expenseTypes, initialValues, onS
     setIsAddingType(true);
     try {
       const newType = await createExpenseType({ name: newTypeName.trim() });
+      setAddedExpenseTypes((types) => [...types, newType]);
       message.success('Expense type added');
       setNewTypeName('');
-      if (onSuccess) onSuccess(); // To refresh the parent's data
       setValue('expenseTypeId', newType.id);
     } catch (err) {
-      message.error('Failed to add expense type');
+      message.error(err instanceof Error ? err.message : 'Failed to add expense type');
     } finally {
       setIsAddingType(false);
     }
@@ -181,8 +187,9 @@ export function ExpenseForm({ projects, trades, expenseTypes, initialValues, onS
               >
                 <DatePicker
                   className="w-full"
-                  value={field.value ? dayjs(field.value) : null}
-                  onChange={(_, dateString) => field.onChange(Array.isArray(dateString) ? dateString[0] : dateString)}
+                  value={field.value && dayjs(field.value).isValid() ? dayjs(field.value) : null}
+                  onChange={(date) => field.onChange(date?.isValid() ? date.format('YYYY-MM-DD') : '')}
+                  onBlur={field.onBlur}
                   format="DD-MM-YYYY"
                 />
               </Form.Item>
@@ -204,7 +211,10 @@ export function ExpenseForm({ projects, trades, expenseTypes, initialValues, onS
                 <Select
                   {...field}
                   placeholder="Select expense type"
-                  options={expenseTypes.map((type) => ({ value: type.id, label: type.name }))}
+                  options={[
+                    ...expenseTypes,
+                    ...addedExpenseTypes.filter((type) => !expenseTypes.some((existing) => existing.id === type.id)),
+                  ].map((type) => ({ value: type.id, label: type.name }))}
                   dropdownRender={(menu) => (
                     <>
                       {menu}

@@ -382,7 +382,6 @@ export function ExpensesClient({ expenses: initialExpenses, projects }: Expenses
             setOpen(false);
             setEditingExpense(null);
           }}
-          showPaidBy={true}
         />
       </Drawer>
     </div>

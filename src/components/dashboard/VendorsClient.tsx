@@ -23,7 +23,7 @@ const vendorSchema = z.object({
   gstNumber: z.string().optional(),
   address: z.string().optional(),
   state: z.string().optional(),
-  contactEmail: z.string().email('Invalid email address').optional().or(z.literal('')),
+  contactEmail: z.string().trim().pipe(z.string().email('Invalid email address').or(z.literal(''))).optional(),
   contactPhone: z.string().optional(),
   category: z.string().optional(),
   bankName: z.string().optional(),
