@@ -1,0 +1,57 @@
+.content {
+  min-width: 0;
+  max-width: 100%;
+  margin-top: 8px;
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.content > :first-child { margin-top: 0; }
+.content > :last-child { margin-bottom: 0; }
+.content h1, .content h2, .content h3, .content h4 {
+  margin: 20px 0 10px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+.content h1 { font-size: 22px; }
+.content h2 { font-size: 19px; }
+.content h3 { font-size: 16px; }
+.content h4 { font-size: 14px; }
+.content p { margin: 0 0 12px; white-space: pre-line; }
+.content strong { font-weight: 650; }
+.content ul, .content ol { margin: 8px 0 14px; padding-left: 24px; }
+.content ul { list-style: disc; }
+.content ol { list-style: decimal; }
+.content li { margin: 4px 0; }
+.content li > p { margin-bottom: 4px; }
+.content a { color: var(--primary); text-decoration: underline; }
+.content blockquote { margin: 12px 0; padding: 8px 14px; border-left: 3px solid var(--primary); background: var(--subtle-bg); }
+.content hr { margin: 18px 0; border: 0; border-top: 1px solid var(--border); }
+.content code { border-radius: 4px; padding: 2px 5px; background: var(--subtle-bg); font-size: 0.9em; }
+.content pre { max-width: 100%; overflow-x: auto; margin: 12px 0; border-radius: 8px; padding: 12px; background: var(--subtle-bg); white-space: pre; }
+.content pre code { padding: 0; background: transparent; }
+
+.tableScroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 14px 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  overscroll-behavior-x: contain;
+}
+.tableScroll:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.content table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: 13px; line-height: 1.5; }
+.content th, .content td { min-width: 110px; max-width: 260px; padding: 11px 14px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+.content th { background: var(--table-header-bg); font-weight: 650; white-space: nowrap; }
+.content tr:last-child td { border-bottom: 0; }
+.content tbody tr:nth-child(even) { background: var(--subtle-bg); }
+
+@media (max-width: 640px) {
+  .content { font-size: 13px; }
+  .content h2 { font-size: 17px; }
+  .content th, .content td { padding: 9px 10px; }
+}

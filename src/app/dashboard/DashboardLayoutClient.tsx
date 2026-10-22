@@ -27,6 +27,7 @@ import {
   MoonOutlined,
   NodeIndexOutlined,
   ProjectOutlined,
+  RobotOutlined,
   SafetyCertificateOutlined,
   SolutionOutlined,
   SunOutlined,
@@ -79,6 +80,7 @@ const navigationSections: Array<{ title: string; items: NavItem[]; allowedRoles?
     title: 'Workspace',
     items: [
       { key: '/dashboard', icon: <AppstoreOutlined />, label: 'Dashboard', allowedRoles: ['admin', 'accounts_manager', 'site_engineer', 'purchase_team'] },
+      { key: '/dashboard/ai', icon: <RobotOutlined />, label: 'AI Dashboard', allowedRoles: ['admin'] },
       // Every role: full notification history with All / Unread.
       { key: '/dashboard/notifications', icon: <BellOutlined />, label: 'Notifications' },
       { key: '/dashboard/timesheet-attendance', icon: <CalendarOutlined />, label: 'Timesheet', allowedRoles: ['purchase_team'] },
