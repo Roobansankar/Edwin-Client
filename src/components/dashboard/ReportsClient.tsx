@@ -39,7 +39,6 @@ import {
   formatDate,
   pageHeaderClassName,
   pageTitleClassName,
-  StatusTag,
   titleCase,
   titleIconClassName,
   weekRangeLabel,
@@ -112,11 +111,37 @@ function reportSpanCell(t: DailyTradeRow, children: ReactNode) {
   return { children, props: { rowSpan: t.first ? t.span : 0 } };
 }
 
-// Expense and bill rows are only reported once Admin has approved them.
+// Weekly reports include both Accounts and Admin approval stages.
 // Expenses: admin_approved is the final admin step. Vendor and subcontractor
 // bills: admin_approved is Accounts Approved; 'approved' is Admin Approved.
 const ADMIN_APPROVED = 'admin_approved';
 const BILL_ADMIN_APPROVED = 'approved';
+
+function approvalLabel(status: string, bill = false) {
+  if (status === 'admin_approved') return bill ? 'Approved by Accounts' : 'Approved by Admin';
+  if (status === 'approved') return bill ? 'Approved by Admin' : 'Approved by Accounts';
+  return titleCase(status);
+}
+
+function billApprovalTag(status: string) {
+  if (status === 'admin_approved') {
+    return (
+      <Flex vertical gap={4} align="start">
+        <Tag color="processing">Approved by Accounts</Tag>
+        <Tag color="warning">Waiting for Admin Approval</Tag>
+      </Flex>
+    );
+  }
+  if (status === 'approved') {
+    return (
+      <Flex vertical gap={4} align="start">
+        <Tag color="processing">Approved by Accounts</Tag>
+        <Tag color="success">Approved by Admin</Tag>
+      </Flex>
+    );
+  }
+  return <Tag color={status === 'approved' ? 'success' : status === 'admin_approved' ? 'processing' : 'default'}>{approvalLabel(status, true)}</Tag>;
+}
 
 // Sentinel value for the "All Projects" option in the Project Report dropdown.
 const ALL_PROJECTS = '__all_projects__';
@@ -133,6 +158,7 @@ type ReportsClientProps = {
   // with a status filter. Weekly Report (default) shows approved records only.
   allStatuses?: boolean;
   title?: string;
+  hideProjectReport?: boolean;
 };
 
 // One row of the weekly Expenses tab: one person's expenses for one project in one week.
@@ -160,8 +186,8 @@ function expenseWeekStatus(expenses: Expense[]): { label: string; color: string 
   const statuses = expenses.map((e) => e.status || 'pending');
   if (statuses.every((s) => s === 'rejected')) return { label: 'Rejected', color: 'error' };
   if (statuses.some((s) => s === 'pending')) return { label: 'Pending', color: 'warning' };
-  if (statuses.every((s) => s === 'admin_approved' || s === 'rejected')) return { label: 'Admin Approved', color: 'purple' };
-  return { label: 'Approved', color: 'success' };
+  if (statuses.every((s) => s === 'admin_approved' || s === 'rejected')) return { label: 'Approved by Admin', color: 'purple' };
+  return { label: 'Approved by Accounts', color: 'success' };
 }
 
 // Status filter on the Report page. Daily labour uses pending / approved / rejected.
@@ -197,8 +223,9 @@ export function ReportsClient({
   role,
   allStatuses = false,
   title = 'Weekly Report',
+  hideProjectReport = false,
 }: ReportsClientProps) {
-  const [activeTab, setActiveTab] = useState('project');
+  const [activeTab, setActiveTab] = useState(hideProjectReport ? 'expenses' : 'project');
   const [statusFilter, setStatusFilter] = useState<string | undefined>();
   // Payment History popup for a vendor / subcontractor bill row.
   const [history, setHistory] = useState<{
@@ -212,11 +239,11 @@ export function ReportsClient({
   // Bills and expenses: approved-only on Weekly Report, any status (optionally
   // filtered) on Report.
   const billStatusOk = useCallback(
-    (status?: string | null) => (allStatuses ? !statusFilter || status === statusFilter : status === ADMIN_APPROVED),
+    (status?: string | null) => (allStatuses ? !statusFilter || status === statusFilter : status === ADMIN_APPROVED || status === 'approved'),
     [allStatuses, statusFilter],
   );
   const purchaseBillStatusOk = useCallback(
-    (status?: string | null) => (allStatuses ? !statusFilter || status === statusFilter : status === BILL_ADMIN_APPROVED),
+    (status?: string | null) => (allStatuses ? !statusFilter || status === statusFilter : status === BILL_ADMIN_APPROVED || status === ADMIN_APPROVED),
     [allStatuses, statusFilter],
   );
   const dailyStatusOk = useCallback(
@@ -437,7 +464,7 @@ export function ReportsClient({
         Number(b.amount || 0) + Number(b.gstAmount || 0),
         Number(b.paidAmount || 0),
         Number(b.amount || 0) - Number(b.paidAmount || 0),
-        titleCase(b.status),
+        approvalLabel(b.status, true),
         b.notes || '-',
       ]),
     });
@@ -472,7 +499,7 @@ export function ReportsClient({
         e.description || '-',
         e.trade?.name || '-',
         Number(e.amount || 0),
-        e.status ? titleCase(e.status) : '-',
+        e.status ? approvalLabel(e.status) : '-',
         e.remarks || '-',
       ]),
     });
@@ -515,7 +542,7 @@ export function ReportsClient({
         b.billNumber,
         b.vendor?.name || '-',
         b.project?.name || b.purchaseOrder?.project?.name || '-',
-        titleCase(b.status),
+        approvalLabel(b.status, true),
         Number(b.gstAmount || 0),
         Number(b.amount || 0),
         Number(b.paidAmount || 0),
@@ -538,7 +565,7 @@ export function ReportsClient({
         b.subcontractWorkOrder ? Number(b.subcontractWorkOrder.totalAmount || 0) : '-',
         b.notes || '-',
         b.createdAt ? formatDate(b.createdAt) : '-',
-        titleCase(b.status),
+        approvalLabel(b.status, true),
       ]),
     });
   };
@@ -574,7 +601,7 @@ export function ReportsClient({
       align: 'right' as const,
       render: (_, r) => formatCurrency(Number(r.amount || 0) - Number(r.paidAmount || 0)),
     },
-    { title: 'Status', dataIndex: 'status', width: 140, render: (v: string) => <Tag color="blue">{titleCase(v)}</Tag> },
+    { title: 'Status', dataIndex: 'status', width: 140, render: (v: string) => billApprovalTag(v) },
   ];
 
   const expenseColumns: ColumnsType<Expense> = [
@@ -584,7 +611,12 @@ export function ReportsClient({
     { title: 'Description', dataIndex: 'description', render: (v: string) => v || '-' },
     { title: 'Trade', dataIndex: ['trade', 'name'], width: 120, render: (v: string) => v || '-' },
     { title: 'Amount', dataIndex: 'amount', width: 120, align: 'right' as const, render: (v: number) => formatCurrency(v) },
-    { title: 'Status', dataIndex: 'status', width: 130, render: (v: string) => <Tag color="blue">{titleCase(v)}</Tag> },
+    { title: 'Status', dataIndex: 'status', width: 200, render: (v: string) => (
+      <Flex vertical gap={4} align="start">
+        <Tag color="blue">{approvalLabel(v)}</Tag>
+        {v === 'approved' && <Tag color="warning">Waiting for Admin Approval</Tag>}
+      </Flex>
+    ) },
     { title: 'Remarks', dataIndex: 'remarks', width: 160, render: (v: string) => v || '-' },
   ];
 
@@ -608,10 +640,17 @@ export function ReportsClient({
       render: (_, r) => formatCurrency(r.expenses.filter((e) => e.status !== 'rejected').reduce((s, e) => s + Number(e.amount || 0), 0)),
     },
     {
-      title: 'Status', key: 'status', width: 150,
+      title: 'Status', key: 'status', width: 200,
       render: (_, r) => {
         const s = expenseWeekStatus(r.expenses);
-        return <Tag color={s.color}>{s.label}</Tag>;
+        return (
+          <Flex vertical gap={4} align="start">
+            <Tag color={s.color}>{s.label}</Tag>
+            {r.expenses.some((e) => e.status === 'approved') && (
+              <Tag color="warning">Waiting for Admin Approval</Tag>
+            )}
+          </Flex>
+        );
       },
     },
     {
@@ -739,7 +778,7 @@ export function ReportsClient({
     { title: 'Bill No', dataIndex: 'billNumber', width: 130, render: (v: string) => <Typography.Text strong>{v}</Typography.Text> },
     { title: 'Vendor', key: 'vendor', width: 180, ellipsis: true, render: (_, r) => r.vendor?.name || '-' },
     { title: 'Project', key: 'project', width: 220, ellipsis: true, render: (_, r) => r.project?.name || r.purchaseOrder?.project?.name || '-' },
-    { title: 'Status', dataIndex: 'status', width: 150, render: (v: string) => <StatusTag value={v} /> },
+    { title: 'Status', dataIndex: 'status', width: 150, render: (v: string) => billApprovalTag(v) },
     {
       title: 'GST', dataIndex: 'gstAmount', align: 'right' as const, width: 110,
       render: (v) => Number(v) > 0 ? formatCurrency(v) : <Typography.Text type="secondary">-</Typography.Text>,
@@ -823,7 +862,7 @@ export function ReportsClient({
       },
     },
     { title: 'Requested At', key: 'requestedAt', width: 120, render: (_, r) => formatDate(r.createdAt) },
-    { title: 'Status', dataIndex: 'status', width: 150, render: (v: string) => <StatusTag value={v} /> },
+    { title: 'Status', dataIndex: 'status', width: 150, render: (v: string) => billApprovalTag(v) },
   ];
 
   const projectTabItems = {
@@ -1341,7 +1380,7 @@ export function ReportsClient({
 
   const canSeeReportData = ['admin', 'accounts_manager', 'purchase_team'].includes(role);
   const tabItems = canSeeReportData
-    ? [projectTabItems, expensesTabItems, dailyLabourTabItems, vendorBillsTabItems, subcontractorBillsTabItems]
+    ? [...(hideProjectReport ? [] : [projectTabItems]), expensesTabItems, dailyLabourTabItems, vendorBillsTabItems, subcontractorBillsTabItems]
     : [];
 
   return (

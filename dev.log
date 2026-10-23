@@ -1,0 +1,73 @@
+
+> edwin-client@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.4 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://169.254.83.107:3000
+- Environments: .env.local
+✓ Ready in 1052ms
+Warning: Custom Cache-Control headers detected for the following routes:
+  - /_next/static/:path*
+
+Setting a custom Cache-Control header can break Next.js development behavior.
+- Experiments (use with caution):
+  · optimizePackageImports
+  · serverActions
+
+○ Compiling /login ...
+ GET /login 200 in 18.0s (next.js: 15.7s, application-code: 2.3s)
+✓ Finished filesystem cache database compaction in 13.7s
+⨯ SyntaxError: Expected property name or '}' in JSON at position 1 (line 1 column 2)
+    at JSON.parse (<anonymous>)
+ POST /api/auth/login 500 in 426ms (next.js: 326ms, application-code: 100ms)
+⨯ SyntaxError: Expected property name or '}' in JSON at position 1 (line 1 column 2)
+    at JSON.parse (<anonymous>)
+ POST /api/auth/login 500 in 29ms (next.js: 11ms, application-code: 18ms)
+ POST /api/auth/logout 200 in 128ms (next.js: 108ms, application-code: 20ms)
+ GET /api/backend/auth/login 404 in 5.8s (next.js: 5.7s, application-code: 109ms)
+⨯ SyntaxError: Expected property name or '}' in JSON at position 1 (line 1 column 2)
+    at JSON.parse (<anonymous>)
+ POST /api/auth/login 500 in 37ms (next.js: 13ms, application-code: 24ms)
+ POST /api/auth/login 401 in 214ms (next.js: 9ms, application-code: 205ms)
+ POST /api/auth/login 200 in 200ms (next.js: 8ms, application-code: 192ms)
+ GET /dashboard 200 in 390ms (next.js: 198ms, application-code: 192ms)
+ GET /api/backend/employee-queries 200 in 132ms (next.js: 27ms, application-code: 104ms)
+ GET /api/backend/employee-queries 200 in 77ms (next.js: 11ms, application-code: 66ms)
+ GET /api/backend/notifications 200 in 209ms (next.js: 14ms, application-code: 194ms)
+ GET /api/backend/notifications 200 in 84ms (next.js: 15ms, application-code: 70ms)
+ GET /api/backend/dashboard/accounts 200 in 284ms (next.js: 19ms, application-code: 265ms)
+ GET /dashboard/notifications 200 in 212ms (next.js: 165ms, application-code: 48ms)
+ GET /api/backend/notifications?limit=500 200 in 142ms (next.js: 56ms, application-code: 86ms)
+ GET /api/backend/employee-queries 200 in 147ms (next.js: 20ms, application-code: 127ms)
+ GET /api/backend/notifications?limit=500 200 in 27ms (next.js: 5ms, application-code: 22ms)
+ GET /api/backend/notifications 200 in 235ms (next.js: 40ms, application-code: 195ms)
+ GET /api/backend/notifications 200 in 59ms (next.js: 28ms, application-code: 31ms)
+ GET /api/backend/employee-queries 200 in 66ms (next.js: 14ms, application-code: 51ms)
+ GET /dashboard/approvals 200 in 500ms (next.js: 213ms, application-code: 287ms)
+ GET /api/backend/notifications 200 in 92ms (next.js: 33ms, application-code: 59ms)
+ GET /api/backend/employee-queries 200 in 96ms (next.js: 17ms, application-code: 80ms)
+ GET /dashboard/weekly-report 200 in 393ms (next.js: 184ms, application-code: 209ms)
+[browser] Warning: `columns.render` return cell props is deprecated with perf issue, please use `onCell` instead. 
+    at warning (file://D:/Edwin Construction/Edwin-Client/.next/dev/static/chunks/node_modules_04~krkh._.js:268:21)
+    at call (file://D:/Edwin Construction/Edwin-Client/.next/dev/static/chunks/node_modules_04~krkh._.js:285:9)
+    at warningOnce (file://D:/Edwin Construction/Edwin-Client/.next/dev/static/chunks/node_modules_04~krkh._.js:290:5)
+    at useCellRender.useMemo[retData] (file://D:/Edwin Construction/Edwin-Client/.next/dev/static/chunks/node_modules_%40rc-component_table_es_09juwms._.js:188:198)
+    at useMemo (file://D:/Edwin Construction/Edwin-Client/.next/dev/static/chunks/node_modules_04~krkh._.js:231:34)
+    at useCellRender (file://D:/Edwin Construction/Edwin-Client/.next/dev/static/chunks/node_modules_%40rc-component_table_es_09juwms._.js:170:203)
+    at Cell (file://D:/Edwin Construction/Edwin-Client/.next/dev/static/chunks/node_modules_%40rc-component_table_es_09juwms._.js:317:230)
+    at Object.react_stack_bottom_frame (file://D:/Edwin Construction/Edwin-Client/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:15037:24)
+    at renderWithHooks (file://D:/Edwin Construction/Edwin-Client/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:4620:24)
+    at updateFunctionComponent (file://D:/Edwin Construction/Edwin-Client/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:6081:21)
+    at updateSimpleMemoComponent (file://D:/Edwin Construction/Edwin-Client/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:5944:16)
+    at updateMemoComponent (file://D:/Edwin Construction/Edwin-Client/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:5919:302)
+    at beginWork (file://D:/Edwin Construction/Edwin-Client/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:6778:24)
+    at runWithFiberInDEV (file://D:/Edwin Construction/Edwin-Client/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:965:74)
+    at performUnitOfWork (file://D:/Edwin Construction/Edwin-Client/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9555:97)
+    at workLoopSync (file://D:/Edwin Construction/Edwin-Client/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9449:40)
+    at renderRootSync (file://D:/Edwin Construction/Edwin-Client/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9433:13)
+    at performWorkOnRoot (file://D:/Edwin Construction/Edwin-Client/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9061:186)
+    at performSyncWorkOnRoot (file://D:/Edwin Construction/Edwin-Client/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:10263:9)
+    at flushSyncWorkAcrossRoots_impl (file://D:/Edwin Construction/Edwin-Client/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:10179:316)
+    at processRootScheduleInMicrotask (file://D:/Edwin Construction/Edwin-Client/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:10200:106)
+    at <unknown> (file://D:/Edwin Construction/Edwin-Client/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:10274:158) (file://D:/Edwin Construction/Edwin-Client/.next/dev/static/chunks/node_modules_04~krkh._.js:268:21)

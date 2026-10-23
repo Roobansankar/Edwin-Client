@@ -57,6 +57,7 @@ export default async function ReportsPage() {
       subcontractorBills={data.subcontractorBills}
       vendorQuotations={data.vendorQuotations}
       role={data.role}
+      hideProjectReport
     />
   );
 }
