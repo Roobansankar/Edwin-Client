@@ -8,6 +8,8 @@ import { CheckOutlined, CloseOutlined, DollarOutlined, FileTextOutlined, SearchO
 import dayjs from 'dayjs';
 import { respondSubcontractorPaymentRequest } from '@/actions/subcontractor-payment-requests';
 import { createPayment } from '@/actions/payments';
+import { PaymentRowForm } from './PaymentRowForm';
+import { PaymentApprovalTag } from './PaymentApprovalTag';
 import type { Payment, SubcontractorPaymentRequest } from '@/types/erp';
 import { useAuthStore } from '@/store/auth';
 import { cardClassName, formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
@@ -209,7 +211,7 @@ export function SubcontractorPaymentRequestsClient({ requests, payments, embedde
     });
   };
 
-  const renderActions = (row: RequestRow) => {
+  const renderRequestActions = (row: RequestRow) => {
     const record = row.request;
     if (record.status === 'pending') {
       return (
@@ -264,11 +266,22 @@ export function SubcontractorPaymentRequestsClient({ requests, payments, embedde
     }
     if (record.status === 'admin_approved') {
       if (row.displayStatus === 'paid') {
-        return <Typography.Text type="secondary">-</Typography.Text>;
+        return null;
+      }
+      if (embedded && payTarget?.request.id === record.id) {
+        return (
+          <PaymentRowForm
+            amount={payAmount} balance={row.balance} date={payDate} mode={payMode}
+            reference={payRef} notes={payNotes} loading={isPending}
+            onAmountChange={setPayAmount} onDateChange={setPayDate} onModeChange={setPayMode}
+            onReferenceChange={setPayRef} onNotesChange={setPayNotes}
+            onRecord={submitPayment} onCancel={() => setPayTarget(null)}
+          />
+        );
       }
       return (
         <Button size="small" type="primary" icon={<DollarOutlined />} onClick={() => openPay(row)}>
-          Record Payment
+          {embedded ? 'Pay' : 'Record Payment'}
         </Button>
       );
     }
@@ -276,6 +289,26 @@ export function SubcontractorPaymentRequestsClient({ requests, payments, embedde
       <Typography.Text type="secondary" className="text-xs">
         {record.respondedAt ? `Responded ${formatDate(record.respondedAt)}` : '-'}
       </Typography.Text>
+    );
+  };
+
+  const renderActions = (row: RequestRow) => {
+    const canPay = row.request.status === 'admin_approved' && row.displayStatus !== 'paid';
+    const reason = row.displayStatus === 'paid'
+      ? 'Fully paid'
+      : row.request.status === 'rejected'
+        ? 'Request rejected'
+        : 'Waiting for final admin approval';
+    return (
+      <Flex vertical gap={6} align="start">
+        {renderRequestActions(row)}
+        {embedded && !canPay && (
+          <Flex vertical gap={4} align="start">
+            <span title={reason}><Button size="small" icon={<DollarOutlined />} disabled>Pay</Button></span>
+            <Typography.Text type="secondary" className="text-xs">{reason}</Typography.Text>
+          </Flex>
+        )}
+      </Flex>
     );
   };
 
@@ -300,6 +333,10 @@ export function SubcontractorPaymentRequestsClient({ requests, payments, embedde
     },
     { title: 'Pay Date', key: 'payDate', width: 110, align: 'right', render: (_, r) => (r.payDate ? dayjs(r.payDate).format('DD-MMM') : '-') },
     {
+      title: 'Approval Status', key: 'approvalStatus', width: 180,
+      render: (_, r) => <PaymentApprovalTag status={r.request.status} />,
+    },
+    {
       title: 'Status', key: 'status', width: 170,
       render: (_, r) => (
         <Tag color={STATUS_COLORS[r.displayStatus] || 'default'} className="whitespace-normal! text-center! leading-4! py-1!">
@@ -307,7 +344,7 @@ export function SubcontractorPaymentRequestsClient({ requests, payments, embedde
         </Tag>
       ),
     },
-    { title: 'Action', key: 'actions', width: 200, render: (_, r) => renderActions(r) },
+    { title: 'Action', key: 'actions', width: 300, render: (_, r) => renderActions(r) },
   ];
 
   return (
@@ -412,7 +449,7 @@ export function SubcontractorPaymentRequestsClient({ requests, payments, embedde
       <Drawer
         title={payTarget ? `Record Payment — ${payTarget.request.subcontractor?.name || ''}` : 'Record Payment'}
         size={420}
-        open={!!payTarget}
+        open={!embedded && !!payTarget}
         onClose={() => setPayTarget(null)}
         extra={
           <Space>

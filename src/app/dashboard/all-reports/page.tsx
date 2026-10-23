@@ -1,66 +1,44 @@
-import { fetchProjects, fetchBills, fetchExpenses, fetchDailyLabourReports, fetchSubcontractorBills, fetchVendorQuotations } from '@/lib/api';
-import { getUserFromToken } from '@/lib/auth';
-import { ReportsClient } from '@/components/dashboard/ReportsClient';
 import { Alert } from 'antd';
+import { fetchPayments, fetchLabourPayments, fetchExpensePayments, fetchBills, fetchSubcontractorBills, fetchDailyLabourReports, fetchExpenses } from '@/lib/api';
+import { getUserFromToken } from '@/lib/auth';
+import { PaidReportsClient } from '@/components/dashboard/PaidReportsClient';
 
-const REPORT_DATA_ROLES = ['admin', 'accounts_manager', 'purchase_team'];
-
-// Same data as Weekly Report; the page shows every status (pending, approved,
-// rejected) instead of approved records only.
-async function loadData() {
+async function loadPaidReports() {
   try {
-    const user = await getUserFromToken();
-    const canLoadReportData = user ? REPORT_DATA_ROLES.includes(user.role) : false;
-
-    const [projects, bills, expenses, dailyLabourReports, subcontractorBills, vendorQuotations] = await Promise.all([
-      fetchProjects(),
-      canLoadReportData ? fetchBills() : Promise.resolve([]),
-      canLoadReportData ? fetchExpenses('limit=5000') : Promise.resolve({ data: [], total: 0, page: 1, limit: 5000 }),
-      canLoadReportData ? fetchDailyLabourReports() : Promise.resolve([]),
-      canLoadReportData ? fetchSubcontractorBills() : Promise.resolve([]),
-      canLoadReportData ? fetchVendorQuotations() : Promise.resolve([]),
+    const [first, labourPayments, expensePayments, bills, subcontractorBills, dailyLabourReports, expensesResult] = await Promise.all([
+      fetchPayments('limit=5000'), fetchLabourPayments(), fetchExpensePayments(),
+      fetchBills(), fetchSubcontractorBills(), fetchDailyLabourReports(), fetchExpenses('limit=5000'),
     ]);
-
-    return {
-      projects,
-      bills: Array.isArray(bills) ? bills : [],
-      expenses: Array.isArray(expenses) ? expenses : expenses?.data || [],
-      dailyLabourReports: Array.isArray(dailyLabourReports) ? dailyLabourReports : [],
-      subcontractorBills: Array.isArray(subcontractorBills) ? subcontractorBills : [],
-      vendorQuotations: Array.isArray(vendorQuotations) ? vendorQuotations : [],
-      role: user?.role || 'viewer',
-    };
+    const payments = Array.isArray(first) ? first : [...first.data];
+    if (!Array.isArray(first)) {
+      for (let page = 2; payments.length < first.total; page += 1) {
+        const next = await fetchPayments(`limit=5000&page=${page}`);
+        const rows = Array.isArray(next) ? next : next.data;
+        if (!rows.length) break;
+        payments.push(...rows);
+      }
+    }
+    const expenses = Array.isArray(expensesResult) ? expensesResult : [...expensesResult.data];
+    if (!Array.isArray(expensesResult)) {
+      for (let page = 2; expenses.length < expensesResult.total; page += 1) {
+        const next = await fetchExpenses(`limit=5000&page=${page}`);
+        if (!next.data.length) break;
+        expenses.push(...next.data);
+      }
+    }
+    return { payments, labourPayments, expensePayments, bills, subcontractorBills, dailyLabourReports, expenses };
   } catch (error) {
-    console.error('Failed to fetch data for report:', error);
+    console.error('Failed to load paid reports:', error);
     return null;
   }
 }
 
 export default async function AllReportsPage() {
-  const data = await loadData();
-
-  if (data === null) {
-    return (
-      <Alert
-        message="Error"
-        description="Failed to load data. Please check your connection to the server."
-        type="error"
-        showIcon
-      />
-    );
+  const user = await getUserFromToken();
+  if (!user || !['admin', 'accounts_manager'].includes(user.role)) {
+    return <Alert type="info" showIcon title="Paid reports are available to accounts and admin." />;
   }
-
-  return (
-    <ReportsClient
-      projects={data.projects}
-      bills={data.bills}
-      expenses={data.expenses}
-      dailyLabourReports={data.dailyLabourReports}
-      subcontractorBills={data.subcontractorBills}
-      vendorQuotations={data.vendorQuotations}
-      role={data.role}
-      allStatuses
-      title="Report"
-    />
-  );
+  const data = await loadPaidReports();
+  if (!data) return <Alert type="error" showIcon title="Unable to load paid reports. Please try again." />;
+  return <PaidReportsClient {...data} />;
 }

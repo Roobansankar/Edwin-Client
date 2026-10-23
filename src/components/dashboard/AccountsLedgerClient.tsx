@@ -91,7 +91,7 @@ export function AccountsLedgerClient({
   expenses,
   expensePayments,
 }: Props) {
-  // 1. Labour, trade-wise: credit per trade per week, debit when paid.
+  // 1. Labour, team-wise: combine all trades in a team per week and payment.
   const labourEntries = useMemo<Entry[]>(() => {
     const paymentById = new Map(labourPayments.map((p) => [p.id, p]));
     const credits = new Map<string, Entry>();
@@ -101,8 +101,8 @@ export function AccountsLedgerClient({
         if (!APPROVED_TRADE_STATUSES.includes(w.status || '')) continue;
         const amount = tradeAmount(w);
         if (!amount) continue;
-        const nameKey = w.tradeId || w.trade;
-        const name = w.tradeRel?.name || w.trade || '-';
+        const nameKey = w.tradeRel?.team?.id || w.tradeRel?.teamId || '__unassigned_team__';
+        const name = w.tradeRel?.team?.name || 'Unassigned Team';
         const weekStart = weekStartOf(report.reportDate)?.format('YYYY-MM-DD') || dayOf(report.reportDate);
 
         const creditKey = `${nameKey}|${weekStart}`;
@@ -233,7 +233,7 @@ export function AccountsLedgerClient({
   }, [expenses, expensePayments]);
 
   const tabs = [
-    { key: 'labour', label: '1. Labour (Trade Wise)', refTitle: 'Weekly', nameTitle: 'Trade', entries: labourEntries },
+    { key: 'labour', label: '1. Labour (Team Wise)', refTitle: 'Weekly', nameTitle: 'Team', entries: labourEntries },
     { key: 'material', label: '2. Material (Vendor Wise)', refTitle: 'Bill No', nameTitle: 'Vendor Name', entries: materialEntries },
     { key: 'subcontractor', label: '3. Subcontractor', refTitle: 'WO Number', nameTitle: 'Subcontractor', entries: subcontractorEntries },
     { key: 'expenses', label: '4. Expenses (Engineer Wise)', refTitle: 'Weekly', nameTitle: 'Engineer', entries: expenseEntries },

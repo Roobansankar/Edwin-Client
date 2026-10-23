@@ -454,6 +454,8 @@ export type UnpaidLabourWeekSummary = {
   weekEnd: string;
   totalAmount: number;
   entryCount: number;
+  projectNames: string[];
+  teamNames: string[];
 };
 
 export type DashboardProject = {

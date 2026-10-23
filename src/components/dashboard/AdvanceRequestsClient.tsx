@@ -9,6 +9,8 @@ import Link from 'next/link';
 import dayjs from 'dayjs';
 import { respondAdvanceRequest } from '@/actions/advance-requests';
 import { createPayment } from '@/actions/payments';
+import { PaymentRowForm } from './PaymentRowForm';
+import { PaymentApprovalTag } from './PaymentApprovalTag';
 import type { AdvanceRequest, Payment, PurchaseBill } from '@/types/erp';
 import { useAuthStore } from '@/store/auth';
 import { cardClassName, formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
@@ -239,7 +241,7 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
     });
   };
 
-  const renderActions = (row: RequestRow) => {
+  const renderRequestActions = (row: RequestRow) => {
     const record = row.request;
     if (record.status === 'pending') {
       return (
@@ -294,11 +296,22 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
     }
     if (record.status === 'admin_approved') {
       if (row.displayStatus === 'paid') {
-        return <Typography.Text type="secondary">-</Typography.Text>;
+        return null;
+      }
+      if (embedded && payTarget?.request.id === record.id) {
+        return (
+          <PaymentRowForm
+            amount={payAmount} balance={row.balance} date={payDate} mode={payMode}
+            reference={payRef} notes={payNotes} loading={isPending}
+            onAmountChange={setPayAmount} onDateChange={setPayDate} onModeChange={setPayMode}
+            onReferenceChange={setPayRef} onNotesChange={setPayNotes}
+            onRecord={submitPayment} onCancel={() => setPayTarget(null)}
+          />
+        );
       }
       return (
         <Button size="small" type="primary" icon={<DollarOutlined />} onClick={() => openPay(row)}>
-          Record Payment
+          {embedded ? 'Pay' : 'Record Payment'}
         </Button>
       );
     }
@@ -309,13 +322,39 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
     );
   };
 
+  const renderActions = (row: RequestRow) => {
+    const canPay = row.request.status === 'admin_approved' && row.displayStatus !== 'paid';
+    const reason = row.displayStatus === 'paid'
+      ? 'Fully paid'
+      : row.request.status === 'rejected'
+        ? 'Request rejected'
+        : 'Waiting for final admin approval';
+    return (
+      <Flex vertical gap={6} align="start">
+        {renderRequestActions(row)}
+        {embedded && !canPay && (
+          <Flex vertical gap={4} align="start">
+            <span title={reason}><Button size="small" icon={<DollarOutlined />} disabled>Pay</Button></span>
+            <Typography.Text type="secondary" className="text-xs">{reason}</Typography.Text>
+          </Flex>
+        )}
+      </Flex>
+    );
+  };
+
   const columns: ColumnsType<RequestRow> = [
     { title: 'S.No', key: 'sno', width: 70, align: 'right', render: (_, __, i) => i + 1 },
     { title: 'Date', key: 'date', width: 100, render: (_, r) => (r.request.createdAt ? dayjs(r.request.createdAt).format('DD-MMM') : '-') },
     { title: 'Vendor Name', key: 'vendor', width: 200, ellipsis: true, render: (_, r) => r.request.vendor?.name || r.request.vendorId },
     { title: 'Bill No', key: 'billNo', width: 130, render: (_, r) => r.billNo },
     {
-      title: 'Amount', key: 'amount', width: 130, align: 'right',
+      title: 'Total PO Amount', key: 'poTotal', width: 150, align: 'right',
+      render: (_, r) => r.request.purchaseOrder
+        ? formatCurrency(r.request.purchaseOrder.totalWithGst || r.request.purchaseOrder.totalAmount || 0)
+        : <Typography.Text type="secondary">-</Typography.Text>,
+    },
+    {
+      title: 'Paid', key: 'amount', width: 130, align: 'right',
       render: (_, r) => <Typography.Text strong>{formatCurrency(r.request.amount)}</Typography.Text>,
     },
     {
@@ -346,6 +385,10 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
     },
     { title: 'Pay Date', key: 'payDate', width: 110, align: 'right', render: (_, r) => (r.payDate ? dayjs(r.payDate).format('DD-MMM') : '-') },
     {
+      title: 'Approval Status', key: 'approvalStatus', width: 180,
+      render: (_, r) => <PaymentApprovalTag status={r.request.status} />,
+    },
+    {
       title: 'Status', key: 'status', width: 180,
       render: (_, r) => (
         <Tag color={STATUS_COLORS[r.displayStatus] || 'default'} className="m-0!">
@@ -354,7 +397,7 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
       ),
     },
     {
-      title: 'Action', key: 'actions', width: 240,
+      title: 'Action', key: 'actions', width: 300,
       render: (_, r) => (
         <Flex gap={6} align="center" wrap="wrap">
           {r.billId ? (
@@ -482,7 +525,7 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
       <Drawer
         title={payTarget ? `Record Payment — ${payTarget.request.vendor?.name || ''}` : 'Record Payment'}
         width={420}
-        open={!!payTarget}
+        open={!embedded && !!payTarget}
         onClose={() => setPayTarget(null)}
         extra={
           <Space>

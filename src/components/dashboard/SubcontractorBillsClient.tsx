@@ -3,7 +3,7 @@
 import { useState, useMemo, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { App, Button, Card, DatePicker, Drawer, Flex, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Typography, Upload, Divider } from 'antd';
+import { App, Button, Card, DatePicker, Drawer, Flex, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, Typography, Upload, Divider } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DeleteOutlined, EditOutlined, EyeOutlined, FileDoneOutlined, PlusOutlined, HistoryOutlined, SearchOutlined, UploadOutlined, FileTextOutlined, FileExcelOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -31,6 +31,12 @@ import {
 } from './ui';
 
 const ordinal = (n: number) => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`);
+
+function billStatusLabel(status: string) {
+  if (status === 'admin_approved') return 'Accounts Approved';
+  if (status === 'approved') return 'Admin Approved';
+  return titleCase(status);
+}
 
 const billSchema = z.object({
   subcontractorId: z.string().min(1, 'Select a subcontractor'),
@@ -341,7 +347,9 @@ export function SubcontractorBillsClient({ bills, subcontractors, projects, work
     {
       title: 'Status',
       dataIndex: 'status',
-      render: (value) => <StatusTag value={value} />,
+      render: (value: string) => value === 'admin_approved' || value === 'approved'
+        ? <Tag color={value === 'approved' ? 'success' : 'processing'}>{billStatusLabel(value)}</Tag>
+        : <StatusTag value={value} />,
     },
     {
       title: 'Actions',
@@ -423,7 +431,7 @@ export function SubcontractorBillsClient({ bills, subcontractors, projects, work
           Number(b.amount || 0) - Number(b.paidAmount || 0),
           payments[0] ? Number(payments[0].amount) : 0,
           payments[1] ? Number(payments[1].amount) : 0,
-          titleCase(b.status),
+          billStatusLabel(b.status),
         ];
       }),
     });

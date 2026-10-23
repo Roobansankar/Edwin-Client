@@ -164,12 +164,16 @@ const EXPENSE_ROLE_FILTERS: { label: string; value: string | undefined }[] = [
 ];
 
 // Accounts verifies each expense, but only admin can give the final Admin Approved.
-const EXPENSE_VERIFY_STATUS_OPTIONS = APPROVAL_STATUS_OPTIONS.filter((o) => o.value !== 'admin_approved');
+const EXPENSE_VERIFY_STATUS_OPTIONS = [
+  { label: 'Accounts Pending', value: 'pending' },
+  { label: 'Accounts Approved', value: 'approved' },
+  { label: 'Accounts Rejected', value: 'rejected' },
+];
 
-// Purchase bills on this page: only Pending, Accounts Approved and Accounts
+// Purchase bills on this page: only Accounts Pending, Accounts Approved and Accounts
 // Rejected. Plain Approved is shown disabled so older approved bills still display.
 const BILL_DECISION_OPTIONS = [
-  { label: 'Pending', value: 'pending' },
+  { label: 'Accounts Pending', value: 'pending' },
   { label: 'Accounts Approved', value: 'admin_approved' },
   { label: 'Accounts Rejected', value: 'rejected' },
   { label: 'Admin Approved', value: 'approved', disabled: true },
@@ -178,7 +182,7 @@ const BILL_DECISION_OPTIONS = [
 // Admin gives the final decision after accounts; the earlier stages are shown
 // disabled so the current status still displays.
 const ADMIN_BILL_DECISION_OPTIONS = [
-  { label: 'Pending', value: 'pending', disabled: true },
+  { label: 'Accounts Pending', value: 'pending', disabled: true },
   { label: 'Accounts Approved', value: 'admin_approved', disabled: true },
   { label: 'Admin Approved', value: 'approved' },
   { label: 'Admin Rejected', value: 'rejected' },
@@ -221,14 +225,12 @@ function expenseWeekAmount(expenses: Expense[]) {
     .reduce((sum, e) => sum + Number(e.amount || 0), 0);
 }
 
-// Payment is tracked by expensePaymentId: an admin-approved expense without one
-// is still waiting to be paid.
+// Show approval stages here, matching the other approval tabs.
 function expenseWeekStatus(expenses: Expense[]): { label: string; color: string } {
-  if (expenses.some((e) => e.status === 'pending')) return { label: 'Pending Approval', color: 'warning' };
-  if (expenses.some((e) => e.status === 'admin_approved' && !e.expensePaymentId)) return { label: 'Payment Pending', color: 'gold' };
-  if (expenses.every((e) => e.status === 'rejected')) return { label: 'Rejected', color: 'error' };
-  if (expenses.every((e) => e.status === 'rejected' || e.expensePaymentId)) return { label: 'Paid', color: 'success' };
-  return { label: 'Approved', color: 'processing' };
+  if (expenses.some((e) => !e.status || e.status === 'pending')) return { label: 'Accounts Pending', color: 'warning' };
+  if (expenses.every((e) => e.status === 'rejected')) return { label: 'Accounts Rejected', color: 'error' };
+  if (expenses.every((e) => e.status === 'admin_approved' || e.status === 'rejected')) return { label: 'Admin Approved', color: 'success' };
+  return { label: 'Accounts Approved', color: 'processing' };
 }
 
 const APPROVAL_TAB_KEYS = ['daily', 'bills', 'subBills', 'expenses'];
@@ -659,8 +661,8 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
 
   const dailyTradeColumns: ColumnsType<DailyTradeRow> = [
     { title: 'Date', key: 'date', width: 110, render: (_, t) => reportSpanCell(t, formatDate(t.reportDate)) },
+    { title: 'Team', key: 'tradeTeam', width: 160, render: (_, t) => t.worker.tradeRel?.team?.name || '-' },
     { title: 'Trade', key: 'trade', width: 160, render: (_, t) => <Typography.Text strong>{t.worker.trade}</Typography.Text> },
-    { title: 'Trade Team', key: 'tradeTeam', width: 160, render: (_, t) => t.worker.tradeRel?.team?.name || '-' },
     { title: 'Count', key: 'count', width: 80, align: 'right', render: (_, t) => Number(t.worker.count) || 1 },
     { title: 'Shift', key: 'shift', width: 80, align: 'right', render: (_, t) => t.worker.shift || '-' },
     {
@@ -764,7 +766,7 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
       render: (_, record) => (record.status === 'rejected' ? record.rejectionReason : record.remarks) || '-',
     },
     {
-      title: 'Status', key: 'status', width: 140,
+      title: 'Status', key: 'status', width: 180,
       render: (_, record) => (
         <Select
           value={record.status || 'pending'} size="small" variant="borderless" className="w-full"
@@ -1029,7 +1031,7 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
           onChange={(newStatus) => handleBillStatusChange(record, newStatus)}
         />
       ) : (
-        <StatusTag value={value} />
+        value === 'pending' ? <Tag color="warning">Accounts Pending</Tag> : <StatusTag value={value} />
       ),
     },
     {

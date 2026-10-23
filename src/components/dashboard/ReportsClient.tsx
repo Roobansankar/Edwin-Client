@@ -201,16 +201,28 @@ const REPORT_STATUS_OPTIONS = [
 // Daily labour report status shown on the Report page.
 const DAILY_STATUS_TAG: Record<string, { color: string; label: string }> = {
   pending: { color: 'warning', label: 'Pending' },
-  approved: { color: 'success', label: 'Approved' },
+  approved: { color: 'processing', label: 'Approved by Accounts' },
+  admin_approved: { color: 'success', label: 'Approved by Admin' },
   rejected: { color: 'error', label: 'Rejected' },
 };
 
 // One status for a week of daily labour reports: rejected if any is rejected,
-// pending if any is pending, approved once all are approved.
+// pending if any is pending; final admin approval lives on each trade entry.
 function weekReportStatus(reports: DailyLabourReport[]) {
   if (reports.some((r) => r.status === 'rejected')) return 'rejected';
-  if (reports.some((r) => r.status !== 'approved')) return 'pending';
+  if (reports.some((r) => r.status !== 'approved' && r.status !== 'admin_approved')) return 'pending';
+  if (reports.length > 0 && reports.every((r) =>
+    r.status === 'admin_approved' ||
+    (r.workers.length > 0 && r.workers.every((worker) => worker.status === 'admin_approved')),
+  )) return 'admin_approved';
   return 'approved';
+}
+
+function dailyWeekApprovalLabel(reports: DailyLabourReport[]) {
+  const status = weekReportStatus(reports);
+  if (status === 'approved') return 'Approved by Accounts; Waiting for Admin Approval';
+  if (status === 'admin_approved') return 'Approved by Accounts; Approved by Admin';
+  return DAILY_STATUS_TAG[status].label;
 }
 
 export function ReportsClient({
@@ -225,7 +237,7 @@ export function ReportsClient({
   title = 'Weekly Report',
   hideProjectReport = false,
 }: ReportsClientProps) {
-  const [activeTab, setActiveTab] = useState(hideProjectReport ? 'expenses' : 'project');
+  const [activeTab, setActiveTab] = useState(hideProjectReport ? 'daily-labour' : 'project');
   const [statusFilter, setStatusFilter] = useState<string | undefined>();
   // Payment History popup for a vendor / subcontractor bill row.
   const [history, setHistory] = useState<{
@@ -524,7 +536,7 @@ export function ReportsClient({
           tradeAmount(t.worker),
           t.reportRemarks || '-',
           t.worker.reviewRemarks || '-',
-          DAILY_STATUS_TAG[weekReportStatus(week.reports)].label,
+          dailyWeekApprovalLabel(week.reports),
         ]),
       ),
     });
@@ -613,6 +625,7 @@ export function ReportsClient({
     { title: 'Amount', dataIndex: 'amount', width: 120, align: 'right' as const, render: (v: number) => formatCurrency(v) },
     { title: 'Status', dataIndex: 'status', width: 200, render: (v: string) => (
       <Flex vertical gap={4} align="start">
+        {v === 'admin_approved' && <Tag color="processing">Approved by Accounts</Tag>}
         <Tag color="blue">{approvalLabel(v)}</Tag>
         {v === 'approved' && <Tag color="warning">Waiting for Admin Approval</Tag>}
       </Flex>
@@ -645,6 +658,9 @@ export function ReportsClient({
         const s = expenseWeekStatus(r.expenses);
         return (
           <Flex vertical gap={4} align="start">
+            {s.label === 'Approved by Admin' && (
+              <Tag color="processing">Approved by Accounts</Tag>
+            )}
             <Tag color={s.color}>{s.label}</Tag>
             {r.expenses.some((e) => e.status === 'approved') && (
               <Tag color="warning">Waiting for Admin Approval</Tag>
@@ -694,9 +710,20 @@ export function ReportsClient({
     { title: 'Total Shift', key: 'totalShift', align: 'right' as const, width: 120, render: (_, r) => weekShiftTotal(r.reports) },
     { title: 'Amount', key: 'amount', align: 'right' as const, width: 140, render: (_, r) => formatCurrency(weekAmountTotal(r.reports)) },
     {
-      title: 'Status', key: 'status', width: 140,
+      title: 'Status', key: 'status', width: 220,
       render: (_, r) => {
-        const tag = DAILY_STATUS_TAG[weekReportStatus(r.reports)];
+        const status = weekReportStatus(r.reports);
+        const tag = DAILY_STATUS_TAG[status];
+        if (status === 'approved' || status === 'admin_approved') {
+          return (
+            <Flex vertical gap={4} align="start">
+              <Tag color="processing">Approved by Accounts</Tag>
+              <Tag color={status === 'admin_approved' ? 'success' : 'warning'}>
+                {status === 'admin_approved' ? 'Approved by Admin' : 'Waiting for Admin Approval'}
+              </Tag>
+            </Flex>
+          );
+        }
         return <Tag color={tag.color}>{tag.label}</Tag>;
       },
     },
@@ -1380,7 +1407,9 @@ export function ReportsClient({
 
   const canSeeReportData = ['admin', 'accounts_manager', 'purchase_team'].includes(role);
   const tabItems = canSeeReportData
-    ? [...(hideProjectReport ? [] : [projectTabItems]), expensesTabItems, dailyLabourTabItems, vendorBillsTabItems, subcontractorBillsTabItems]
+    ? (hideProjectReport
+      ? [dailyLabourTabItems, vendorBillsTabItems, subcontractorBillsTabItems, expensesTabItems]
+      : [projectTabItems, expensesTabItems, dailyLabourTabItems, vendorBillsTabItems, subcontractorBillsTabItems])
     : [];
 
   return (

@@ -21,6 +21,7 @@ import { respondSubcontractorPaymentRequest } from '@/actions/subcontractor-paym
 import { useAuthStore } from '@/store/auth';
 import { AdvanceRequestsClient } from './AdvanceRequestsClient';
 import { SubcontractorPaymentRequestsClient } from './SubcontractorPaymentRequestsClient';
+import { PaymentApprovalTag } from './PaymentApprovalTag';
 import { cardClassName, formatCurrency, formatDate, mutedTextClassName, weekRangeLabel } from './ui';
 
 type Props = {
@@ -45,6 +46,7 @@ type PaymentRow = {
   ref: string;
   name: string;
   project: string;
+  team?: string;
   amount: number;
   ledger: boolean;
   status: string;
@@ -116,7 +118,8 @@ export function PaymentOptionsPanel({
       key: `labour-${row.userId}-${row.weekStart}`,
       ref: weekRangeLabel(row.weekStart),
       name: row.userName,
-      project: '-',
+      project: row.projectNames?.join(', ') || '-',
+      team: row.teamNames?.join(', ') || 'Unassigned Team',
       amount: Number(row.totalAmount || 0),
       ledger: false,
       status: 'admin_approved',
@@ -275,6 +278,10 @@ export function PaymentOptionsPanel({
     { title: 'Project', dataIndex: 'project', key: 'project', width: 180 },
     { title: 'Amount', key: 'amount', align: 'right', width: 140, render: (_, r) => formatCurrency(r.amount) },
     {
+      title: 'Approval Status', key: 'approvalStatus', width: 180,
+      render: (_, r) => <PaymentApprovalTag status={r.status} />,
+    },
+    {
       title: 'Status', key: 'status', width: 190,
       render: (_, r) => {
         const tag = STATUS_TAGS[r.status] || { color: 'default', label: r.status };
@@ -318,7 +325,9 @@ export function PaymentOptionsPanel({
           </Typography.Text>
           <Table
             dataSource={rows}
-            columns={columns}
+            columns={option.key === 'labour'
+              ? [...columns.slice(0, 4), { title: 'Team', dataIndex: 'team', key: 'team', width: 180 }, ...columns.slice(4)]
+              : columns}
             rowKey="key"
             size="middle"
             pagination={{ pageSize: 10 }}
