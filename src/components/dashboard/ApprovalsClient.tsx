@@ -240,6 +240,8 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
   const [isPending, startTransition] = useTransition();
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
   const [searchText, setSearchText] = useState('');
+  const [billVendorFilter, setBillVendorFilter] = useState<string | undefined>();
+  const [subcontractorFilter, setSubcontractorFilter] = useState<string | undefined>();
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [activeTab, setActiveTabState] = useState('expenses');
   const [rejectExpenseId, setRejectExpenseId] = useState<string | null>(null);
@@ -330,6 +332,15 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
     );
   }, [filteredExpenses]);
 
+  const billVendorOptions = useMemo(() => {
+    const vendors = new Map<string, string>();
+    for (const bill of bills) {
+      if (bill.vendorId) vendors.set(bill.vendorId, bill.vendor?.name || bill.vendorId);
+    }
+    return [...vendors].map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [bills]);
+
   const filteredBills = useMemo(() => {
     const from = dateRange[0]?.format('YYYY-MM-DD');
     const to = dateRange[1]?.format('YYYY-MM-DD');
@@ -338,11 +349,23 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
         const d = typeof b.billDate === 'string' ? b.billDate.split('T')[0] : '';
         if (d < from || d > to) return false;
       }
+      if (billVendorFilter && b.vendorId !== billVendorFilter) return false;
       if (statusFilter && b.status !== statusFilter) return false;
       if (searchText && !b.billNumber?.toLowerCase().includes(searchText.toLowerCase()) && !b.vendor?.name?.toLowerCase().includes(searchText.toLowerCase())) return false;
       return true;
     });
-  }, [bills, dateRange, searchText, statusFilter]);
+  }, [bills, dateRange, searchText, statusFilter, billVendorFilter]);
+
+  const subcontractorOptions = useMemo(() => {
+    const subcontractors = new Map<string, string>();
+    for (const bill of subcontractorBills) {
+      if (bill.subcontractorId) {
+        subcontractors.set(bill.subcontractorId, bill.subcontractor?.name || bill.subcontractorId);
+      }
+    }
+    return [...subcontractors].map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [subcontractorBills]);
 
   const filteredSubcontractorBills = useMemo(() => {
     const from = dateRange[0]?.format('YYYY-MM-DD');
@@ -353,11 +376,12 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
         const d = typeof b.billDate === 'string' ? b.billDate.split('T')[0] : '';
         if (d < from || d > to) return false;
       }
+      if (subcontractorFilter && b.subcontractorId !== subcontractorFilter) return false;
       if (statusFilter && b.status !== statusFilter) return false;
       if (q && !b.billNumber?.toLowerCase().includes(q) && !b.subcontractor?.name?.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [subcontractorBills, dateRange, searchText, statusFilter]);
+  }, [subcontractorBills, dateRange, searchText, statusFilter, subcontractorFilter]);
 
   const filteredDaily = useMemo(() => {
     const from = dateRange[0]?.format('YYYY-MM-DD');
@@ -1103,6 +1127,7 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
     emptyText: string,
     scrollX = 1300,
     tableProps: { rowKey?: string; expandable?: TableProps<T>['expandable'] } = {},
+    extraFilters?: ReactNode,
   ) => (
     <>
       <Row gutter={16} className="mb-4">
@@ -1142,6 +1167,7 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
               options={APPROVAL_STATUS_OPTIONS}
             />
           </Col>
+          {extraFilters}
         </Row>
         <Table
           dataSource={dataSource} columns={columns} rowKey="id"
@@ -1219,12 +1245,40 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
             {
               key: 'bills',
               label: <span><FileDoneOutlined /> Purchase Bills (Material)</span>,
-              children: renderContent(billCounts, filteredBills, billColumns, 'No purchase bills', 2320),
+              children: renderContent(billCounts, filteredBills, billColumns, 'No purchase bills', 2320, {}, (
+                <Col xs={24} sm={12} md={6}>
+                  <Select
+                    showSearch
+                    allowClear
+                    placeholder="Filter by vendor"
+                    aria-label="Filter purchase bills by vendor"
+                    className="w-full"
+                    value={billVendorFilter}
+                    onChange={setBillVendorFilter}
+                    options={billVendorOptions}
+                    optionFilterProp="label"
+                  />
+                </Col>
+              )),
             },
             {
               key: 'subBills',
               label: <span><FileDoneOutlined /> Subcontractor Bills</span>,
-              children: renderContent(subcontractorBillCounts, filteredSubcontractorBills, subcontractorBillColumns, 'No subcontractor bills', 1650),
+              children: renderContent(subcontractorBillCounts, filteredSubcontractorBills, subcontractorBillColumns, 'No subcontractor bills', 1650, {}, (
+                <Col xs={24} sm={12} md={6}>
+                  <Select
+                    showSearch
+                    allowClear
+                    placeholder="Filter by subcontractor"
+                    aria-label="Filter subcontractor bills by subcontractor"
+                    className="w-full"
+                    value={subcontractorFilter}
+                    onChange={setSubcontractorFilter}
+                    options={subcontractorOptions}
+                    optionFilterProp="label"
+                  />
+                </Col>
+              )),
             },
             {
               key: 'expenses',

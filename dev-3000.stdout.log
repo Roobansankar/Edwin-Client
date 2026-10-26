@@ -1,0 +1,18 @@
+▲ Next.js 16.2.4 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://169.254.83.107:3000
+- Environments: .env.local
+✓ Ready in 1172ms
+Creating turbopack project { dir: 'D:\\Edwin Construction\\Edwin-Client', testMode: true }
+- Experiments (use with caution):
+  · optimizePackageImports
+  · serverActions
+
+ GET / 307 in 2.6s (next.js: 1526ms, application-code: 1064ms)
+ GET /dashboard 200 in 3.6s (next.js: 285ms, application-code: 3.3s)
+ GET / 307 in 159ms (next.js: 15ms, application-code: 144ms)
+ GET /dashboard 200 in 106ms (next.js: 13ms, application-code: 93ms)
+ GET /api/backend/notifications 200 in 8.2s (next.js: 7.8s, application-code: 324ms)
+ GET /api/backend/employee-queries 200 in 8.2s (next.js: 7.8s, application-code: 334ms)
+ GET /api/backend/dashboard/accounts 200 in 8.4s (next.js: 7.8s, application-code: 535ms)
+[?25h

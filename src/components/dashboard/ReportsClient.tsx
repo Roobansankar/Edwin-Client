@@ -65,6 +65,20 @@ type DailyWeekRow = {
   reports: DailyLabourReport[];
 };
 
+type DailySummaryRow = {
+  key: string;
+  serial: number;
+  span: number;
+  weekStart: string;
+  dateRange: string;
+  projects: string;
+  team: string;
+  category: string;
+  totalShift: number;
+  totalAmount: number;
+  status: string;
+};
+
 // One trade entry, listed under its week when that week is expanded.
 type DailyTradeRow = {
   key: string;
@@ -449,6 +463,49 @@ export function ReportsClient({
     );
   }, [filteredDailyLabour]);
 
+  // One weekly row per labour team, with its categories combined in one cell.
+  const dailySummaryRows = useMemo<DailySummaryRow[]>(() => {
+    const groups = new Map<string, { weekStart: string; team: string; reports: Map<string, DailyLabourReport>; categories: Map<string, { shift: number; amount: number }> }>();
+    for (const report of filteredDailyLabour) {
+      const weekStart = weekStartOf(report.reportDate)?.format('YYYY-MM-DD') || '';
+      for (const worker of report.workers || []) {
+        const team = worker.tradeRel?.team?.name || '-';
+        const key = JSON.stringify([weekStart, worker.tradeRel?.teamId || team]);
+        let group = groups.get(key);
+        if (!group) {
+          group = { weekStart, team, reports: new Map(), categories: new Map() };
+          groups.set(key, group);
+        }
+        group.reports.set(report.id, report);
+        const category = worker.tradeRel?.name || worker.trade || '-';
+        const totals = group.categories.get(category) || { shift: 0, amount: 0 };
+        totals.shift += (Number(worker.count) || 1) * (Number(worker.shift) || 0);
+        totals.amount += tradeAmount(worker);
+        group.categories.set(category, totals);
+      }
+    }
+    return [...groups.entries()]
+      .sort(([, a], [, b]) => b.weekStart.localeCompare(a.weekStart) || a.team.localeCompare(b.team))
+      .flatMap(([key, group], index) => {
+        const reports = [...group.reports.values()];
+        const dates = reports.map((report) => report.reportDate.split('T')[0]).sort();
+        const projects = [...new Set(reports.map((report) => report.project?.name || '-'))].join(', ');
+        const totals = [...group.categories.values()].reduce(
+          (sum, category) => ({ shift: sum.shift + category.shift, amount: sum.amount + category.amount }),
+          { shift: 0, amount: 0 },
+        );
+        return [{
+          key, serial: index + 1, span: 1,
+          weekStart: group.weekStart,
+          dateRange: dates[0] === dates[dates.length - 1] ? formatDate(dates[0]) : `${formatDate(dates[0])} ? ${formatDate(dates[dates.length - 1])}`,
+          projects, team: group.team,
+          category: [...group.categories.keys()].join(', '),
+          totalShift: totals.shift, totalAmount: totals.amount,
+          status: dailyWeekApprovalLabel(reports),
+        }];
+      });
+  }, [filteredDailyLabour]);
+
   const exportProjectBills = () => {
     exportToExcel({
       filename: `Project-Bills-${selectedProjectId && selectedProjectId !== ALL_PROJECTS ? (projectNameById.get(selectedProjectId) || 'report') : 'all'}`,
@@ -521,8 +578,15 @@ export function ReportsClient({
     exportToExcel({
       filename: 'Daily-Labour-List',
       sheetName: 'Daily Labour',
-      headers: ['Week', 'Submitted By', 'Project', 'Date', 'Trade', 'Trade Team', 'Count', 'Shift', 'Total Shift', 'Amount', 'Overall Remarks', 'Trade Remarks', 'Status'],
-      rows: dailyWeekRows.flatMap((week) =>
+      headers: hideProjectReport
+        ? ['S.No', 'Date', 'Week', 'All Project', 'Trade', 'Team', 'Category', 'Total Shift', 'Total Amount', 'Status']
+        : ['Week', 'Submitted By', 'Project', 'Date', 'Trade', 'Trade Team', 'Count', 'Shift', 'Total Shift', 'Amount', 'Overall Remarks', 'Trade Remarks', 'Status'],
+      rows: hideProjectReport ? dailySummaryRows.map((row) => [
+        row.span ? row.serial : '', row.span ? row.dateRange : '',
+        row.span ? weekRangeLabel(row.weekStart) : '', row.span ? row.projects : '',
+        row.span ? '-' : '', row.span ? row.team : '', row.category,
+        row.totalShift, row.totalAmount, row.span ? row.status : '',
+      ]) : dailyWeekRows.flatMap((week) =>
         dailyTradeRows(week.reports).map((t) => [
           weekRangeLabel(week.weekStart),
           week.name,
@@ -699,6 +763,21 @@ export function ReportsClient({
     },
   ];
 
+
+  const summarySpan = (row: DailySummaryRow) => ({ rowSpan: row.span });
+  const dailySummaryColumns: ColumnsType<DailySummaryRow> = [
+    { title: 'S.No', dataIndex: 'serial', width: 60, onCell: summarySpan },
+    { title: 'Date', dataIndex: 'dateRange', width: 190, onCell: summarySpan },
+    { title: 'Week', key: 'week', width: 160, render: (_, row) => weekRangeLabel(row.weekStart), onCell: summarySpan },
+    { title: 'All Project', dataIndex: 'projects', width: 180, onCell: summarySpan },
+    // Daily labour stores categories as trades; no separate parent trade is recorded.
+    { title: 'Trade', key: 'trade', width: 100, render: () => '-', onCell: summarySpan },
+    { title: 'Team', dataIndex: 'team', width: 140, onCell: summarySpan },
+    { title: 'Category', dataIndex: 'category', width: 120 },
+    { title: 'Total Shift', dataIndex: 'totalShift', width: 110, align: 'right' },
+    { title: 'Total Amount', dataIndex: 'totalAmount', width: 140, align: 'right', render: (amount: number) => formatCurrency(amount) },
+    { title: 'Status', dataIndex: 'status', width: 250, onCell: summarySpan },
+  ];
 
   // Week row: the same summary as Approvals, read-only here. "View" expands to its days.
   const dailyWeekColumns: ColumnsType<DailyWeekRow> = [
@@ -1194,7 +1273,7 @@ export function ReportsClient({
           </Button>
         </Flex>
 
-        <Row gutter={[16, 16]} className="mb-4">
+        {!hideProjectReport && <Row gutter={[16, 16]} className="mb-4">
           <Col xs={12} sm={8}>
             <Card className="rounded-xl! border! border-[var(--border)]!" styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}>
               <Flex vertical gap={10}>
@@ -1219,13 +1298,25 @@ export function ReportsClient({
               </Flex>
             </Card>
           </Col>
-        </Row>
+        </Row>}
 
         <Card
           className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
           styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
         >
-          <Table
+          {hideProjectReport ? (
+            <Table<DailySummaryRow>
+              className="mantis-table"
+              rowKey="key"
+              bordered
+              size="small"
+              dataSource={dailySummaryRows}
+              columns={dailySummaryColumns}
+              pagination={false}
+              scroll={{ x: 1450 }}
+              locale={{ emptyText: 'No daily labour reports for the selected filters' }}
+            />
+          ) : <Table
             className="mantis-table"
             dataSource={dailyWeekRows}
             columns={dailyWeekColumns}
@@ -1234,7 +1325,7 @@ export function ReportsClient({
             scroll={{ x: 1200 }}
             pagination={{ pageSize: 15, showTotal: (total) => `${total} weeks` }}
             locale={{ emptyText: 'No daily labour reports for the selected filters' }}
-          />
+          />}
         </Card>
       </div>
     ),

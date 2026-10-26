@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Button, Card, DatePicker, Flex, Input, Table, Tabs, Tag, Typography } from 'antd';
+import { Button, Card, DatePicker, Flex, Input, Select, Table, Tabs, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { Dayjs } from 'dayjs';
 import { FileExcelOutlined } from '@ant-design/icons';
@@ -14,8 +14,15 @@ const headers = ['S.No', 'Date', 'Week', 'Project Name', 'Items', 'Type', 'Vendo
 
 export function PaidReportsClient(props: PaidReportSources) {
   const [search, setSearch] = useState('');
+  const [vendorFilter, setVendorFilter] = useState<string | undefined>();
+  const [subcontractorFilter, setSubcontractorFilter] = useState<string | undefined>();
   const [range, setRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
   const rows = useMemo(() => buildPaidReport(props), [props]);
+  const payeeOptions = useMemo(() => {
+    const optionsFor = (category: string) => [...new Set(rows.filter((row) => row.category === category).map((row) => row.name))]
+      .sort((a, b) => a.localeCompare(b)).map((name) => ({ value: name, label: name }));
+    return { vendor: optionsFor('vendor'), subcontractor: optionsFor('subcontractor') };
+  }, [rows]);
   const filtered = rows.filter((row) => {
     const end = weekStartOf(row.week)?.add(6, 'day').format('YYYY-MM-DD') || row.week;
     return `${row.name} ${row.project} ${row.description} ${row.billNo} ${row.type}`.toLowerCase().includes(search.toLowerCase()) &&
@@ -56,8 +63,23 @@ export function PaidReportsClient(props: PaidReportSources) {
     <Card><Tabs items={[
       ['all', 'All'], ['labour', 'Daily Labour List'], ['vendor', 'Vendor Payments'], ['subcontractor', 'Subcontractor Payments'], ['expenses', 'Expenses'],
     ].map(([key, label]) => {
-      const records = key === 'all' ? filtered : filtered.filter((row) => row.category === key);
+      const payeeFilter = key === 'vendor' ? vendorFilter : key === 'subcontractor' ? subcontractorFilter : undefined;
+      const records = key === 'all' ? filtered : filtered.filter((row) => row.category === key && (!payeeFilter || row.name === payeeFilter));
       return { key, label, children: <>
+        {(key === 'vendor' || key === 'subcontractor') && (
+          <Select
+            showSearch
+            allowClear
+            className="mb-4"
+            style={{ width: '100%', maxWidth: 320 }}
+            placeholder={key === 'vendor' ? 'Filter by vendor' : 'Filter by subcontractor'}
+            aria-label={key === 'vendor' ? 'Filter vendor payments by vendor' : 'Filter subcontractor payments by subcontractor'}
+            value={payeeFilter}
+            onChange={key === 'vendor' ? setVendorFilter : setSubcontractorFilter}
+            options={payeeOptions[key]}
+            optionFilterProp="label"
+          />
+        )}
         <Flex justify="space-between" align="center" className="mb-4" gap={12} wrap="wrap">
           <Typography.Text strong>Total Paid: {formatCurrency(records.reduce((sum, row) => sum + row.paid, 0))}</Typography.Text>
           {key !== 'all' && <Button icon={<FileExcelOutlined />} disabled={!records.length} onClick={() => exportRows(records, key)}>Export to Excel</Button>}
