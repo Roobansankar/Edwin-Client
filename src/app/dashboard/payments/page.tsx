@@ -2,11 +2,11 @@ import { Alert } from 'antd';
 import { redirect } from 'next/navigation';
 import { getUserFromToken } from '@/lib/auth';
 import { PaymentsClient } from '@/components/dashboard/PaymentsClient';
-import { fetchPayments, fetchPaymentsSummary, fetchProjects, fetchVendors, fetchPurchaseOrders, fetchAdvanceRequests, fetchSubcontractWorkOrders, fetchSubcontractorPaymentRequests, fetchUnpaidLabourWeeklySummary, fetchUnpaidExpenseWeeklySummary, fetchBills } from '@/lib/api';
+import { fetchLabourPayments, fetchPayments, fetchPaymentsSummary, fetchProjects, fetchVendors, fetchPurchaseOrders, fetchAdvanceRequests, fetchSubcontractWorkOrders, fetchSubcontractorPaymentRequests, fetchUnpaidLabourWeeklySummary, fetchUnpaidExpenseWeeklySummary, fetchBills } from '@/lib/api';
 
 async function loadPageData() {
   try {
-    const [paymentsRes, summary, projects, vendors, purchaseOrders, advanceRequests, subcontractWorkOrders, subcontractorPaymentRequests, unpaidLabourSummary, unpaidExpenseSummary, bills] = await Promise.all([
+    const [paymentsRes, summary, projects, vendors, purchaseOrders, advanceRequests, subcontractWorkOrders, subcontractorPaymentRequests, unpaidLabourSummary, unpaidExpenseSummary, bills, labourPayments] = await Promise.all([
       fetchPayments('limit=5000'),
       fetchPaymentsSummary(),
       fetchProjects(),
@@ -19,14 +19,16 @@ async function loadPageData() {
       fetchUnpaidLabourWeeklySummary(),
       fetchUnpaidExpenseWeeklySummary(),
       fetchBills(),
+      fetchLabourPayments(),
     ]);
 
     // Server-side normalization
     const payments = Array.isArray(paymentsRes)
       ? paymentsRes
-      : (paymentsRes as any)?.data || [];
+      : paymentsRes.data || [];
 
     return {
+      labourPayments,
       payments,
       summary,
       projects,
@@ -42,6 +44,7 @@ async function loadPageData() {
   } catch (error) {
     console.error('Payments Page Error:', error);
     return {
+      labourPayments: [],
       payments: [],
       summary: [],
       projects: [],
@@ -73,7 +76,7 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
     redirect(tab === 'subcontractor' ? '/dashboard/subcontractor-payments' : '/dashboard/advance');
   }
   const {
-    payments, summary, projects, vendors, purchaseOrders, advanceRequests, subcontractWorkOrders,
+    labourPayments, payments, summary, projects, vendors, purchaseOrders, advanceRequests, subcontractWorkOrders,
     subcontractorPaymentRequests, unpaidLabourSummary, unpaidExpenseSummary, bills, error,
   } = await loadPageData();
 
@@ -81,6 +84,7 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
     <>
       {error && <Alert type="warning" showIcon title={error} className="mb-4" />}
       <PaymentsClient
+        labourPayments={labourPayments}
         payments={payments}
         summary={summary}
         projects={projects}

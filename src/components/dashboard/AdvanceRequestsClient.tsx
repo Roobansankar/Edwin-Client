@@ -30,7 +30,7 @@ const STATUS_LABELS: Record<string, string> = {
   pending: 'PENDING',
   accepted: 'ACCEPTED BY ACCOUNTS',
   admin_approved: 'PAYMENT PENDING',
-  paid: 'PAID',
+  paid: 'REQUEST FULLY PAID',
   rejected: 'REJECTED',
 };
 
@@ -323,9 +323,9 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
   };
 
   const renderActions = (row: RequestRow) => {
-    const canPay = row.request.status === 'admin_approved' && row.displayStatus !== 'paid';
+    const canPay = row.request.status === 'admin_approved' && row.balance > 0;
     const reason = row.displayStatus === 'paid'
-      ? 'Fully paid'
+      ? 'Approved request fully paid. Create another request and obtain admin approval to pay any remaining order balance.'
       : row.request.status === 'rejected'
         ? 'Request rejected'
         : 'Waiting for final admin approval';
@@ -375,7 +375,7 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
         return (
           <Flex vertical gap={4}>
             {list.length === 0 && <Typography.Text type="secondary" className="text-xs">No payments yet</Typography.Text>}
-            <Typography.Text strong className="text-xs">Balance: {formatCurrency(Math.max(balance, 0))}</Typography.Text>
+            <Typography.Text strong className="text-xs">{r.po ? 'PO Balance' : 'Request Balance'}: {formatCurrency(Math.max(balance, 0))}</Typography.Text>
             {list.length > 0 && (
               <Button size="small" icon={<HistoryOutlined />} onClick={() => setHistoryRow(r)}>History</Button>
             )}
@@ -383,6 +383,8 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
         );
       },
     },
+    { title: 'Request Paid', key: 'requestPaid', width: 140, align: 'right', render: (_, r) => formatCurrency(r.paid) },
+    { title: 'Request Balance', key: 'requestBalance', width: 150, align: 'right', render: (_, r) => formatCurrency(Math.max(r.balance, 0)) },
     { title: 'Pay Date', key: 'payDate', width: 110, align: 'right', render: (_, r) => (r.payDate ? dayjs(r.payDate).format('DD-MMM') : '-') },
     {
       title: 'Approval Status', key: 'approvalStatus', width: 180,

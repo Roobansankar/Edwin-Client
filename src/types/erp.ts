@@ -432,7 +432,13 @@ export type UnpaidExpenseWeekSummary = {
   expenseCount: number;
 };
 
+export type LabourPaymentEntry = {
+  id: string; amount: number; paymentDate: string; paymentMode: string;
+  referenceNumber?: string | null; notes?: string | null; createdById?: string;
+};
+
 export type LabourPayment = {
+  paymentHistory?: LabourPaymentEntry[];
   id: string;
   userId: string;
   userName: string;

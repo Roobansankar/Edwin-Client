@@ -32,7 +32,10 @@ import {
   EyeOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
-import type { Project, PurchaseBill, Expense, DailyLabourReport, DailyWorker, SubcontractorBill, VendorQuotation } from '@/types/erp';
+import type { LabourPayment, ExpensePayment, Project, PurchaseBill, Expense, DailyLabourReport, DailyWorker, SubcontractorBill, VendorQuotation } from '@/types/erp';
+import { labourHistoryText, labourPaidRatio } from '@/lib/labour-payment-history';
+import { LabourPaymentHistory } from './LabourPaymentHistory';
+import { paymentStatus } from '@/lib/payment-status';
 import { exportToExcel } from '@/lib/excel';
 import {
   formatCurrency,
@@ -76,6 +79,8 @@ type DailySummaryRow = {
   category: string;
   totalShift: number;
   totalAmount: number;
+  paidAmount: number;
+  paymentIds: string[];
   status: string;
 };
 
@@ -161,6 +166,8 @@ function billApprovalTag(status: string) {
 const ALL_PROJECTS = '__all_projects__';
 
 type ReportsClientProps = {
+  labourPayments?: LabourPayment[];
+  expensePayments?: ExpensePayment[];
   projects: Project[];
   bills: PurchaseBill[];
   expenses: Expense[];
@@ -240,6 +247,7 @@ function dailyWeekApprovalLabel(reports: DailyLabourReport[]) {
 }
 
 export function ReportsClient({
+  labourPayments = [], expensePayments = [],
   projects = [],
   bills = [],
   expenses = [],
@@ -273,7 +281,7 @@ export function ReportsClient({
     [allStatuses, statusFilter],
   );
   const dailyStatusOk = useCallback(
-    (status?: string | null) => (allStatuses ? !statusFilter || status === statusFilter : status === 'approved'),
+    (status?: string | null) => (allStatuses ? !statusFilter || status === statusFilter : status === 'approved' || status === 'admin_approved'),
     [allStatuses, statusFilter],
   );
   const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(ALL_PROJECTS);
@@ -501,10 +509,25 @@ export function ReportsClient({
           projects, team: group.team,
           category: [...group.categories.keys()].join(', '),
           totalShift: totals.shift, totalAmount: totals.amount,
+          paymentIds: [...new Set(reports.flatMap((report) => report.workers || [])
+            .filter((worker) => JSON.stringify([group.weekStart, worker.tradeRel?.teamId || worker.tradeRel?.team?.name || '-']) === key)
+            .map((worker) => worker.labourPaymentId).filter((id): id is string => !!id))],
+          paidAmount: reports.reduce((sum, report) => sum + (report.workers || [])
+            .filter((worker) => JSON.stringify([group.weekStart, worker.tradeRel?.teamId || worker.tradeRel?.team?.name || '-']) === key && labourPayments.some((payment) => payment.id === worker.labourPaymentId))
+            .reduce((subtotal, worker) => subtotal + tradeAmount(worker) * labourPaidRatio(labourPayments.find((payment) => payment.id === worker.labourPaymentId)!), 0), 0),
           status: dailyWeekApprovalLabel(reports),
         }];
       });
-  }, [filteredDailyLabour]);
+  }, [filteredDailyLabour, labourPayments]);
+
+  const paidExpenseIds = new Set(expensePayments.filter((payment) => payment.status === 'paid').map((payment) => payment.id));
+  const expensePaymentTotals = (entries: Expense[]) => {
+    const eligible = entries.filter((entry) => entry.status !== 'rejected');
+    const total = eligible.reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+    const paid = eligible.reduce((sum, entry) => sum + (entry.expensePaymentId && paidExpenseIds.has(entry.expensePaymentId) ? Number(entry.amount || 0) : 0), 0);
+    return { paid, balance: Math.max(0, total - paid) };
+  };
+  const paymentTag = (paid: number, balance: number) => <Tag color={paid <= 0 ? 'default' : balance > 0.005 ? 'warning' : 'success'}>{paymentStatus(paid, balance)}</Tag>;
 
   const exportProjectBills = () => {
     exportToExcel({
@@ -555,7 +578,7 @@ export function ReportsClient({
         'Trade',
         'Amount',
         'Status',
-        'Remarks',
+        'Remarks', 'Paid Amount', 'Balance', 'Payment Status',
       ],
       rows: projectExpenses.map((e) => [
         weekRangeLabel(e.expenseDate),
@@ -570,6 +593,8 @@ export function ReportsClient({
         Number(e.amount || 0),
         e.status ? approvalLabel(e.status) : '-',
         e.remarks || '-',
+        expensePaymentTotals([e]).paid, expensePaymentTotals([e]).balance,
+        paymentStatus(expensePaymentTotals([e]).paid, expensePaymentTotals([e]).balance),
       ]),
     });
   };
@@ -579,13 +604,13 @@ export function ReportsClient({
       filename: 'Daily-Labour-List',
       sheetName: 'Daily Labour',
       headers: hideProjectReport
-        ? ['S.No', 'Date', 'Week', 'All Project', 'Trade', 'Team', 'Category', 'Total Shift', 'Total Amount', 'Status']
+        ? ['S.No', 'Date', 'Week', 'All Project', 'Trade', 'Team', 'Category', 'Total Shift', 'Total Amount', 'Paid Amount', 'Balance', 'Payment Status', 'Status', 'Payment History']
         : ['Week', 'Submitted By', 'Project', 'Date', 'Trade', 'Trade Team', 'Count', 'Shift', 'Total Shift', 'Amount', 'Overall Remarks', 'Trade Remarks', 'Status'],
       rows: hideProjectReport ? dailySummaryRows.map((row) => [
         row.span ? row.serial : '', row.span ? row.dateRange : '',
         row.span ? weekRangeLabel(row.weekStart) : '', row.span ? row.projects : '',
         row.span ? '-' : '', row.span ? row.team : '', row.category,
-        row.totalShift, row.totalAmount, row.span ? row.status : '',
+        row.totalShift, row.totalAmount, row.paidAmount, Math.max(0, row.totalAmount - row.paidAmount), paymentStatus(row.paidAmount, Math.max(0, row.totalAmount - row.paidAmount)), row.span ? row.status : '', labourHistoryText(labourPayments.filter((payment) => row.paymentIds.includes(payment.id))),
       ]) : dailyWeekRows.flatMap((week) =>
         dailyTradeRows(week.reports).map((t) => [
           weekRangeLabel(week.weekStart),
@@ -610,7 +635,7 @@ export function ReportsClient({
     exportToExcel({
       filename: 'Vendor-Bills-Report',
       sheetName: 'Vendor Bills',
-      headers: ['Created Date', 'MR Ref', 'PO Number', 'Bill No', 'Vendor', 'Project', 'Status', 'GST', 'Total Amount', 'Paid Amount', 'Balance Amount', 'Bill Date'],
+      headers: ['Created Date', 'MR Ref', 'PO Number', 'Bill No', 'Vendor', 'Project', 'Status', 'GST', 'Total Amount', 'Paid Amount', 'Balance Amount', 'Bill Date', 'Payment Status'],
       rows: vendorBillRows.map((b) => [
         b.createdAt ? formatDate(b.createdAt) : '-',
         b.purchaseOrder?.materialRequirementNo || '-',
@@ -624,6 +649,7 @@ export function ReportsClient({
         Number(b.paidAmount || 0),
         Number(b.amount || 0) - Number(b.paidAmount || 0),
         b.billDate ? formatDate(b.billDate) : '-',
+        paymentStatus(Number(b.paidAmount || 0), Math.max(0, Number(b.amount || 0) - Number(b.paidAmount || 0))),
       ]),
     });
   };
@@ -632,7 +658,7 @@ export function ReportsClient({
     exportToExcel({
       filename: 'Subcontractor-Bills-Report',
       sheetName: 'Subcontractor Bills',
-      headers: ['Subcontractor', 'Project', 'WO Number', 'Total Amount', 'WO Amount', 'Notes', 'Requested At', 'Status'],
+      headers: ['Subcontractor', 'Project', 'WO Number', 'Total Amount', 'WO Amount', 'Notes', 'Requested At', 'Status', 'Paid Amount', 'Balance', 'Payment Status'],
       rows: subcontractorBillRows.map((b) => [
         b.subcontractor?.name || '-',
         b.project?.name || '-',
@@ -642,6 +668,8 @@ export function ReportsClient({
         b.notes || '-',
         b.createdAt ? formatDate(b.createdAt) : '-',
         approvalLabel(b.status, true),
+        Number(b.paidAmount || 0), Math.max(0, Number(b.amount || 0) - Number(b.paidAmount || 0)),
+        paymentStatus(Number(b.paidAmount || 0), Math.max(0, Number(b.amount || 0) - Number(b.paidAmount || 0))),
       ]),
     });
   };
@@ -711,6 +739,9 @@ export function ReportsClient({
       ),
     },
     { title: 'Project', key: 'project', width: 200, render: (_, r) => r.projectName },
+    { title: 'Paid Amount', key: 'paidAmount', width: 140, render: (_, row) => formatCurrency(expensePaymentTotals(row.expenses).paid) },
+    { title: 'Balance', key: 'balance', width: 140, render: (_, row) => formatCurrency(expensePaymentTotals(row.expenses).balance) },
+    { title: 'Payment Status', key: 'paymentStatus', width: 160, render: (_, row) => { const totals = expensePaymentTotals(row.expenses); return paymentTag(totals.paid, totals.balance); } },
     { title: 'Expenses', key: 'count', align: 'right' as const, width: 100, render: (_, r) => r.expenses.length },
     {
       title: 'Amount', key: 'amount', align: 'right' as const, width: 140,
@@ -776,6 +807,10 @@ export function ReportsClient({
     { title: 'Category', dataIndex: 'category', width: 120 },
     { title: 'Total Shift', dataIndex: 'totalShift', width: 110, align: 'right' },
     { title: 'Total Amount', dataIndex: 'totalAmount', width: 140, align: 'right', render: (amount: number) => formatCurrency(amount) },
+    { title: 'Paid Amount', dataIndex: 'paidAmount', width: 140, align: 'right', render: (amount: number) => formatCurrency(amount) },
+    { title: 'Balance', key: 'balance', width: 140, align: 'right', render: (_, row) => formatCurrency(Math.max(0, row.totalAmount - row.paidAmount)) },
+    { title: 'Payment Status', key: 'paymentStatus', width: 160, render: (_, row) => paymentTag(row.paidAmount, Math.max(0, row.totalAmount - row.paidAmount)) },
+    { title: 'History', key: 'history', width: 140, render: (_, row) => <LabourPaymentHistory payments={labourPayments.filter((payment) => row.paymentIds.includes(payment.id))} /> },
     { title: 'Status', dataIndex: 'status', width: 250, onCell: summarySpan },
   ];
 
@@ -885,6 +920,7 @@ export function ReportsClient({
     { title: 'Vendor', key: 'vendor', width: 180, ellipsis: true, render: (_, r) => r.vendor?.name || '-' },
     { title: 'Project', key: 'project', width: 220, ellipsis: true, render: (_, r) => r.project?.name || r.purchaseOrder?.project?.name || '-' },
     { title: 'Status', dataIndex: 'status', width: 150, render: (v: string) => billApprovalTag(v) },
+    { title: 'Payment Status', key: 'paymentStatus', width: 160, render: (_, r) => paymentTag(Number(r.paidAmount || 0), Math.max(0, Number(r.amount || 0) - Number(r.paidAmount || 0))) },
     {
       title: 'GST', dataIndex: 'gstAmount', align: 'right' as const, width: 110,
       render: (v) => Number(v) > 0 ? formatCurrency(v) : <Typography.Text type="secondary">-</Typography.Text>,
@@ -948,6 +984,8 @@ export function ReportsClient({
         </Button>
       ) : <Typography.Text type="secondary">-</Typography.Text>,
     },
+    { title: 'Paid Amount', key: 'paidAmount', width: 140, align: 'right', render: (_, r) => formatCurrency(r.paidAmount || 0) },
+    { title: 'Balance', key: 'balance', width: 140, align: 'right', render: (_, r) => formatCurrency(Math.max(0, Number(r.amount || 0) - Number(r.paidAmount || 0))) },
     { title: 'Notes', key: 'notes', width: 200, ellipsis: true, render: (_, r) => r.notes || '-' },
     {
       title: 'History', key: 'history', width: 220,
@@ -969,6 +1007,7 @@ export function ReportsClient({
     },
     { title: 'Requested At', key: 'requestedAt', width: 120, render: (_, r) => formatDate(r.createdAt) },
     { title: 'Status', dataIndex: 'status', width: 150, render: (v: string) => billApprovalTag(v) },
+    { title: 'Payment Status', key: 'paymentStatus', width: 160, render: (_, r) => paymentTag(Number(r.paidAmount || 0), Math.max(0, Number(r.amount || 0) - Number(r.paidAmount || 0))) },
   ];
 
   const projectTabItems = {

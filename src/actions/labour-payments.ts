@@ -14,6 +14,10 @@ async function getAuthHeaders() {
 }
 
 export async function createLabourPayment(data: {
+  paymentId?: string;
+  amount?: number;
+  paymentMode?: string;
+  referenceNumber?: string;
   userId: string;
   weekStart: string;
   weekEnd: string;
@@ -34,7 +38,7 @@ export async function createLabourPayment(data: {
       throw new Error(error.message || 'Failed to record payment');
     }
 
-    revalidatePath('/dashboard/labour-payments');
+    for (const path of ['/dashboard/labour-payments', '/dashboard/payments', '/dashboard/weekly-report', '/dashboard/all-reports', '/dashboard/reports']) revalidatePath(path);
     return res.json();
   } catch (error) {
     if (error instanceof Error) throw error;
@@ -56,7 +60,7 @@ export async function updateLabourPaymentStatus(id: string, status: 'pending' | 
       throw new Error(error.message || 'Failed to update status');
     }
 
-    revalidatePath('/dashboard/labour-payments');
+    for (const path of ['/dashboard/labour-payments', '/dashboard/payments', '/dashboard/weekly-report', '/dashboard/all-reports', '/dashboard/reports']) revalidatePath(path);
     return res.json();
   } catch (error) {
     if (error instanceof Error) throw error;

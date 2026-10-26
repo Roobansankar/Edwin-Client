@@ -2,11 +2,13 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { App, Button, Card, Col, DatePicker, Flex, Input, Modal, Row, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { App, Button, Card, Col, DatePicker, Flex, Input, InputNumber, Select, Modal, Row, Space, Statistic, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DollarOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { createLabourPayment, updateLabourPaymentStatus } from '@/actions/labour-payments';
+import { createLabourPayment } from '@/actions/labour-payments';
+import { labourPaid } from '@/lib/labour-payment-history';
+import { LabourPaymentHistory } from './LabourPaymentHistory';
 import type { LabourPayment, UnpaidLabourWeekSummary } from '@/types/erp';
 import {
   cardClassName,
@@ -33,6 +35,8 @@ type LabourRow = {
   userName: string;
   amount: number;
   status: 'pending' | 'paid';
+  paid?: number;
+  payment?: LabourPayment;
   payDate: string | null;
   // Set for a payment record that already exists (still pending).
   recordId?: string;
@@ -45,6 +49,9 @@ export function LabourPaymentsClient({ payments, unpaidSummary }: Props) {
   const [payRow, setPayRow] = useState<LabourRow | null>(null);
   const [paymentDate, setPaymentDate] = useState(dayjs());
   const [notes, setNotes] = useState('');
+  const [payAmount, setPayAmount] = useState(0);
+  const [paymentMode, setPaymentMode] = useState('upi');
+  const [referenceNumber, setReferenceNumber] = useState('');
 
   const rows = useMemo<LabourRow[]>(() => {
     const unpaid: LabourRow[] = unpaidSummary.map((row) => ({
@@ -63,7 +70,8 @@ export function LabourPaymentsClient({ payments, unpaidSummary }: Props) {
       weekEnd: p.weekEnd,
       userId: p.userId,
       userName: p.userName,
-      amount: Number(p.amount || 0),
+      amount: Math.max(0, Number(p.amount || 0) - labourPaid(p)),
+      paid: labourPaid(p), payment: p,
       status: p.status === 'paid' ? 'paid' : 'pending',
       payDate: p.paymentDate,
       recordId: p.status === 'paid' ? undefined : p.id,
@@ -81,35 +89,30 @@ export function LabourPaymentsClient({ payments, unpaidSummary }: Props) {
     [rows],
   );
   const paidTotal = useMemo(
-    () => rows.filter((r) => r.status === 'paid').reduce((sum, r) => sum + r.amount, 0),
+    () => rows.reduce((sum, r) => sum + (r.paid || 0), 0),
     [rows],
   );
 
   const openRecord = (row: LabourRow) => {
+    setPayAmount(row.amount);
+    setPaymentMode('upi');
+    setReferenceNumber('');
     setPaymentDate(dayjs());
     setNotes('');
     setPayRow(row);
   };
 
   const handleRecordPayment = () => {
-    if (!payRow) return;
+    if (!payRow || payAmount <= 0 || payAmount > payRow.amount) return;
     const row = payRow;
     startTransition(async () => {
       try {
-        if (row.recordId) {
-          // A record created before this flow: just mark it paid.
-          await updateLabourPaymentStatus(row.recordId, 'paid');
-        } else {
-          await createLabourPayment({
-            userId: row.userId,
-            weekStart: row.weekStart,
-            weekEnd: row.weekEnd,
-            paymentDate: paymentDate.format('YYYY-MM-DD'),
-            status: 'paid',
-            notes: notes.trim() || undefined,
-          });
-        }
-        message.success('Payment completed. Status set to Paid');
+        await createLabourPayment({
+          paymentId: row.recordId, userId: row.userId, weekStart: row.weekStart, weekEnd: row.weekEnd,
+          paymentDate: paymentDate.format('YYYY-MM-DD'), status: 'paid', notes: notes.trim() || undefined,
+          amount: payAmount, paymentMode, referenceNumber: referenceNumber.trim() || undefined,
+        });
+        message.success('Payment recorded');
         setPayRow(null);
         router.refresh();
       } catch (error) {
@@ -123,7 +126,10 @@ export function LabourPaymentsClient({ payments, unpaidSummary }: Props) {
     { title: 'S.No', key: 'sno', width: 70, align: 'right', render: (_, __, i) => i + 1 },
     { title: 'Week', key: 'week', width: 160, render: (_, r) => weekRangeLabel(r.weekStart) },
     { title: 'Team', dataIndex: 'userName', key: 'team', width: 200, render: (v: string) => <Typography.Text strong>{v}</Typography.Text> },
-    { title: 'Amount', key: 'amount', align: 'right', width: 140, render: (_, r) => formatCurrency(r.amount) },
+    { title: 'Total Amount', key: 'totalAmount', width: 140, align: 'right', render: (_, row) => formatCurrency(row.amount + (row.paid || 0)) },
+    { title: 'Paid Amount', key: 'paid', width: 140, render: (_, row) => formatCurrency(row.paid || 0) },
+    { title: 'History', key: 'history', width: 140, render: (_, row) => row.payment ? <LabourPaymentHistory payments={[row.payment]} /> : '-' },
+    { title: 'Remaining Balance', key: 'amount', align: 'right', width: 160, render: (_, r) => <Typography.Text strong type={r.amount > 0 ? 'warning' : 'success'}>{formatCurrency(r.amount)}</Typography.Text> },
     {
       title: 'Pay Date', key: 'payDate', align: 'right', width: 130,
       render: (_, r) => (r.payDate ? dayjs(r.payDate).format('DD-MMM') : '-'),
@@ -131,7 +137,7 @@ export function LabourPaymentsClient({ payments, unpaidSummary }: Props) {
     {
       title: 'Status', key: 'status', width: 130,
       render: (_, r) => (
-        <Tag color={r.status === 'paid' ? 'success' : 'gold'}>{r.status === 'paid' ? 'Paid' : 'Pending'}</Tag>
+        <Tag color={r.status === 'paid' ? 'success' : 'gold'}>{r.status === 'paid' ? 'Fully Paid' : r.paid ? 'Partially Paid' : 'Unpaid'}</Tag>
       ),
     },
     {
@@ -203,6 +209,7 @@ export function LabourPaymentsClient({ payments, unpaidSummary }: Props) {
         onOk={handleRecordPayment}
         okText="Record Payment"
         confirmLoading={isPending}
+        okButtonProps={{ disabled: !payRow || payAmount <= 0 || payAmount > payRow.amount }}
         destroyOnHidden
       >
         {payRow && (
@@ -210,8 +217,14 @@ export function LabourPaymentsClient({ payments, unpaidSummary }: Props) {
             <Typography.Text>
               {weekRangeLabel(payRow.weekStart)} · Amount: <Typography.Text strong>{formatCurrency(payRow.amount)}</Typography.Text>
             </Typography.Text>
-            {!payRow.recordId && (
+            {(
               <>
+                <div>
+                  <Typography.Text>Amount to pay</Typography.Text>
+                  <InputNumber className="w-full" min={0.01} max={payRow.amount} precision={2} value={payAmount} onChange={(value) => setPayAmount(Number(value) || 0)} />
+                </div>
+                <Select className="w-full" value={paymentMode} onChange={setPaymentMode} options={['upi', 'rtgs', 'cash', 'cheque'].map((value) => ({ value, label: value.toUpperCase() }))} />
+                <Input placeholder="UTR / Reference number" value={referenceNumber} onChange={(event) => setReferenceNumber(event.target.value)} />
                 <div>
                   <Typography.Text className={mutedTextClassName}>Pay date</Typography.Text>
                   <DatePicker

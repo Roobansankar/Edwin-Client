@@ -1,3 +1,4 @@
+import { labourPaid, labourPaidRatio } from './labour-payment-history';
 import type { DailyLabourReport, Expense, ExpensePayment, LabourPayment, Payment, PurchaseBill, SubcontractorBill } from '@/types/erp';
 import { weekStartOf } from '@/components/dashboard/ui';
 
@@ -6,6 +7,7 @@ export type PaidReportSources = {
   bills: PurchaseBill[]; subcontractorBills: SubcontractorBill[]; dailyLabourReports: DailyLabourReport[]; expenses: Expense[];
 };
 export type PaidReportRow = {
+  labourPaymentId?: string;
   key: string; category: string; week: string; project: string; item: string; type: string;
   name: string; description: string; gst: string; billNo: string; withoutGst: number;
   gstAmount: number; total: number; paid: number; balance: number | null;
@@ -42,7 +44,7 @@ export function buildPaidReport(sources: PaidReportSources): PaidReportRow[] {
     const sub = !!(subBill || wo || p.subcontractorPaymentRequestId);
     const vendor = !sub && !!(p.vendorId || bill || po || p.advanceRequestId);
     const paid = Number(p.amount);
-    const fullTotal = bill ? Number(bill.amount) : subBill ? Number(subBill.amount) + Number(subBill.gstAmount || 0)
+    const fullTotal = bill ? Number(bill.amount) : subBill ? Number(subBill.amount)
       : po ? Number(po.totalWithGst || po.totalAmount) : wo ? Number(wo.totalAmount)
         : p.advanceRequest ? Number(p.advanceRequest.approvedAmount ?? p.advanceRequest.amount)
           : p.subcontractorPaymentRequest ? Number(p.subcontractorPaymentRequest.approvedAmount ?? p.subcontractorPaymentRequest.amount) : null;
@@ -64,21 +66,21 @@ export function buildPaidReport(sources: PaidReportSources): PaidReportRow[] {
     });
   }
   for (const payment of sources.labourPayments) {
-    if (payment.status !== 'paid' || Number(payment.amount) <= 0) continue;
+    if (labourPaid(payment) <= 0) continue;
     let linked = false;
     for (const report of sources.dailyLabourReports) for (const worker of report.workers || []) {
       if (worker.labourPaymentId !== payment.id) continue;
       linked = true;
       const amount = (Number(worker.count) || 1) * Number(worker.shift || 0) * Number(worker.shiftAmount ?? worker.tradeRel?.shiftWiseAmount ?? 0);
       add(`labour:${payment.id}`, payment.weekStart, {
-        category: 'labour', project: report.project?.name || '-', item: 'Labour', type: 'Civil Labour',
+        labourPaymentId: payment.id, category: 'labour', project: report.project?.name || '-', item: 'Labour', type: 'Civil Labour',
         name: worker.tradeRel?.team?.name || payment.userName, description: `${worker.trade} (${worker.count} × ${worker.shift} shifts)`,
-        gst: 'Non GST', billNo: '-', withoutGst: amount, gstAmount: 0, total: amount, paid: amount, balance: 0,
+        gst: 'Non GST', billNo: '-', withoutGst: amount * labourPaidRatio(payment), gstAmount: 0, total: amount, paid: amount * labourPaidRatio(payment), balance: Math.max(0, amount * (1 - labourPaidRatio(payment))),
       });
     }
     if (!linked) add(`labour:${payment.id}`, payment.weekStart, {
-      category: 'labour', project: '-', item: 'Labour', type: 'Civil Labour', name: payment.userName, description: payment.notes || '-',
-      gst: 'Non GST', billNo: '-', withoutGst: Number(payment.amount), gstAmount: 0, total: Number(payment.amount), paid: Number(payment.amount), balance: 0,
+      labourPaymentId: payment.id, category: 'labour', project: '-', item: 'Labour', type: 'Civil Labour', name: payment.userName, description: payment.notes || '-',
+      gst: 'Non GST', billNo: '-', withoutGst: labourPaid(payment), gstAmount: 0, total: Number(payment.amount), paid: labourPaid(payment), balance: Math.max(0, Number(payment.amount) - labourPaid(payment)),
     });
   }
   for (const payment of sources.expensePayments) {

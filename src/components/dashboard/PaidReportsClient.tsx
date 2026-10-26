@@ -6,11 +6,14 @@ import type { ColumnsType } from 'antd/es/table';
 import type { Dayjs } from 'dayjs';
 import { FileExcelOutlined } from '@ant-design/icons';
 import { buildPaidReport, type PaidReportRow, type PaidReportSources } from '@/lib/paid-report';
+import { labourHistoryText } from '@/lib/labour-payment-history';
+import { LabourPaymentHistory } from './LabourPaymentHistory';
+import { paymentStatus } from '@/lib/payment-status';
 import { exportToExcel } from '@/lib/excel';
 import { formatCurrency, weekRangeLabel, weekStartOf } from './ui';
 
 const weekNumber = (date: string) => `${Math.ceil(Number(date.slice(8, 10)) / 7)}${['st', 'nd', 'rd'][Math.ceil(Number(date.slice(8, 10)) / 7) - 1] || 'th'} Week`;
-const headers = ['S.No', 'Date', 'Week', 'Project Name', 'Items', 'Type', 'Vendor / Team', 'Description', 'GST / Non GST', 'Bill No', 'Without GST', 'GST Amount', 'With GST', 'Total Amount', 'Paid Amount', 'Balance', 'Payment Status'];
+const headers = ['S.No', 'Date', 'Week', 'Project Name', 'Items', 'Type', 'Vendor / Team', 'Description', 'GST / Non GST', 'Bill No', 'Without GST', 'GST Amount', 'With GST', 'Total Amount', 'Paid Amount', 'Balance', 'Payment Status', 'Payment History'];
 
 export function PaidReportsClient(props: PaidReportSources) {
   const [search, setSearch] = useState('');
@@ -31,7 +34,7 @@ export function PaidReportsClient(props: PaidReportSources) {
   const exportRows = (records: PaidReportRow[], name: string) => exportToExcel({
     filename: `Paid-Report-${name}`, sheetName: 'Paid Report', headers,
     rows: records.map((row, index) => [index + 1, weekRangeLabel(row.week), weekNumber(row.week), row.project, row.item, row.type, row.name, row.description,
-      row.gst, row.billNo, row.withoutGst, row.gstAmount, row.gstAmount > 0 ? row.total : 0, row.total, row.paid, row.balance ?? '', 'Paid']),
+      row.gst, row.billNo, row.withoutGst, row.gstAmount, row.gstAmount > 0 ? row.total : 0, row.total, row.paid, row.balance ?? '', paymentStatus(row.paid, row.balance), row.labourPaymentId ? labourHistoryText(props.labourPayments.filter((payment) => payment.id === row.labourPaymentId)) : '']),
   });
   const columns: ColumnsType<PaidReportRow> = [
     { title: 'S.No', key: 'sno', width: 70, render: (_, __, index) => index + 1 },
@@ -49,7 +52,8 @@ export function PaidReportsClient(props: PaidReportSources) {
     { title: 'Total Amount', dataIndex: 'total', width: 140, align: 'right', render: (value: number) => formatCurrency(value) },
     { title: 'Paid Amount', dataIndex: 'paid', width: 140, align: 'right', render: (value: number) => formatCurrency(value) },
     { title: 'Balance', dataIndex: 'balance', width: 140, align: 'right', render: (value: number | null) => value === null ? '-' : formatCurrency(value) },
-    { title: 'Payment Status', key: 'status', width: 150, render: () => <Tag color="success">Paid</Tag> },
+    { title: 'History', key: 'history', width: 140, render: (_, row) => row.labourPaymentId ? <LabourPaymentHistory payments={props.labourPayments.filter((payment) => payment.id === row.labourPaymentId)} /> : '-' },
+    { title: 'Payment Status', key: 'status', width: 150, render: (_, row) => <Tag color={row.balance === null ? 'default' : row.balance > 0.005 ? 'warning' : 'success'}>{paymentStatus(row.paid, row.balance)}</Tag> },
   ];
   return <div>
     <Flex justify="space-between" align="center" wrap="wrap" gap={12} className="mb-4">
