@@ -123,7 +123,7 @@ export function PaymentOptionsPanel({
   // summaries already leave out paid weeks).
   const labourRows = useMemo<PaymentRow[]>(() =>
     [...unpaidLabourSummary.map((row) => ({
-      key: `labour-${row.userId}-${row.weekStart}`,
+      key: `labour-${row.userId}-${row.weekStart}-${row.workerIds?.[0]}`,
       ref: weekRangeLabel(row.weekStart),
       name: row.userName,
       project: row.projectNames?.join(', ') || '-',
@@ -131,10 +131,10 @@ export function PaymentOptionsPanel({
       amount: Number(row.totalAmount || 0),
       labour: true, ledger: true,
       status: 'admin_approved',
-      pay: (date: string, mode: string, ref: string, amount: number) => createLabourPayment({ userId: row.userId, weekStart: row.weekStart, weekEnd: row.weekEnd, paymentDate: date, status: 'paid', amount, paymentMode: mode, referenceNumber: ref }),
+      pay: (date: string, mode: string, ref: string, amount: number) => createLabourPayment({ workerIds: row.workerIds, userId: row.userId, weekStart: row.weekStart, weekEnd: row.weekEnd, paymentDate: date, status: 'paid', amount, paymentMode: mode, referenceNumber: ref }),
     })), ...labourPayments.map((payment) => ({
       key: `labour-record-${payment.id}`, ref: weekRangeLabel(payment.weekStart), name: payment.userName,
-      project: '-', team: '-', amount: Math.max(0, Number(payment.amount) - labourPaid(payment)),
+      project: payment.projectNames?.join(', ') || '-', team: payment.teamNames?.join(', ') || 'Unassigned Team', amount: Math.max(0, Number(payment.amount) - labourPaid(payment)),
       ledger: true, labour: true, labourPayment: payment,
       status: labourPaid(payment) >= Number(payment.amount) ? 'paid' : 'admin_approved',
       pay: (date: string, mode: string, ref: string, amount: number) => createLabourPayment({
@@ -398,6 +398,7 @@ export function PaymentOptionsPanel({
       >
         {payRow && (
           <Space orientation="vertical" size="middle" className="w-full">
+            {payRow.labour && <Typography.Text>Team: <Typography.Text strong>{payRow.team}</Typography.Text></Typography.Text>}
             <Typography.Text>
               {payRow.labour ? 'Remaining balance' : 'Amount'}: <Typography.Text strong>{formatCurrency(payRow.amount)}</Typography.Text>
               {payRow.ref !== '-' && <> · {payRow.ref}</>}

@@ -33,6 +33,8 @@ type LabourRow = {
   weekEnd: string;
   userId: string;
   userName: string;
+  team: string;
+  workerIds?: string[];
   amount: number;
   status: 'pending' | 'paid';
   paid?: number;
@@ -55,11 +57,13 @@ export function LabourPaymentsClient({ payments, unpaidSummary }: Props) {
 
   const rows = useMemo<LabourRow[]>(() => {
     const unpaid: LabourRow[] = unpaidSummary.map((row) => ({
-      key: `unpaid-${row.userId}-${row.weekStart}`,
+      key: `unpaid-${row.userId}-${row.weekStart}-${row.workerIds?.[0]}`,
       weekStart: row.weekStart,
       weekEnd: row.weekEnd,
       userId: row.userId,
       userName: row.userName,
+      team: row.teamNames?.join(', ') || 'Unassigned Team',
+      workerIds: row.workerIds,
       amount: Number(row.totalAmount || 0),
       status: 'pending',
       payDate: null,
@@ -70,6 +74,7 @@ export function LabourPaymentsClient({ payments, unpaidSummary }: Props) {
       weekEnd: p.weekEnd,
       userId: p.userId,
       userName: p.userName,
+      team: p.teamNames?.join(', ') || 'Unassigned Team',
       amount: Math.max(0, Number(p.amount || 0) - labourPaid(p)),
       paid: labourPaid(p), payment: p,
       status: p.status === 'paid' ? 'paid' : 'pending',
@@ -108,7 +113,7 @@ export function LabourPaymentsClient({ payments, unpaidSummary }: Props) {
     startTransition(async () => {
       try {
         await createLabourPayment({
-          paymentId: row.recordId, userId: row.userId, weekStart: row.weekStart, weekEnd: row.weekEnd,
+          paymentId: row.recordId, workerIds: row.workerIds, userId: row.userId, weekStart: row.weekStart, weekEnd: row.weekEnd,
           paymentDate: paymentDate.format('YYYY-MM-DD'), status: 'paid', notes: notes.trim() || undefined,
           amount: payAmount, paymentMode, referenceNumber: referenceNumber.trim() || undefined,
         });
@@ -125,7 +130,7 @@ export function LabourPaymentsClient({ payments, unpaidSummary }: Props) {
   const columns: ColumnsType<LabourRow> = [
     { title: 'S.No', key: 'sno', width: 70, align: 'right', render: (_, __, i) => i + 1 },
     { title: 'Week', key: 'week', width: 160, render: (_, r) => weekRangeLabel(r.weekStart) },
-    { title: 'Team', dataIndex: 'userName', key: 'team', width: 200, render: (v: string) => <Typography.Text strong>{v}</Typography.Text> },
+    { title: 'Team', dataIndex: 'team', key: 'team', width: 200, render: (v: string) => <Typography.Text strong>{v}</Typography.Text> },
     { title: 'Total Amount', key: 'totalAmount', width: 140, align: 'right', render: (_, row) => formatCurrency(row.amount + (row.paid || 0)) },
     { title: 'Paid Amount', key: 'paid', width: 140, render: (_, row) => formatCurrency(row.paid || 0) },
     { title: 'History', key: 'history', width: 140, render: (_, row) => row.payment ? <LabourPaymentHistory payments={[row.payment]} /> : '-' },

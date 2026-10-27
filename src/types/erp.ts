@@ -439,6 +439,8 @@ export type LabourPaymentEntry = {
 
 export type LabourPayment = {
   paymentHistory?: LabourPaymentEntry[];
+  teamNames?: string[];
+  projectNames?: string[];
   id: string;
   userId: string;
   userName: string;
@@ -462,6 +464,7 @@ export type UnpaidLabourWeekSummary = {
   entryCount: number;
   projectNames: string[];
   teamNames: string[];
+  workerIds: string[];
 };
 
 export type DashboardProject = {

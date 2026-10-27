@@ -71,12 +71,15 @@ type DailyWeekRow = {
 type DailySummaryRow = {
   key: string;
   serial: number;
+  projectSpan: number;
+  projectKey: string;
   span: number;
   weekStart: string;
   dateRange: string;
   projects: string;
   team: string;
   category: string;
+  isTotal: boolean;
   totalShift: number;
   totalAmount: number;
   paidAmount: number;
@@ -471,17 +474,18 @@ export function ReportsClient({
     );
   }, [filteredDailyLabour]);
 
-  // One weekly row per labour team, with its categories combined in one cell.
+  // Each weekly team total is followed by its individual trade totals.
   const dailySummaryRows = useMemo<DailySummaryRow[]>(() => {
-    const groups = new Map<string, { weekStart: string; team: string; reports: Map<string, DailyLabourReport>; categories: Map<string, { shift: number; amount: number }> }>();
+    const groups = new Map<string, { weekStart: string; projectKey: string; team: string; reports: Map<string, DailyLabourReport>; categories: Map<string, { shift: number; amount: number }> }>();
     for (const report of filteredDailyLabour) {
       const weekStart = weekStartOf(report.reportDate)?.format('YYYY-MM-DD') || '';
       for (const worker of report.workers || []) {
         const team = worker.tradeRel?.team?.name || '-';
-        const key = JSON.stringify([weekStart, worker.tradeRel?.teamId || team]);
+        const projectKey = JSON.stringify([weekStart, report.projectId || report.project?.name || '-']);
+        const key = JSON.stringify([projectKey, worker.tradeRel?.teamId || team]);
         let group = groups.get(key);
         if (!group) {
-          group = { weekStart, team, reports: new Map(), categories: new Map() };
+          group = { weekStart, projectKey, team, reports: new Map(), categories: new Map() };
           groups.set(key, group);
         }
         group.reports.set(report.id, report);
@@ -492,8 +496,8 @@ export function ReportsClient({
         group.categories.set(category, totals);
       }
     }
-    return [...groups.entries()]
-      .sort(([, a], [, b]) => b.weekStart.localeCompare(a.weekStart) || a.team.localeCompare(b.team))
+    const rows = [...groups.entries()]
+      .sort(([, a], [, b]) => b.weekStart.localeCompare(a.weekStart) || a.projectKey.localeCompare(b.projectKey) || a.team.localeCompare(b.team))
       .flatMap(([key, group], index) => {
         const reports = [...group.reports.values()];
         const dates = reports.map((report) => report.reportDate.split('T')[0]).sort();
@@ -502,22 +506,43 @@ export function ReportsClient({
           (sum, category) => ({ shift: sum.shift + category.shift, amount: sum.amount + category.amount }),
           { shift: 0, amount: 0 },
         );
-        return [{
-          key, serial: index + 1, span: 1,
+        const summary: DailySummaryRow = {
+          key, serial: index + 1, projectSpan: 0, projectKey: group.projectKey, span: group.categories.size + 1, isTotal: true,
           weekStart: group.weekStart,
           dateRange: dates[0] === dates[dates.length - 1] ? formatDate(dates[0]) : `${formatDate(dates[0])} ? ${formatDate(dates[dates.length - 1])}`,
           projects, team: group.team,
-          category: [...group.categories.keys()].join(', '),
+          category: 'Total',
           totalShift: totals.shift, totalAmount: totals.amount,
           paymentIds: [...new Set(reports.flatMap((report) => report.workers || [])
-            .filter((worker) => JSON.stringify([group.weekStart, worker.tradeRel?.teamId || worker.tradeRel?.team?.name || '-']) === key)
+            .filter((worker) => JSON.stringify([group.projectKey, worker.tradeRel?.teamId || worker.tradeRel?.team?.name || '-']) === key)
             .map((worker) => worker.labourPaymentId).filter((id): id is string => !!id))],
           paidAmount: reports.reduce((sum, report) => sum + (report.workers || [])
-            .filter((worker) => JSON.stringify([group.weekStart, worker.tradeRel?.teamId || worker.tradeRel?.team?.name || '-']) === key && labourPayments.some((payment) => payment.id === worker.labourPaymentId))
+            .filter((worker) => JSON.stringify([group.projectKey, worker.tradeRel?.teamId || worker.tradeRel?.team?.name || '-']) === key && labourPayments.some((payment) => payment.id === worker.labourPaymentId))
             .reduce((subtotal, worker) => subtotal + tradeAmount(worker) * labourPaidRatio(labourPayments.find((payment) => payment.id === worker.labourPaymentId)!), 0), 0),
           status: dailyWeekApprovalLabel(reports),
-        }];
+        };
+        return [summary, ...[...group.categories.entries()]
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([category, totals]): DailySummaryRow => ({
+            ...summary,
+            key: JSON.stringify([key, category]),
+            span: 0,
+            isTotal: false,
+            category,
+            totalShift: totals.shift,
+            totalAmount: totals.amount,
+          }))];
       });
+    let serial = 0;
+    for (let start = 0; start < rows.length;) {
+      let end = start + 1;
+      while (end < rows.length && rows[end].projectKey === rows[start].projectKey) end++;
+      serial++;
+      rows[start].projectSpan = end - start;
+      for (let index = start; index < end; index++) rows[index].serial = serial;
+      start = end;
+    }
+    return rows;
   }, [filteredDailyLabour, labourPayments]);
 
   const paidExpenseIds = new Set(expensePayments.filter((payment) => payment.status === 'paid').map((payment) => payment.id));
@@ -607,10 +632,10 @@ export function ReportsClient({
         ? ['S.No', 'Date', 'Week', 'All Project', 'Team', 'Trade', 'Total Shift', 'Total Amount', 'Paid Amount', 'Balance', 'Payment Status', 'Status', 'Payment History']
         : ['Week', 'Submitted By', 'Project', 'Date', 'Trade', 'Trade Team', 'Count', 'Shift', 'Total Shift', 'Amount', 'Overall Remarks', 'Trade Remarks', 'Status'],
       rows: hideProjectReport ? dailySummaryRows.map((row) => [
-        row.span ? row.serial : '', row.span ? row.dateRange : '',
-        row.span ? weekRangeLabel(row.weekStart) : '', row.span ? row.projects : '',
+        row.projectSpan ? row.serial : '', row.span ? row.dateRange : '',
+        row.projectSpan ? weekRangeLabel(row.weekStart) : '', row.projectSpan ? row.projects : '',
         row.span ? row.team : '', row.category,
-        row.totalShift, row.totalAmount, row.paidAmount, Math.max(0, row.totalAmount - row.paidAmount), paymentStatus(row.paidAmount, Math.max(0, row.totalAmount - row.paidAmount)), row.span ? row.status : '', labourHistoryText(labourPayments.filter((payment) => row.paymentIds.includes(payment.id))),
+        row.totalShift, row.totalAmount, row.isTotal ? row.paidAmount : '', row.isTotal ? Math.max(0, row.totalAmount - row.paidAmount) : '', row.isTotal ? paymentStatus(row.paidAmount, Math.max(0, row.totalAmount - row.paidAmount)) : '', row.span ? row.status : '', row.isTotal ? labourHistoryText(labourPayments.filter((payment) => row.paymentIds.includes(payment.id))) : '',
       ]) : dailyWeekRows.flatMap((week) =>
         dailyTradeRows(week.reports).map((t) => [
           weekRangeLabel(week.weekStart),
@@ -795,20 +820,21 @@ export function ReportsClient({
   ];
 
 
+  const projectSpan = (row: DailySummaryRow) => ({ rowSpan: row.projectSpan });
   const summarySpan = (row: DailySummaryRow) => ({ rowSpan: row.span });
   const dailySummaryColumns: ColumnsType<DailySummaryRow> = [
-    { title: 'S.No', dataIndex: 'serial', width: 60, onCell: summarySpan },
+    { title: 'S.No', dataIndex: 'serial', width: 60, onCell: projectSpan },
     { title: 'Date', dataIndex: 'dateRange', width: 190, onCell: summarySpan },
-    { title: 'Week', key: 'week', width: 160, render: (_, row) => weekRangeLabel(row.weekStart), onCell: summarySpan },
-    { title: 'All Project', dataIndex: 'projects', width: 180, onCell: summarySpan },
+    { title: 'Week', key: 'week', width: 160, render: (_, row) => weekRangeLabel(row.weekStart), onCell: projectSpan },
+    { title: 'All Project', dataIndex: 'projects', width: 180, onCell: projectSpan },
     { title: 'Team', dataIndex: 'team', width: 140, onCell: summarySpan },
-    { title: 'Trade', dataIndex: 'category', width: 120 },
-    { title: 'Total Shift', dataIndex: 'totalShift', width: 110, align: 'right' },
-    { title: 'Total Amount', dataIndex: 'totalAmount', width: 140, align: 'right', render: (amount: number) => formatCurrency(amount) },
-    { title: 'Paid Amount', dataIndex: 'paidAmount', width: 140, align: 'right', render: (amount: number) => formatCurrency(amount) },
-    { title: 'Balance', key: 'balance', width: 140, align: 'right', render: (_, row) => formatCurrency(Math.max(0, row.totalAmount - row.paidAmount)) },
-    { title: 'Payment Status', key: 'paymentStatus', width: 160, render: (_, row) => paymentTag(row.paidAmount, Math.max(0, row.totalAmount - row.paidAmount)) },
-    { title: 'History', key: 'history', width: 140, render: (_, row) => <LabourPaymentHistory payments={labourPayments.filter((payment) => row.paymentIds.includes(payment.id))} /> },
+    { title: 'Trade', dataIndex: 'category', width: 120, render: (value: string, row) => <Typography.Text strong={row.isTotal}>{value}</Typography.Text> },
+    { title: 'Total Shift', dataIndex: 'totalShift', width: 110, align: 'right', render: (value: number, row) => <Typography.Text strong={row.isTotal}>{value}</Typography.Text> },
+    { title: 'Total Amount', dataIndex: 'totalAmount', width: 140, align: 'right', render: (amount: number, row) => <Typography.Text strong={row.isTotal}>{formatCurrency(amount)}</Typography.Text> },
+    { title: 'Paid Amount', dataIndex: 'paidAmount', width: 140, align: 'right', onCell: summarySpan, render: (amount: number) => formatCurrency(amount) },
+    { title: 'Balance', key: 'balance', width: 140, align: 'right', onCell: summarySpan, render: (_, row) => formatCurrency(Math.max(0, row.totalAmount - row.paidAmount)) },
+    { title: 'Payment Status', key: 'paymentStatus', width: 160, onCell: summarySpan, render: (_, row) => paymentTag(row.paidAmount, Math.max(0, row.totalAmount - row.paidAmount)) },
+    { title: 'History', key: 'history', width: 140, onCell: summarySpan, render: (_, row) => <LabourPaymentHistory payments={labourPayments.filter((payment) => row.paymentIds.includes(payment.id))} /> },
     { title: 'Status', dataIndex: 'status', width: 250, onCell: summarySpan },
   ];
 

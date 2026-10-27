@@ -15,6 +15,7 @@ async function getAuthHeaders() {
 
 export async function createLabourPayment(data: {
   paymentId?: string;
+  workerIds?: string[];
   amount?: number;
   paymentMode?: string;
   referenceNumber?: string;
