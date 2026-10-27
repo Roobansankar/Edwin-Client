@@ -5,6 +5,8 @@ import { App, Button, Card, Col, DatePicker, Flex, Input, Row, Select, Space, St
 import type { ColumnsType } from 'antd/es/table';
 import { DollarOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { labourPaid } from '@/lib/labour-payment-history';
+import { LabourPaymentHistory } from './LabourPaymentHistory';
 import { createExpensePayment, updateExpensePaymentStatus } from '@/actions/expense-payments';
 import type { ExpensePayment, UnpaidExpenseWeekSummary } from '@/types/erp';
 import { cardClassName, formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
@@ -102,11 +104,11 @@ export function ExpensePaymentsClient({ payments, unpaidSummary }: Props) {
   };
 
   const totalPending = useMemo(
-    () => unpaidSummary.reduce((sum, row) => sum + Number(row.totalAmount), 0),
-    [unpaidSummary],
+    () => unpaidSummary.reduce((sum, row) => sum + Number(row.totalAmount), 0) + payments.reduce((sum, payment) => sum + Math.max(0, Number(payment.amount) - labourPaid(payment)), 0),
+    [unpaidSummary, payments],
   );
   const totalPaidRecorded = useMemo(
-    () => payments.filter((p) => p.status === 'paid').reduce((sum, p) => sum + Number(p.amount), 0),
+    () => payments.reduce((sum, p) => sum + labourPaid(p), 0),
     [payments],
   );
 
@@ -115,6 +117,9 @@ export function ExpensePaymentsClient({ payments, unpaidSummary }: Props) {
     { title: 'Name', dataIndex: 'userName', render: (v: string) => <Typography.Text strong>{v}</Typography.Text> },
     { title: 'Week', key: 'week', render: (_, record) => weekLabel(record.weekStart, record.weekEnd) },
     { title: 'Amount', dataIndex: 'amount', align: 'right', render: formatCurrency },
+    { title: 'Paid Amount', key: 'paidAmount', render: (_, record) => formatCurrency(labourPaid(record)) },
+    { title: 'Balance', key: 'balance', render: (_, record) => formatCurrency(Math.max(0, Number(record.amount) - labourPaid(record))) },
+    { title: 'History', key: 'history', render: (_, record) => <LabourPaymentHistory payments={[record]} title="Expense payment history" /> },
     { title: 'Pay Date', dataIndex: 'paymentDate', render: formatDate },
     {
       title: 'Status',
@@ -127,9 +132,9 @@ export function ExpensePaymentsClient({ payments, unpaidSummary }: Props) {
           variant="borderless"
           className="w-full"
           onChange={(newStatus) => handleStatusChange(record.id, newStatus)}
-          options={STATUS_OPTIONS}
+          options={[...STATUS_OPTIONS, { label: 'Partially Paid', value: 'partial' }]}
           popupMatchSelectWidth={false}
-          disabled={isPending}
+          disabled={isPending || !!record.paymentHistory?.length}
         />
       ),
     },

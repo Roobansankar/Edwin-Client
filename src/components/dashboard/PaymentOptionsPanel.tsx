@@ -8,6 +8,7 @@ import { CheckOutlined, CloseOutlined, DollarOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs';
 import type {
   LabourPayment,
+  ExpensePayment,
   AdvanceRequest,
   Payment,
   PurchaseBill,
@@ -29,6 +30,7 @@ import { cardClassName, formatCurrency, formatDate, mutedTextClassName, weekRang
 
 type Props = {
   labourPayments: LabourPayment[];
+  expensePayments: ExpensePayment[];
   payments: Payment[];
   unpaidLabourSummary: UnpaidLabourWeekSummary[];
   unpaidExpenseSummary: UnpaidExpenseWeekSummary[];
@@ -54,6 +56,7 @@ type PaymentRow = {
   amount: number;
   ledger: boolean;
   labour?: boolean;
+  expense?: boolean;
   labourPayment?: LabourPayment;
   status: string;
   pay: (paymentDate: string, paymentMode: string, referenceNumber: string, amount: number) => Promise<unknown>;
@@ -98,6 +101,7 @@ function paidByKey(payments: Payment[], pick: (p: Payment) => string | null | un
 
 export function PaymentOptionsPanel({
   labourPayments,
+  expensePayments,
   payments,
   unpaidLabourSummary,
   unpaidExpenseSummary,
@@ -144,18 +148,30 @@ export function PaymentOptionsPanel({
     }))],
   [unpaidLabourSummary, labourPayments]);
 
-  const expenseRows = useMemo<PaymentRow[]>(() =>
-    unpaidExpenseSummary.map((row) => ({
+  const expenseRows = useMemo<PaymentRow[]>(() => [
+    ...unpaidExpenseSummary.map((row) => ({
       key: `expenses-${row.userId}-${row.weekStart}`,
-      ref: weekRangeLabel(row.weekStart),
-      name: row.userName,
-      project: '-',
-      amount: Number(row.totalAmount || 0),
-      ledger: false,
+      ref: weekRangeLabel(row.weekStart), name: row.userName, project: '-',
+      amount: Number(row.totalAmount || 0), ledger: true, expense: true,
       status: 'admin_approved',
-      pay: (date) => createExpensePayment({ userId: row.userId, weekStart: row.weekStart, weekEnd: row.weekEnd, paymentDate: date, status: 'paid' }),
+      pay: (date: string, mode: string, ref: string, amount: number) => createExpensePayment({
+        userId: row.userId, weekStart: row.weekStart, weekEnd: row.weekEnd,
+        paymentDate: date, status: 'paid', amount, paymentMode: mode, referenceNumber: ref,
+      }),
     })),
-  [unpaidExpenseSummary]);
+    ...expensePayments.map((payment) => ({
+      key: `expense-record-${payment.id}`, ref: weekRangeLabel(payment.weekStart),
+      name: payment.userName, project: '-',
+      amount: Math.max(0, Number(payment.amount) - labourPaid(payment)),
+      ledger: true, expense: true, labourPayment: payment,
+      status: labourPaid(payment) >= Number(payment.amount) ? 'paid' : 'admin_approved',
+      pay: (date: string, mode: string, ref: string, amount: number) => createExpensePayment({
+        paymentId: payment.id, userId: payment.userId, weekStart: payment.weekStart,
+        weekEnd: payment.weekEnd, paymentDate: date, status: 'paid', amount,
+        paymentMode: mode, referenceNumber: ref,
+      }),
+    })),
+  ], [unpaidExpenseSummary, expensePayments]);
 
   // Subcontractor payment requests still open: waiting for approval, or
   // approved and not fully paid. Rejected and fully paid requests drop out.
@@ -308,7 +324,7 @@ export function PaymentOptionsPanel({
       },
     },
     { title: 'Paid Amount', key: 'paid', width: 140, render: (_, row) => row.labourPayment ? formatCurrency(labourPaid(row.labourPayment)) : '-' },
-    { title: 'History', key: 'history', width: 140, render: (_, row) => row.labourPayment ? <LabourPaymentHistory payments={[row.labourPayment]} /> : '-' },
+    { title: 'History', key: 'history', width: 140, render: (_, row) => row.labourPayment ? <LabourPaymentHistory payments={[row.labourPayment]} title={row.expense ? "Expense payment history" : undefined} /> : '-' },
     { title: 'Action', key: 'action', width: 200, render: (_, r) => renderAction(r) },
   ];
 
@@ -346,10 +362,10 @@ export function PaymentOptionsPanel({
           </Typography.Text>
           <Table
             dataSource={rows}
-            columns={option.key === 'labour'
+            columns={option.key === 'labour' || option.key === 'expenses'
               ? [
                   ...columns.slice(0, 4),
-                  { title: 'Team', dataIndex: 'team', key: 'team', width: 180 },
+                  ...(option.key === 'labour' ? [{ title: 'Team', dataIndex: 'team', key: 'team', width: 180 }] : []),
                   { title: 'Total Amount', key: 'totalAmount', width: 140, align: 'right', render: (_, row) => formatCurrency(row.labourPayment ? Number(row.labourPayment.amount) : row.amount) },
                   { title: 'Paid Amount', key: 'paidAmount', width: 140, align: 'right', render: (_, row) => formatCurrency(row.labourPayment ? labourPaid(row.labourPayment) : 0) },
                   { title: 'Remaining Balance', key: 'remainingBalance', width: 160, align: 'right', render: (_, row) => <Typography.Text strong type={row.amount > 0 ? 'warning' : 'success'}>{formatCurrency(row.amount)}</Typography.Text> },
@@ -400,10 +416,10 @@ export function PaymentOptionsPanel({
           <Space orientation="vertical" size="middle" className="w-full">
             {payRow.labour && <Typography.Text>Team: <Typography.Text strong>{payRow.team}</Typography.Text></Typography.Text>}
             <Typography.Text>
-              {payRow.labour ? 'Remaining balance' : 'Amount'}: <Typography.Text strong>{formatCurrency(payRow.amount)}</Typography.Text>
+              {payRow.labour || payRow.expense ? 'Remaining balance' : 'Amount'}: <Typography.Text strong>{formatCurrency(payRow.amount)}</Typography.Text>
               {payRow.ref !== '-' && <> · {payRow.ref}</>}
             </Typography.Text>
-            {payRow.labour && <div>
+            {(payRow.labour || payRow.expense) && <div>
               <Typography.Text className={mutedTextClassName}>Amount to pay (remaining balance {formatCurrency(payRow.amount)})</Typography.Text>
               <InputNumber className="w-full" min={0.01} max={payRow.amount} precision={2} value={payAmount} onChange={(value) => setPayAmount(Number(value) || 0)} />
             </div>}

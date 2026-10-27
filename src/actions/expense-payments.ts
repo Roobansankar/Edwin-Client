@@ -14,6 +14,10 @@ async function getAuthHeaders() {
 }
 
 export async function createExpensePayment(data: {
+  paymentId?: string;
+  amount?: number;
+  paymentMode?: string;
+  referenceNumber?: string;
   userId: string;
   weekStart: string;
   weekEnd: string;
@@ -34,7 +38,7 @@ export async function createExpensePayment(data: {
       throw new Error(error.message || 'Failed to record payment');
     }
 
-    revalidatePath('/dashboard/expense-payments');
+    for (const path of ['/dashboard/expense-payments', '/dashboard/payments', '/dashboard/weekly-report', '/dashboard/all-reports']) revalidatePath(path);
     return res.json();
   } catch (error) {
     if (error instanceof Error) throw error;
@@ -56,7 +60,7 @@ export async function updateExpensePaymentStatus(id: string, status: 'pending' |
       throw new Error(error.message || 'Failed to update status');
     }
 
-    revalidatePath('/dashboard/expense-payments');
+    for (const path of ['/dashboard/expense-payments', '/dashboard/payments', '/dashboard/weekly-report', '/dashboard/all-reports']) revalidatePath(path);
     return res.json();
   } catch (error) {
     if (error instanceof Error) throw error;

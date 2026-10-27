@@ -545,11 +545,14 @@ export function ReportsClient({
     return rows;
   }, [filteredDailyLabour, labourPayments]);
 
-  const paidExpenseIds = new Set(expensePayments.filter((payment) => payment.status === 'paid').map((payment) => payment.id));
+  const expensePaymentById = new Map(expensePayments.map((payment) => [payment.id, payment]));
   const expensePaymentTotals = (entries: Expense[]) => {
     const eligible = entries.filter((entry) => entry.status !== 'rejected');
     const total = eligible.reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
-    const paid = eligible.reduce((sum, entry) => sum + (entry.expensePaymentId && paidExpenseIds.has(entry.expensePaymentId) ? Number(entry.amount || 0) : 0), 0);
+    const paid = eligible.reduce((sum, entry) => {
+      const payment = entry.expensePaymentId ? expensePaymentById.get(entry.expensePaymentId) : undefined;
+      return sum + (payment ? Number(entry.amount || 0) * labourPaidRatio(payment) : 0);
+    }, 0);
     return { paid, balance: Math.max(0, total - paid) };
   };
   const paymentTag = (paid: number, balance: number) => <Tag color={paid <= 0 ? 'default' : balance > 0.005 ? 'warning' : 'success'}>{paymentStatus(paid, balance)}</Tag>;

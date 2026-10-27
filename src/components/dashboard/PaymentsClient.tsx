@@ -9,7 +9,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import dayjs from 'dayjs';
 import { createPayment, syncExpensesToLedger } from '@/actions/payments';
-import type { LabourPayment, AdvanceRequest, Payment, Project, PurchaseBill, PurchaseOrder, SubcontractWorkOrder, SubcontractorPaymentRequest, UnpaidExpenseWeekSummary, UnpaidLabourWeekSummary, Vendor } from '@/types/erp';
+import type { ExpensePayment, LabourPayment, AdvanceRequest, Payment, Project, PurchaseBill, PurchaseOrder, SubcontractWorkOrder, SubcontractorPaymentRequest, UnpaidExpenseWeekSummary, UnpaidLabourWeekSummary, Vendor } from '@/types/erp';
 import { PaymentOptionsPanel } from './PaymentOptionsPanel';
 import {
   StatusTag,
@@ -43,6 +43,7 @@ type PaymentFormValues = z.infer<typeof paymentSchema>;
 
 type PaymentsClientProps = {
   labourPayments: LabourPayment[];
+  expensePayments: ExpensePayment[];
   payments: Payment[];
   summary: Array<{ paymentType: string; total: string | number }>;
   projects: Project[];
@@ -59,6 +60,7 @@ type PaymentsClientProps = {
 
 export function PaymentsClient({
   labourPayments,
+  expensePayments,
   payments,
   summary,
   projects,
@@ -451,6 +453,7 @@ export function PaymentsClient({
 
       <PaymentOptionsPanel
         labourPayments={labourPayments}
+        expensePayments={expensePayments}
         payments={payments}
         unpaidLabourSummary={unpaidLabourSummary}
         unpaidExpenseSummary={unpaidExpenseSummary}

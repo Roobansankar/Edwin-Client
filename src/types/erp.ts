@@ -409,6 +409,7 @@ export type Expense = {
 };
 
 export type ExpensePayment = {
+  paymentHistory?: LabourPaymentEntry[];
   id: string;
   userId: string;
   userName: string;
