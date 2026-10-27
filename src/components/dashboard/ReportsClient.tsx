@@ -604,12 +604,12 @@ export function ReportsClient({
       filename: 'Daily-Labour-List',
       sheetName: 'Daily Labour',
       headers: hideProjectReport
-        ? ['S.No', 'Date', 'Week', 'All Project', 'Trade', 'Team', 'Category', 'Total Shift', 'Total Amount', 'Paid Amount', 'Balance', 'Payment Status', 'Status', 'Payment History']
+        ? ['S.No', 'Date', 'Week', 'All Project', 'Team', 'Trade', 'Total Shift', 'Total Amount', 'Paid Amount', 'Balance', 'Payment Status', 'Status', 'Payment History']
         : ['Week', 'Submitted By', 'Project', 'Date', 'Trade', 'Trade Team', 'Count', 'Shift', 'Total Shift', 'Amount', 'Overall Remarks', 'Trade Remarks', 'Status'],
       rows: hideProjectReport ? dailySummaryRows.map((row) => [
         row.span ? row.serial : '', row.span ? row.dateRange : '',
         row.span ? weekRangeLabel(row.weekStart) : '', row.span ? row.projects : '',
-        row.span ? '-' : '', row.span ? row.team : '', row.category,
+        row.span ? row.team : '', row.category,
         row.totalShift, row.totalAmount, row.paidAmount, Math.max(0, row.totalAmount - row.paidAmount), paymentStatus(row.paidAmount, Math.max(0, row.totalAmount - row.paidAmount)), row.span ? row.status : '', labourHistoryText(labourPayments.filter((payment) => row.paymentIds.includes(payment.id))),
       ]) : dailyWeekRows.flatMap((week) =>
         dailyTradeRows(week.reports).map((t) => [
@@ -801,10 +801,8 @@ export function ReportsClient({
     { title: 'Date', dataIndex: 'dateRange', width: 190, onCell: summarySpan },
     { title: 'Week', key: 'week', width: 160, render: (_, row) => weekRangeLabel(row.weekStart), onCell: summarySpan },
     { title: 'All Project', dataIndex: 'projects', width: 180, onCell: summarySpan },
-    // Daily labour stores categories as trades; no separate parent trade is recorded.
-    { title: 'Trade', key: 'trade', width: 100, render: () => '-', onCell: summarySpan },
     { title: 'Team', dataIndex: 'team', width: 140, onCell: summarySpan },
-    { title: 'Category', dataIndex: 'category', width: 120 },
+    { title: 'Trade', dataIndex: 'category', width: 120 },
     { title: 'Total Shift', dataIndex: 'totalShift', width: 110, align: 'right' },
     { title: 'Total Amount', dataIndex: 'totalAmount', width: 140, align: 'right', render: (amount: number) => formatCurrency(amount) },
     { title: 'Paid Amount', dataIndex: 'paidAmount', width: 140, align: 'right', render: (amount: number) => formatCurrency(amount) },
