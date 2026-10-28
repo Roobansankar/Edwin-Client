@@ -52,6 +52,7 @@ type Props = {
   payments: Payment[];
   // Shown inside the Payments page's Subcontractor Payment tab: no page title.
   embedded?: boolean;
+  mode?: 'approvals' | 'payments' | 'all';
 };
 
 type RequestRow = {
@@ -62,7 +63,7 @@ type RequestRow = {
   displayStatus: string;
 };
 
-export function SubcontractorPaymentRequestsClient({ requests, payments, embedded = false }: Props) {
+export function SubcontractorPaymentRequestsClient({ requests, payments, embedded = false, mode = 'all' }: Props) {
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [searchText, setSearchText] = useState('');
@@ -71,6 +72,7 @@ export function SubcontractorPaymentRequestsClient({ requests, payments, embedde
   const { message } = App.useApp();
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.role === 'admin';
+  const isAccounts = user?.role === 'accounts_manager';
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -192,6 +194,7 @@ export function SubcontractorPaymentRequestsClient({ requests, payments, embedde
         await createPayment({
           paymentType: 'labour',
           subcontractorPaymentRequestId: target.id,
+          subcontractorBillId: target.subcontractorBillId || undefined,
           subcontractWorkOrderId: target.subcontractWorkOrderId || undefined,
           payeeName: target.subcontractor?.name,
           projectId: target.projectId,
@@ -214,6 +217,8 @@ export function SubcontractorPaymentRequestsClient({ requests, payments, embedde
   const renderRequestActions = (row: RequestRow) => {
     const record = row.request;
     if (record.status === 'pending') {
+      if (mode === 'payments') return null;
+      if (!isAccounts) return <Typography.Text type="secondary">Awaiting accounts approval</Typography.Text>;
       return (
         <Flex gap={8}>
           <Popconfirm
@@ -242,6 +247,7 @@ export function SubcontractorPaymentRequestsClient({ requests, payments, embedde
       );
     }
     if (record.status === 'accepted') {
+      if (mode === 'payments') return null;
       if (!isAdmin) {
         return <Typography.Text type="secondary" className="text-xs">Awaiting admin approval</Typography.Text>;
       }
@@ -265,6 +271,7 @@ export function SubcontractorPaymentRequestsClient({ requests, payments, embedde
       );
     }
     if (record.status === 'admin_approved') {
+      if (mode === 'approvals') return <Typography.Text type="secondary">Approved - available in Payments</Typography.Text>;
       if (row.displayStatus === 'paid') {
         return null;
       }
@@ -302,7 +309,7 @@ export function SubcontractorPaymentRequestsClient({ requests, payments, embedde
     return (
       <Flex vertical gap={6} align="start">
         {renderRequestActions(row)}
-        {embedded && !canPay && (
+        {embedded && mode !== 'approvals' && !canPay && (
           <Flex vertical gap={4} align="start">
             <span title={reason}><Button size="small" icon={<DollarOutlined />} disabled>Pay</Button></span>
             <Typography.Text type="secondary" className="text-xs">{reason}</Typography.Text>
@@ -316,6 +323,7 @@ export function SubcontractorPaymentRequestsClient({ requests, payments, embedde
     { title: 'S.No', key: 'sno', width: 70, align: 'right', render: (_, __, i) => i + 1 },
     { title: 'Date', key: 'date', width: 100, render: (_, r) => (r.request.createdAt ? dayjs(r.request.createdAt).format('DD-MMM') : '-') },
     { title: 'Subcontractor Name', key: 'subcontractor', width: 200, ellipsis: true, render: (_, r) => r.request.subcontractor?.name || r.request.subcontractorId },
+    { title: 'Bill No', key: 'billNo', width: 140, render: (_, row) => row.request.subcontractorBill?.billNumber || '-' },
     { title: 'WO No', key: 'wo', width: 110, render: (_, r) => r.request.subcontractWorkOrder?.woNumber || <Typography.Text type="secondary">-</Typography.Text> },
     {
       title: 'Amount', key: 'amount', width: 130, align: 'right',
@@ -410,7 +418,7 @@ export function SubcontractorPaymentRequestsClient({ requests, payments, embedde
         </Flex>
 
         <Table
-          dataSource={filtered}
+          dataSource={mode === 'payments' ? filtered.filter((row) => row.request.status === 'admin_approved') : filtered}
           columns={columns}
           rowKey={(row) => row.request.id}
           pagination={{ pageSize: 10 }}

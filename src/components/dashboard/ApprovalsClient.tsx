@@ -5,7 +5,7 @@ import { App, Button, Card, Col, DatePicker, Flex, Input, Modal, Popconfirm, Row
 import type { TableProps } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
-  CalendarOutlined, CameraOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, EyeOutlined, FileDoneOutlined, FilePdfOutlined, FilterOutlined, SearchOutlined, WalletOutlined
+  CalendarOutlined, CameraOutlined, CheckCircleOutlined, EyeOutlined, FileDoneOutlined, FilePdfOutlined, SearchOutlined, WalletOutlined
 } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
@@ -14,8 +14,10 @@ import dayjs from 'dayjs';
 import { updateBillStatus } from '@/actions/invoices';
 import { updateSubcontractorBillStatus } from '@/actions/subcontractor-bills';
 import { updateExpenseStatus } from '@/actions/expenses';
-import type { PurchaseBill, Expense, DailyLabourReport, DailyWorker, SubcontractorBill, VendorQuotation } from '@/types/erp';
+import type { AdvanceRequest, SubcontractorPaymentRequest, Payment, PurchaseBill, Expense, DailyLabourReport, DailyWorker, SubcontractorBill, VendorQuotation } from '@/types/erp';
 import { clientApiFetch } from '@/lib/client-api';
+import { AdvanceRequestsClient } from './AdvanceRequestsClient';
+import { SubcontractorPaymentRequestsClient } from './SubcontractorPaymentRequestsClient';
 import { missingDocs } from './BillDocumentsMenu';
 import {
   StatusTag,
@@ -194,6 +196,9 @@ type Props = {
   vendorQuotations: VendorQuotation[];
   expenses: Expense[];
   dailyReports: DailyLabourReport[];
+  advanceRequests: AdvanceRequest[];
+  subcontractorPaymentRequests: SubcontractorPaymentRequest[];
+  payments: Payment[];
   // Tab to open first, e.g. "bills" from a notification link.
   initialTab?: string;
 };
@@ -233,9 +238,9 @@ function expenseWeekStatus(expenses: Expense[]): { label: string; color: string 
   return { label: 'Accounts Approved', color: 'processing' };
 }
 
-const APPROVAL_TAB_KEYS = ['daily', 'bills', 'subBills', 'expenses'];
+const APPROVAL_TAB_KEYS = ['daily', 'bills', 'subBills', 'expenses', 'vendor', 'subcontractor'];
 
-export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, expenses, dailyReports, initialTab }: Props) {
+export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, expenses, dailyReports, advanceRequests, subcontractorPaymentRequests, payments, initialTab }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
@@ -243,7 +248,7 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
   const [billVendorFilter, setBillVendorFilter] = useState<string | undefined>();
   const [subcontractorFilter, setSubcontractorFilter] = useState<string | undefined>();
   const [statusFilter, setStatusFilter] = useState<string>('');
-  const [activeTab, setActiveTabState] = useState('expenses');
+  const [activeTab, setActiveTabState] = useState(initialTab && APPROVAL_TAB_KEYS.includes(initialTab) ? initialTab : 'expenses');
   const [rejectExpenseId, setRejectExpenseId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   // Only the expense being updated is locked, so one slow update cannot
@@ -269,17 +274,21 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
   const canApproveBill = user?.role === 'admin' || user?.role === 'accounts_manager';
 
   useEffect(() => {
-    // A tab named in the link (e.g. from a notification) wins over the
-    // remembered one.
-    if (initialTab && APPROVAL_TAB_KEYS.includes(initialTab)) {
-      setActiveTabState(initialTab);
-      try { sessionStorage.setItem(ACTIVE_TAB_STORAGE_KEY, initialTab); } catch { /* ignore */ }
-      return;
-    }
-    try {
-      const saved = sessionStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
-      if (saved) setActiveTabState(saved);
-    } catch { /* sessionStorage unavailable — fall back to default tab */ }
+    let cancelled = false;
+    // Restore session storage after hydration, and honor notification navigation.
+    queueMicrotask(() => {
+      if (cancelled) return;
+      if (initialTab && APPROVAL_TAB_KEYS.includes(initialTab)) {
+        setActiveTabState(initialTab);
+        try { sessionStorage.setItem(ACTIVE_TAB_STORAGE_KEY, initialTab); } catch { /* ignore */ }
+        return;
+      }
+      try {
+        const saved = sessionStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
+        if (saved && APPROVAL_TAB_KEYS.includes(saved)) setActiveTabState(saved);
+      } catch { /* storage unavailable */ }
+    });
+    return () => { cancelled = true; };
   }, [initialTab]);
 
   const setActiveTab = (key: string) => {
@@ -1237,6 +1246,16 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
           activeKey={activeTab}
           onChange={(key) => { setActiveTab(key); setSearchText(''); setStatusFilter(''); }}
           items={[
+            {
+              key: 'vendor',
+              label: <span><WalletOutlined /> Vendor Payment</span>,
+              children: <AdvanceRequestsClient requests={advanceRequests} bills={bills} payments={payments} embedded mode="approvals" />,
+            },
+            {
+              key: 'subcontractor',
+              label: <span><WalletOutlined /> Subcontractor Payment</span>,
+              children: <SubcontractorPaymentRequestsClient requests={subcontractorPaymentRequests} payments={payments} embedded mode="approvals" />,
+            },
             {
               key: 'daily',
               label: <span><CalendarOutlined /> Daily Labour List</span>,

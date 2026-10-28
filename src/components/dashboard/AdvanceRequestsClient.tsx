@@ -55,6 +55,7 @@ type Props = {
   payments: Payment[];
   // Shown inside the Payments page's Vendor Payment tab: no page title.
   embedded?: boolean;
+  mode?: 'approvals' | 'payments' | 'all';
 };
 
 type RequestRow = {
@@ -74,7 +75,7 @@ type RequestRow = {
   po: { total: number; paid: number; balance: number; payments: Payment[] } | null;
 };
 
-export function AdvanceRequestsClient({ requests, bills, payments, embedded = false }: Props) {
+export function AdvanceRequestsClient({ requests, bills, payments, embedded = false, mode = 'all' }: Props) {
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [searchText, setSearchText] = useState('');
@@ -83,6 +84,7 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
   const { message } = App.useApp();
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.role === 'admin';
+  const isAccounts = user?.role === 'accounts_manager';
 
   const rows = useMemo<RequestRow[]>(() => {
     const paidById = new Map<string, { total: number; lastDate: string | null; list: Payment[] }>();
@@ -118,13 +120,16 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
       const balance = payableAmount(request) - paid;
       const isPaid = request.status === 'admin_approved' && paid > 0 && balance <= 0;
       const billNumbers = request.purchaseOrderId ? billNumbersByPo.get(request.purchaseOrderId) : undefined;
+      const bill = request.purchaseBill || bills.find((entry) => request.purchaseBillId ? entry.id === request.purchaseBillId : !!request.purchaseOrderId && entry.purchaseOrderId === request.purchaseOrderId);
       return {
         request,
         paid,
         balance,
         payDate: payment?.lastDate || null,
-        billNo: billNumbers?.join(', ') || '-',
-        billId: request.purchaseOrderId ? bills.find((b) => b.purchaseOrderId === request.purchaseOrderId)?.id || null : null,
+        billNo: bill?.billNumber || billNumbers?.join(', ') || '-',
+        billId: typeof request.purchaseBillId === 'string' && request.purchaseBillId
+          ? request.purchaseBillId
+          : typeof bill?.id === 'string' && bill.id ? bill.id : null,
         displayStatus: isPaid ? 'paid' : request.status,
         paymentList: [...(payment?.list || [])].sort((a, b) => (a.paymentDate || '').localeCompare(b.paymentDate || '')),
         po: (() => {
@@ -222,6 +227,7 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
         await createPayment({
           paymentType: 'material',
           advanceRequestId: target.id,
+          purchaseBillId: target.purchaseBillId || undefined,
           purchaseOrderId: target.purchaseOrderId || undefined,
           vendorId: target.vendorId,
           projectId: target.projectId,
@@ -244,6 +250,8 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
   const renderRequestActions = (row: RequestRow) => {
     const record = row.request;
     if (record.status === 'pending') {
+      if (mode === 'payments') return null;
+      if (!isAccounts) return <Typography.Text type="secondary">Awaiting accounts approval</Typography.Text>;
       return (
         <Flex gap={6} wrap="wrap">
           <Popconfirm
@@ -272,6 +280,7 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
       );
     }
     if (record.status === 'accepted') {
+      if (mode === 'payments') return null;
       if (!isAdmin) {
         return <Typography.Text type="secondary" className="text-xs whitespace-nowrap">Awaiting admin</Typography.Text>;
       }
@@ -295,6 +304,7 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
       );
     }
     if (record.status === 'admin_approved') {
+      if (mode === 'approvals') return <Typography.Text type="secondary">Approved - available in Payments</Typography.Text>;
       if (row.displayStatus === 'paid') {
         return null;
       }
@@ -332,7 +342,7 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
     return (
       <Flex vertical gap={6} align="start">
         {renderRequestActions(row)}
-        {embedded && !canPay && (
+        {embedded && mode !== 'approvals' && !canPay && (
           <Flex vertical gap={4} align="start">
             <span title={reason}><Button size="small" icon={<DollarOutlined />} disabled>Pay</Button></span>
             <Typography.Text type="secondary" className="text-xs">{reason}</Typography.Text>
@@ -354,7 +364,7 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
         : <Typography.Text type="secondary">-</Typography.Text>,
     },
     {
-      title: 'Paid', key: 'amount', width: 130, align: 'right',
+      title: 'Requested Amount', key: 'amount', width: 150, align: 'right',
       render: (_, r) => <Typography.Text strong>{formatCurrency(r.request.amount)}</Typography.Text>,
     },
     {
@@ -383,7 +393,7 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
         );
       },
     },
-    { title: 'Request Paid', key: 'requestPaid', width: 140, align: 'right', render: (_, r) => formatCurrency(r.paid) },
+    { title: 'Paid Amount', key: 'requestPaid', width: 140, align: 'right', render: (_, r) => formatCurrency(r.paid) },
     { title: 'Request Balance', key: 'requestBalance', width: 150, align: 'right', render: (_, r) => formatCurrency(Math.max(r.balance, 0)) },
     { title: 'Pay Date', key: 'payDate', width: 110, align: 'right', render: (_, r) => (r.payDate ? dayjs(r.payDate).format('DD-MMM') : '-') },
     {
@@ -404,7 +414,7 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
         <Flex gap={6} align="center" wrap="wrap">
           {r.billId ? (
             // Opens the vendor bill raised against this request's PO.
-            <Link href={`/dashboard/accounts/bills/${r.billId}`}>
+            <Link href={`/dashboard/accounts/bills/${encodeURIComponent(r.billId)}`}>
               <Button size="small" icon={<EyeOutlined />} title={`View bill ${r.billNo}`} />
             </Link>
           ) : (
@@ -480,7 +490,7 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
         </Flex>
 
         <Table
-          dataSource={filtered}
+          dataSource={mode === 'payments' ? filtered.filter((row) => row.request.status === 'admin_approved') : filtered}
           columns={columns}
           rowKey={(row) => row.request.id}
           pagination={{ pageSize: 10, showSizeChanger: false, showTotal: (total) => `Total ${total} requests` }}

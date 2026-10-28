@@ -29,6 +29,7 @@ export async function createPayment(data: Record<string, unknown>) {
     revalidatePath('/dashboard/accounts/subcontractor-bills');
     revalidatePath('/dashboard/accounts/invoices');
     revalidatePath('/dashboard/payments');
+    revalidatePath('/dashboard/approvals');
     revalidatePath('/dashboard/purchase-orders');
     revalidatePath('/dashboard/advance-requests');
     revalidatePath('/dashboard/subcontractor-payment-requests');
@@ -49,6 +50,7 @@ export async function syncExpensesToLedger() {
     });
     if (!res.ok) throw new Error('Failed to sync expenses');
     revalidatePath('/dashboard/payments');
+    revalidatePath('/dashboard/approvals');
     return res.json();
   } catch (error) {
     if (error instanceof Error) throw error;

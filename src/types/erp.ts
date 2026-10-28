@@ -767,6 +767,8 @@ export type AdvanceRequest = {
   vendorQuotation?: VendorQuotation | null;
   purchaseOrderId?: string | null;
   purchaseOrder?: PurchaseOrder | null;
+  purchaseBillId?: string | null;
+  purchaseBill?: PurchaseBill | null;
   amount: number | string;
   // Final amount admin approved for payment (null = pay the requested amount).
   approvedAmount?: number | string | null;
@@ -797,6 +799,8 @@ export type SubcontractorPaymentRequest = {
   project?: Project;
   subcontractWorkOrderId?: string | null;
   subcontractWorkOrder?: SubcontractWorkOrder | null;
+  subcontractorBillId?: string | null;
+  subcontractorBill?: SubcontractorBill | null;
   amount: number | string;
   // Final amount admin approved for payment (null = pay the requested amount).
   approvedAmount?: number | string | null;

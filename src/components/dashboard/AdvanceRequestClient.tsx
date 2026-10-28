@@ -39,7 +39,7 @@ const STATUS_LABELS: Record<string, string> = {
   rejected: 'REJECTED',
 };
 
-const poBalance = (po: PurchaseOrder) => Number(po.totalWithGst || po.totalAmount) - Number(po.paidAmount || 0);
+const billBalance = (bill: PurchaseBill) => Math.max(0, Number(bill.amount) - Number(bill.paidAmount || 0));
 
 // Same labels as Purchase Enquiry / Vendors.
 const PAYMENT_TERMS_LABELS: Record<string, string> = {
@@ -55,7 +55,7 @@ const paymentTermsLabel = (po?: PurchaseOrder | null, vendorTerms?: string | nul
 };
 
 export function AdvanceRequestClient({ projects, advanceRequests, purchaseOrders, bills, payments }: Props) {
-  const [selectedPoId, setSelectedPoId] = useState<string | null>(null);
+  const [selectedBillId, setSelectedBillId] = useState<string | null>(null);
   const [vendorId, setVendorId] = useState('');
   const [projectId, setProjectId] = useState('');
   const [materialRequirementNo, setMaterialRequirementNo] = useState<string | null>(null);
@@ -80,7 +80,7 @@ export function AdvanceRequestClient({ projects, advanceRequests, purchaseOrders
       }
       if (searchText) {
         const q = searchText.toLowerCase();
-        const bill = bills.find((b) => b.purchaseOrderId === r.purchaseOrderId);
+        const bill = r.purchaseBill || bills.find((b) => r.purchaseBillId ? b.id === r.purchaseBillId : !!r.purchaseOrderId && b.purchaseOrderId === r.purchaseOrderId);
         const haystack = [r.purchaseOrder?.poNumber, bill?.billNumber, r.vendor?.name, r.project?.name, r.materialRequirementNo]
           .filter(Boolean)
           .join(' ')
@@ -91,28 +91,32 @@ export function AdvanceRequestClient({ projects, advanceRequests, purchaseOrders
     });
   }, [advanceRequests, searchText, dateRange, projectFilter, bills]);
 
-  const poOptions = useMemo(
-    () => purchaseOrders.filter((po) => po.status === 'approved' && poBalance(po) > 0),
-    [purchaseOrders],
+  const billOptions = useMemo(
+    () => bills.filter((bill) => bill.status === 'approved' && billBalance(bill) > 0 && bill.projectId),
+    [bills],
+  );
+  const selectedBill = useMemo(
+    () => billOptions.find((bill) => bill.id === selectedBillId) || null,
+    [billOptions, selectedBillId],
   );
   const selectedPo = useMemo(
-    () => poOptions.find((po) => po.id === selectedPoId) || null,
-    [poOptions, selectedPoId],
+    () => purchaseOrders.find((po) => po.id === selectedBill?.purchaseOrderId) || selectedBill?.purchaseOrder || null,
+    [purchaseOrders, selectedBill],
   );
 
-  const handlePoSelect = useCallback((value: string) => {
-    const po = poOptions.find((p) => p.id === value);
-    if (!po) return;
-    setSelectedPoId(value);
-    setVendorId(po.vendorId);
-    setProjectId(po.projectId);
-    setMaterialRequirementNo(po.materialRequirementNo || null);
-    const balance = poBalance(po);
-    setAmount(balance > 0 ? balance : null);
-  }, [poOptions]);
+  const handleBillSelect = useCallback((value: string) => {
+    const bill = billOptions.find((entry) => entry.id === value);
+    if (!bill) return;
+    const po = purchaseOrders.find((entry) => entry.id === bill.purchaseOrderId) || bill.purchaseOrder;
+    setSelectedBillId(value);
+    setVendorId(bill.vendorId);
+    setProjectId(bill.projectId || '');
+    setMaterialRequirementNo(po?.materialRequirementNo || null);
+    setAmount(billBalance(bill));
+  }, [billOptions, purchaseOrders]);
 
   const resetForm = () => {
-    setSelectedPoId(null);
+    setSelectedBillId(null);
     setVendorId('');
     setProjectId('');
     setMaterialRequirementNo(null);
@@ -121,21 +125,22 @@ export function AdvanceRequestClient({ projects, advanceRequests, purchaseOrders
   };
 
   const handleSubmit = () => {
-    if (!vendorId || !projectId) {
-      message.error('Select a PO first');
+    if (!selectedBill || !vendorId || !projectId) {
+      message.error('Select an approved bill first');
       return;
     }
-    if (!amount || amount <= 0) {
-      message.error('Enter a valid amount');
+    if (!amount || amount <= 0 || amount > billBalance(selectedBill)) {
+      message.error('Enter an amount within the approved bill remaining balance');
       return;
     }
     startTransition(async () => {
       try {
         await createAdvanceRequest({
+          purchaseBillId: selectedBill.id,
           vendorId,
           projectId,
           materialRequirementNo: materialRequirementNo || undefined,
-          purchaseOrderId: selectedPoId || undefined,
+          purchaseOrderId: selectedBill.purchaseOrderId || undefined,
           amount,
           notes: notes.trim() || undefined,
         });
@@ -148,23 +153,26 @@ export function AdvanceRequestClient({ projects, advanceRequests, purchaseOrders
   };
 
   const historyPayments = useMemo(() => {
-    if (!historyRecord?.purchaseOrderId) return [];
+    if (!historyRecord) return [];
     return [...payments]
-      .filter((p) => p.purchaseOrderId === historyRecord.purchaseOrderId)
+      .filter((payment) => historyRecord.purchaseBillId
+        ? payment.purchaseBillId === historyRecord.purchaseBillId || (!payment.purchaseBillId && !!historyRecord.purchaseOrderId && payment.purchaseOrderId === historyRecord.purchaseOrderId)
+        : !!historyRecord.purchaseOrderId && payment.purchaseOrderId === historyRecord.purchaseOrderId)
       .sort((a, b) => new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime());
   }, [payments, historyRecord]);
 
   const columns: ColumnsType<AdvanceRequest> = [
     { title: 'S.No', key: 'sno', width: 60, render: (_, __, i) => i + 1 },
-    { title: 'PO No', key: 'po', render: (_, record) => record.purchaseOrder?.poNumber || <Typography.Text type="secondary">-</Typography.Text> },
+
     {
       title: 'Bill No',
       key: 'billNo',
       render: (_, record) => {
-        const bill = bills.find((b) => b.purchaseOrderId === record.purchaseOrderId);
+        const bill = record.purchaseBill || bills.find((b) => record.purchaseBillId ? b.id === record.purchaseBillId : !!record.purchaseOrderId && b.purchaseOrderId === record.purchaseOrderId);
         return bill ? bill.billNumber : <Typography.Text type="secondary">-</Typography.Text>;
       },
     },
+    { title: 'PO No', key: 'po', render: (_, record) => record.purchaseOrder?.poNumber || <Typography.Text type="secondary">-</Typography.Text> },
     { title: 'Vendor', key: 'vendor', render: (_, record) => record.vendor?.name || record.vendorId },
     { title: 'Project', key: 'project', render: (_, record) => record.project?.name || '-' },
     { title: 'MR No', dataIndex: 'materialRequirementNo', render: (value?: string | null) => value || <Typography.Text type="secondary">-</Typography.Text> },
@@ -187,13 +195,12 @@ export function AdvanceRequestClient({ projects, advanceRequests, purchaseOrders
       key: 'history',
       width: 190,
       render: (_, record) => {
-        if (!record.purchaseOrderId) return <Typography.Text type="secondary">-</Typography.Text>;
-        const poPayments = [...payments]
-          .filter((p) => p.purchaseOrderId === record.purchaseOrderId)
-          .sort((a, b) => new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime());
-        const poTotal = Number(record.purchaseOrder?.totalWithGst || record.purchaseOrder?.totalAmount || 0);
-        const paid = poPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-        const balance = poTotal - paid;
+        const bill = record.purchaseBill || bills.find((entry) => record.purchaseBillId ? entry.id === record.purchaseBillId : !!record.purchaseOrderId && entry.purchaseOrderId === record.purchaseOrderId);
+        if (!bill) return <Typography.Text type="secondary">-</Typography.Text>;
+        const poPayments = payments.filter((payment) => record.purchaseBillId
+          ? payment.purchaseBillId === record.purchaseBillId || (!payment.purchaseBillId && !!record.purchaseOrderId && payment.purchaseOrderId === record.purchaseOrderId)
+          : !!record.purchaseOrderId && payment.purchaseOrderId === record.purchaseOrderId);
+        const balance = billBalance(bill);
         return (
           <Flex vertical gap={4}>
             {poPayments.length === 0 && (
@@ -216,13 +223,16 @@ export function AdvanceRequestClient({ projects, advanceRequests, purchaseOrders
       align: 'center',
       render: (_, record) => {
         // Opens the vendor bill raised against this request's PO.
-        const bill = record.purchaseOrderId ? bills.find((b) => b.purchaseOrderId === record.purchaseOrderId) : undefined;
-        return bill ? (
-          <Link href={`/dashboard/accounts/bills/${bill.id}`}>
+        const bill = record.purchaseBill || bills.find((b) => record.purchaseBillId ? b.id === record.purchaseBillId : !!record.purchaseOrderId && b.purchaseOrderId === record.purchaseOrderId);
+        const billId = typeof record.purchaseBillId === 'string' && record.purchaseBillId
+          ? record.purchaseBillId
+          : typeof bill?.id === 'string' && bill.id ? bill.id : null;
+        return bill && billId ? (
+          <Link href={`/dashboard/accounts/bills/${encodeURIComponent(billId)}`}>
             <Button size="small" icon={<EyeOutlined />} title={`View bill ${bill.billNumber}`} />
           </Link>
         ) : (
-          <Button size="small" icon={<EyeOutlined />} disabled title="No bill raised against this PO yet" />
+          <Button size="small" icon={<EyeOutlined />} disabled title="No linked bill" />
         );
       },
     },
@@ -238,29 +248,22 @@ export function AdvanceRequestClient({ projects, advanceRequests, purchaseOrders
 
       <Card className={`${cardClassName} mb-6`}>
         <Form layout="vertical">
-          {poOptions.length > 0 && (
-            <Form.Item label="PO Number / MR Ref" required>
-              <Select
-                showSearch
-                placeholder="Search PO number or MR Ref..."
-                optionFilterProp="label"
-                value={selectedPoId || undefined}
-                onChange={handlePoSelect}
-                options={poOptions.map((po) => {
-                  const mrRef = po.materialRequirementNo;
-                  const vendorName = po.vendor?.name || po.vendorId;
-                  const projectName = po.project?.name || 'Unknown project';
-                  return {
-                    value: po.id,
-                    label: mrRef ? `${po.poNumber} — ${mrRef} — ${vendorName} (${projectName})` : `${po.poNumber} — ${vendorName} (${projectName})`,
-                  };
-                })}
-              />
-            </Form.Item>
-          )}
+          <Form.Item label="Bill Number" required>
+            <Select
+              showSearch
+              placeholder="Search approved bill number..."
+              optionFilterProp="label"
+              value={selectedBillId || undefined}
+              onChange={handleBillSelect}
+              options={billOptions.map((bill) => ({
+                value: bill.id,
+                label: `${bill.billNumber} - ${bill.vendor?.name || bill.vendorId} - ${formatCurrency(bill.amount)}${bill.purchaseOrder?.poNumber ? ` (PO: ${bill.purchaseOrder.poNumber})` : ''}`,
+              }))}
+            />
+          </Form.Item>
 
-          {poOptions.length === 0 && (
-            <Typography.Text type="secondary">No approved purchase orders with an outstanding balance yet.</Typography.Text>
+          {billOptions.length === 0 && (
+            <Typography.Text type="secondary">No bills approved by accounts and admin with an outstanding balance.</Typography.Text>
           )}
 
           {projectId && (
@@ -269,27 +272,27 @@ export function AdvanceRequestClient({ projects, advanceRequests, purchaseOrders
             </Form.Item>
           )}
 
-          {selectedPo && (
-            <Form.Item label="PO Reference">
+          {selectedBill && (
+            <Form.Item label="Bill Reference">
               <Flex align="center" gap={16} wrap="wrap">
                 <Typography.Text>
-                  PO Total: <Typography.Text strong>{formatCurrency(selectedPo.totalWithGst || selectedPo.totalAmount)}</Typography.Text>
+                  Bill Total: <Typography.Text strong>{formatCurrency(selectedBill.amount)}</Typography.Text>
                 </Typography.Text>
                 <Typography.Text>
-                  Paid So Far: <Typography.Text strong>{formatCurrency(selectedPo.paidAmount || 0)}</Typography.Text>
+                  Paid So Far: <Typography.Text strong>{formatCurrency(selectedBill.paidAmount || 0)}</Typography.Text>
                 </Typography.Text>
                 <Typography.Text>
-                  Balance: <Typography.Text strong>{formatCurrency(poBalance(selectedPo))}</Typography.Text>
+                  Balance: <Typography.Text strong>{formatCurrency(billBalance(selectedBill))}</Typography.Text>
                 </Typography.Text>
                 <Typography.Text>
                   Payment Terms:{' '}
-                  {paymentTermsLabel(selectedPo, selectedPo.vendor?.paymentTerms)
-                    ? <Tag color="blue" className="m-0!">{paymentTermsLabel(selectedPo, selectedPo.vendor?.paymentTerms)}</Tag>
+                  {paymentTermsLabel(selectedPo, selectedPo?.vendor?.paymentTerms || selectedBill.vendor?.paymentTerms)
+                    ? <Tag color="blue" className="m-0!">{paymentTermsLabel(selectedPo, selectedPo?.vendor?.paymentTerms || selectedBill.vendor?.paymentTerms)}</Tag>
                     : <Typography.Text type="secondary">-</Typography.Text>}
                 </Typography.Text>
-                {selectedPo.billFileUrl && (
-                  <Button size="small" icon={<FilePdfOutlined />} href={selectedPo.billFileUrl} target="_blank">
-                    View PO Document
+                {selectedBill.billFileUrl && (
+                  <Button size="small" icon={<FilePdfOutlined />} href={selectedBill.billFileUrl} target="_blank">
+                    View Bill Document
                   </Button>
                 )}
               </Flex>
@@ -297,14 +300,14 @@ export function AdvanceRequestClient({ projects, advanceRequests, purchaseOrders
           )}
 
           <Form.Item label="Amount" required>
-            <InputNumber className="w-full" min={0} value={amount} onChange={setAmount} placeholder="Enter payment amount" />
+            <InputNumber className="w-full" min={0.01} max={selectedBill ? billBalance(selectedBill) : undefined} precision={2} value={amount} onChange={setAmount} placeholder="Enter payment amount" />
           </Form.Item>
 
           <Form.Item label="Notes">
             <Input.TextArea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Reason for the payment (optional)" />
           </Form.Item>
 
-          <Button type="primary" loading={isPending} onClick={handleSubmit} disabled={!vendorId}>
+          <Button type="primary" loading={isPending} onClick={handleSubmit} disabled={!selectedBill}>
             Send Request
           </Button>
         </Form>
@@ -342,7 +345,7 @@ export function AdvanceRequestClient({ projects, advanceRequests, purchaseOrders
       </Card>
 
       <Modal
-        title={`Payment History — ${historyRecord?.purchaseOrder?.poNumber || ''}`}
+        title={`Payment History — ${historyRecord?.purchaseBill?.billNumber || bills.find((bill) => bill.id === historyRecord?.purchaseBillId)?.billNumber || historyRecord?.purchaseOrder?.poNumber || ''}`}
         open={!!historyRecord}
         onCancel={() => setHistoryRecord(null)}
         footer={[<Button key="close" onClick={() => setHistoryRecord(null)}>Close</Button>]}

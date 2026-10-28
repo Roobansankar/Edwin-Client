@@ -39,10 +39,10 @@ const STATUS_LABELS: Record<string, string> = {
   rejected: 'REJECTED',
 };
 
-const approvedWorkOrders = (wos: SubcontractWorkOrder[]) => wos.filter((wo) => wo.status === 'approved');
+
 
 export function SubcontractorPaymentRequestClient({ projects, workOrders, requests, subcontractorBills, payments }: Props) {
-  const [selectedWorkOrderId, setSelectedWorkOrderId] = useState<string | null>(null);
+  const [selectedBillId, setSelectedBillId] = useState<string | null>(null);
   const [subcontractorId, setSubcontractorId] = useState('');
   const [projectId, setProjectId] = useState('');
   const [amount, setAmount] = useState<number | null>(null);
@@ -74,7 +74,7 @@ export function SubcontractorPaymentRequestClient({ projects, workOrders, reques
       }
       if (searchText) {
         const q = searchText.toLowerCase();
-        const bill = subcontractorBills.find((b) => b.subcontractWorkOrderId === r.subcontractWorkOrderId);
+        const bill = r.subcontractorBill || subcontractorBills.find((b) => r.subcontractorBillId ? b.id === r.subcontractorBillId : !!r.subcontractWorkOrderId && b.subcontractWorkOrderId === r.subcontractWorkOrderId);
         const haystack = [r.subcontractWorkOrder?.woNumber, bill?.billNumber, r.subcontractor?.name, r.project?.name, r.subcontractWorkOrder?.scrNo]
           .filter(Boolean)
           .join(' ')
@@ -95,27 +95,37 @@ export function SubcontractorPaymentRequestClient({ projects, workOrders, reques
     return payments.filter((p) => p.subcontractWorkOrderId === woId || (bill && p.subcontractorBillId === bill.id));
   }, [payments, subcontractorBills]);
 
+  const paymentsForRequest = useCallback((request: SubcontractorPaymentRequest) => {
+    if (!request.subcontractorBillId) return paymentsForWorkOrder(request.subcontractWorkOrderId);
+    return payments.filter((payment) => payment.subcontractorBillId === request.subcontractorBillId ||
+      (!payment.subcontractorBillId && !!request.subcontractWorkOrderId && payment.subcontractWorkOrderId === request.subcontractWorkOrderId));
+  }, [payments, paymentsForWorkOrder]);
+
   const historyPayments = useMemo(() => {
-    return [...paymentsForWorkOrder(historyRecord?.subcontractWorkOrderId)]
+    return [...(historyRecord ? paymentsForRequest(historyRecord) : [])]
       .sort((a, b) => new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime());
-  }, [paymentsForWorkOrder, historyRecord]);
+  }, [paymentsForRequest, historyRecord]);
 
-  const woOptions = useMemo(() => approvedWorkOrders(workOrders), [workOrders]);
-  const selectedWorkOrder = useMemo(
-    () => woOptions.find((wo) => wo.id === selectedWorkOrderId) || null,
-    [woOptions, selectedWorkOrderId],
-  );
+  const billBalance = useCallback((bill: SubcontractorBill) => {
+    const legacyPaid = payments.filter((payment) => !payment.subcontractorBillId && !!bill.subcontractWorkOrderId && payment.subcontractWorkOrderId === bill.subcontractWorkOrderId)
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    return Math.max(0, Number(bill.amount) - Number(bill.paidAmount || 0) - legacyPaid);
+  }, [payments]);
+  const billOptions = useMemo(() => subcontractorBills.filter((bill) => bill.status === 'approved' && bill.projectId && billBalance(bill) > 0), [subcontractorBills, billBalance]);
+  const selectedBill = billOptions.find((bill) => bill.id === selectedBillId) || null;
+  const selectedWorkOrder = workOrders.find((wo) => wo.id === selectedBill?.subcontractWorkOrderId) || selectedBill?.subcontractWorkOrder || null;
 
-  const handleWorkOrderSelect = useCallback((value: string) => {
-    const wo = woOptions.find((w) => w.id === value);
-    if (!wo) return;
-    setSelectedWorkOrderId(value);
-    setSubcontractorId(wo.subcontractorId);
-    setProjectId(wo.projectId);
-  }, [woOptions]);
+  const handleBillSelect = useCallback((value: string) => {
+    const bill = billOptions.find((entry) => entry.id === value);
+    if (!bill) return;
+    setSelectedBillId(value);
+    setSubcontractorId(bill.subcontractorId);
+    setProjectId(bill.projectId || '');
+    setAmount(billBalance(bill));
+  }, [billOptions, billBalance]);
 
   const resetForm = () => {
-    setSelectedWorkOrderId(null);
+    setSelectedBillId(null);
     setSubcontractorId('');
     setProjectId('');
     setAmount(null);
@@ -123,20 +133,21 @@ export function SubcontractorPaymentRequestClient({ projects, workOrders, reques
   };
 
   const handleSubmit = () => {
-    if (!subcontractorId || !projectId) {
-      message.error('Select an approved work order first');
+    if (!selectedBill || !subcontractorId || !projectId) {
+      message.error('Select an approved bill first');
       return;
     }
-    if (!amount || amount <= 0) {
-      message.error('Enter a valid amount');
+    if (!amount || amount <= 0 || amount > billBalance(selectedBill)) {
+      message.error('Enter an amount within the approved bill remaining balance');
       return;
     }
     startTransition(async () => {
       try {
         await createSubcontractorPaymentRequest({
+          subcontractorBillId: selectedBill.id,
           subcontractorId,
           projectId,
-          subcontractWorkOrderId: selectedWorkOrderId || undefined,
+          subcontractWorkOrderId: selectedBill.subcontractWorkOrderId || undefined,
           amount,
           notes: notes.trim() || undefined,
         });
@@ -156,7 +167,7 @@ export function SubcontractorPaymentRequestClient({ projects, workOrders, reques
       key: 'billNo',
       width: 130,
       render: (_, record) => {
-        const bill = subcontractorBills.find((b) => b.subcontractWorkOrderId === record.subcontractWorkOrderId);
+        const bill = record.subcontractorBill || subcontractorBills.find((b) => record.subcontractorBillId ? b.id === record.subcontractorBillId : !!record.subcontractWorkOrderId && b.subcontractWorkOrderId === record.subcontractWorkOrderId);
         return bill ? bill.billNumber : <Typography.Text type="secondary">-</Typography.Text>;
       },
     },
@@ -174,12 +185,11 @@ export function SubcontractorPaymentRequestClient({ projects, workOrders, reques
       key: 'history',
       width: 190,
       render: (_, record) => {
-        if (!record.subcontractWorkOrderId) return <Typography.Text type="secondary">-</Typography.Text>;
-        const woPayments = [...paymentsForWorkOrder(record.subcontractWorkOrderId)]
+        if (!record.subcontractWorkOrderId && !record.subcontractorBillId) return <Typography.Text type="secondary">-</Typography.Text>;
+        const woPayments = [...paymentsForRequest(record)]
           .sort((a, b) => new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime());
-        const woTotal = Number(record.subcontractWorkOrder?.totalAmount || 0);
-        const paid = woPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-        const balance = woTotal - paid;
+        const bill = subcontractorBills.find((entry) => record.subcontractorBillId ? entry.id === record.subcontractorBillId : entry.subcontractWorkOrderId === record.subcontractWorkOrderId) || record.subcontractorBill;
+        const balance = bill ? billBalance(bill) : Number(record.subcontractWorkOrder?.totalAmount || 0) - woPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
         return (
           <Flex vertical gap={4}>
             {woPayments.length === 0 && (
@@ -202,11 +212,9 @@ export function SubcontractorPaymentRequestClient({ projects, workOrders, reques
       align: 'center',
       render: (_, record) => {
         // Opens the subcontractor bill raised against this request's work order.
-        const bill = record.subcontractWorkOrderId
-          ? subcontractorBills.find((b) => b.subcontractWorkOrderId === record.subcontractWorkOrderId)
-          : undefined;
-        return bill ? (
-          <Link href={`/dashboard/accounts/subcontractor-bills/${bill.id}`}>
+        const bill = record.subcontractorBill || subcontractorBills.find((b) => record.subcontractorBillId ? b.id === record.subcontractorBillId : !!record.subcontractWorkOrderId && b.subcontractWorkOrderId === record.subcontractWorkOrderId);
+        return bill && typeof bill.id === 'string' ? (
+          <Link href={`/dashboard/accounts/subcontractor-bills/${encodeURIComponent(bill.id)}`}>
             <Button size="small" icon={<EyeOutlined />} title={`View bill ${bill.billNumber}`} />
           </Link>
         ) : (
@@ -226,29 +234,20 @@ export function SubcontractorPaymentRequestClient({ projects, workOrders, reques
 
       <Card className={`${cardClassName} mb-6`}>
         <Form layout="vertical">
-          {woOptions.length > 0 && (
-            <Form.Item label="Work Order / Subcontractor" required>
-              <Select
-                showSearch
-                placeholder="Search WO number or subcontractor..."
-                optionFilterProp="label"
-                value={selectedWorkOrderId || undefined}
-                onChange={handleWorkOrderSelect}
-                options={woOptions.map((wo) => {
-                  const subName = wo.subcontractor?.name || wo.subcontractorId;
-                  const projectName = wo.project?.name || 'Unknown project';
-                  return {
-                    value: wo.id,
-                    label: `${wo.woNumber} — ${subName} (${projectName})`,
-                  };
-                })}
-              />
-            </Form.Item>
-          )}
-
-          {woOptions.length === 0 && (
-            <Typography.Text type="secondary">No approved work orders available yet — approve a subcontract work order first.</Typography.Text>
-          )}
+          <Form.Item label="Bill Number" required>
+            <Select
+              showSearch
+              placeholder="Search approved bill number..."
+              optionFilterProp="label"
+              value={selectedBillId || undefined}
+              onChange={handleBillSelect}
+              options={billOptions.map((bill) => ({
+                value: bill.id,
+                label: `${bill.billNumber} - ${bill.subcontractor?.name || bill.subcontractorId} - ${formatCurrency(bill.amount)}`,
+              }))}
+            />
+          </Form.Item>
+          {billOptions.length === 0 && <Typography.Text type="secondary">No bills approved by accounts and admin with an outstanding balance.</Typography.Text>}
 
           {projectId && (
             <Form.Item label="Project">
@@ -262,33 +261,25 @@ export function SubcontractorPaymentRequestClient({ projects, workOrders, reques
             </Form.Item>
           )}
 
-          {selectedWorkOrder && (
-            <Form.Item label="Work Order Reference">
-              <Flex align="center" gap={16} wrap="wrap">
-                <Typography.Text>
-                  Total Amount:{' '}
-                  <Typography.Text strong>
-                    {selectedWorkOrder.totalAmount ? formatCurrency(selectedWorkOrder.totalAmount) : 'Not entered'}
-                  </Typography.Text>
-                </Typography.Text>
-                {selectedWorkOrder.workorderUrl && (
-                  <Button size="small" icon={<FileTextOutlined />} href={selectedWorkOrder.workorderUrl} target="_blank">
-                    View Work Order
-                  </Button>
-                )}
+          {selectedBill && (
+            <Form.Item label="Bill Reference">
+              <Flex gap={16} wrap="wrap">
+                <Typography.Text>Bill Total: <Typography.Text strong>{formatCurrency(selectedBill.amount)}</Typography.Text></Typography.Text>
+                <Typography.Text>Balance: <Typography.Text strong>{formatCurrency(billBalance(selectedBill))}</Typography.Text></Typography.Text>
+                {selectedBill.billFileUrl && <Button size="small" icon={<FileTextOutlined />} href={selectedBill.billFileUrl} target="_blank">View Bill Document</Button>}
               </Flex>
             </Form.Item>
           )}
 
           <Form.Item label="Amount" required>
-            <InputNumber className="w-full" min={0} value={amount} onChange={setAmount} placeholder="Enter payment amount" />
+            <InputNumber className="w-full" min={0.01} max={selectedBill ? billBalance(selectedBill) : undefined} precision={2} value={amount} onChange={setAmount} placeholder="Enter payment amount" />
           </Form.Item>
 
           <Form.Item label="Notes">
             <Input.TextArea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Reason for the payment (optional)" />
           </Form.Item>
 
-          <Button type="primary" loading={isPending} onClick={handleSubmit} disabled={!subcontractorId} block={isMobile}>
+          <Button type="primary" loading={isPending} onClick={handleSubmit} disabled={!selectedBill} block={isMobile}>
             Send Request
           </Button>
         </Form>

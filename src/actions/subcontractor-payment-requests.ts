@@ -14,6 +14,7 @@ async function getAuthHeaders() {
 }
 
 export async function createSubcontractorPaymentRequest(data: {
+  subcontractorBillId: string;
   subcontractorId: string;
   projectId: string;
   subcontractWorkOrderId?: string;
@@ -35,6 +36,8 @@ export async function createSubcontractorPaymentRequest(data: {
 
     revalidatePath('/dashboard/subcontractor-payments');
     revalidatePath('/dashboard/subcontractor-payment-requests');
+    revalidatePath('/dashboard/approvals');
+    revalidatePath('/dashboard/payments');
     return res.json();
   } catch (error) {
     if (error instanceof Error) throw error;
@@ -62,6 +65,8 @@ export async function respondSubcontractorPaymentRequest(
 
     revalidatePath('/dashboard/subcontractor-payment-requests');
     revalidatePath('/dashboard/subcontractor-payments');
+    revalidatePath('/dashboard/approvals');
+    revalidatePath('/dashboard/payments');
     return res.json();
   } catch (error) {
     if (error instanceof Error) throw error;

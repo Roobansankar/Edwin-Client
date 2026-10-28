@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation';
 
-// Subcontractor payment requests are handled in the Payments page's
-// Subcontractor Payment tab; older notification links still point here.
+// Subcontractor payment request approvals live on the Approvals page.
 export default function SubcontractorPaymentRequestsPage() {
-  redirect('/dashboard/payments?tab=subcontractor');
+  redirect('/dashboard/approvals?tab=subcontractor');
 }

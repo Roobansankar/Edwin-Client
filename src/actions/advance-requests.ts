@@ -14,6 +14,7 @@ async function getAuthHeaders() {
 }
 
 export async function createAdvanceRequest(data: {
+  purchaseBillId: string;
   vendorId: string;
   projectId: string;
   materialRequirementNo?: string;
@@ -37,6 +38,8 @@ export async function createAdvanceRequest(data: {
 
     revalidatePath('/dashboard/advance');
     revalidatePath('/dashboard/advance-requests');
+    revalidatePath('/dashboard/approvals');
+    revalidatePath('/dashboard/payments');
     return res.json();
   } catch (error) {
     if (error instanceof Error) throw error;
@@ -64,6 +67,8 @@ export async function respondAdvanceRequest(
 
     revalidatePath('/dashboard/advance-requests');
     revalidatePath('/dashboard/advance');
+    revalidatePath('/dashboard/approvals');
+    revalidatePath('/dashboard/payments');
     return res.json();
   } catch (error) {
     if (error instanceof Error) throw error;

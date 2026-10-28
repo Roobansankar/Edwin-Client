@@ -671,7 +671,9 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
               value={watchedPoId || undefined}
               onChange={handlePoSelect}
               options={purchaseOrders
-                .filter((po) => po.status === 'approved')
+                .filter((po) => po.status === 'approved' && !bills.some(
+                  (bill) => bill.purchaseOrderId === po.id && bill.id !== editingBill?.id,
+                ))
                 .map((po) => ({
                   value: po.id,
                   label: `${po.poNumber} - ${po.vendor?.name || 'Unknown Vendor'}${po.materialRequirementNo ? ` (MR Ref: ${po.materialRequirementNo})` : ''}`,

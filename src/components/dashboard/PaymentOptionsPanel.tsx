@@ -329,21 +329,20 @@ export function PaymentOptionsPanel({
   ];
 
   const tabItems = PAYMENT_OPTIONS.map((option) => {
-    // Vendor Payment is the full Vendor Payment Requests screen.
+    // Payments contains only requests that completed both approval stages.
     if (option.key === 'vendor') {
       return {
         key: option.key,
         label: `${option.no}. ${option.label}`,
-        children: <AdvanceRequestsClient requests={advanceRequests} bills={bills} payments={payments} embedded />,
+        children: <AdvanceRequestsClient requests={advanceRequests.filter((request) => request.status === 'admin_approved')} bills={bills} payments={payments} embedded mode="payments" />,
       };
     }
-    // Subcontractor Payment is the full Subcontractor Payment Requests screen
-    // (admin sets the final amount there on approval).
+    // Admin sets the final amount on the Approvals page.
     if (option.key === 'subcontractor') {
       return {
         key: option.key,
         label: `${option.no}. ${option.label}`,
-        children: <SubcontractorPaymentRequestsClient requests={subcontractorPaymentRequests} payments={payments} embedded />,
+        children: <SubcontractorPaymentRequestsClient requests={subcontractorPaymentRequests.filter((request) => request.status === 'admin_approved')} payments={payments} embedded mode="payments" />,
       };
     }
 
