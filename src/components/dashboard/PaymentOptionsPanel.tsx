@@ -328,7 +328,7 @@ export function PaymentOptionsPanel({
       },
     },
     { title: 'Paid Amount', key: 'paid', width: 140, render: (_, row) => row.labourPayment ? formatCurrency(labourPaid(row.labourPayment)) : '-' },
-    { title: 'History', key: 'history', width: 140, render: (_, row) => row.labourPayment ? <LabourPaymentHistory payments={[row.labourPayment]} title={row.expense ? "Expense payment history" : undefined} /> : '-' },
+    { title: 'History', key: 'history', width: 140, render: (_, row) => row.labourPayment ? <LabourPaymentHistory payments={[row.labourPayment]} title={row.expense ? "Expense payment history" : undefined} showSummary={row.expense} /> : '-' },
     { title: 'Action', key: 'action', width: 200, render: (_, r) => renderAction(r) },
   ];
 
