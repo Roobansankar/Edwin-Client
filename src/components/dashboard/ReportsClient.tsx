@@ -32,8 +32,10 @@ import {
   EyeOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
-import type { LabourPayment, ExpensePayment, Project, PurchaseBill, Expense, DailyLabourReport, DailyWorker, SubcontractorBill, VendorQuotation } from '@/types/erp';
+import type { AdvanceRequest, SubcontractorPaymentRequest, Payment, LabourPayment, ExpensePayment, Project, PurchaseBill, Expense, DailyLabourReport, DailyWorker, SubcontractorBill, VendorQuotation } from '@/types/erp';
 import { labourHistoryText, labourPaidRatio } from '@/lib/labour-payment-history';
+import { AdvanceRequestsClient } from './AdvanceRequestsClient';
+import { SubcontractorPaymentRequestsClient } from './SubcontractorPaymentRequestsClient';
 import { LabourPaymentHistory } from './LabourPaymentHistory';
 import { paymentStatus } from '@/lib/payment-status';
 import { exportToExcel } from '@/lib/excel';
@@ -169,6 +171,9 @@ function billApprovalTag(status: string) {
 const ALL_PROJECTS = '__all_projects__';
 
 type ReportsClientProps = {
+  advanceRequests?: AdvanceRequest[];
+  subcontractorPaymentRequests?: SubcontractorPaymentRequest[];
+  payments?: Payment[];
   labourPayments?: LabourPayment[];
   expensePayments?: ExpensePayment[];
   projects: Project[];
@@ -250,6 +255,7 @@ function dailyWeekApprovalLabel(reports: DailyLabourReport[]) {
 }
 
 export function ReportsClient({
+  advanceRequests = [], subcontractorPaymentRequests = [], payments = [],
   labourPayments = [], expensePayments = [],
   projects = [],
   bills = [],
@@ -1562,10 +1568,23 @@ export function ReportsClient({
   };
 
 
+  const paymentTabs = [
+    {
+      key: 'vendor-payments',
+      label: 'Vendor Payment',
+      children: <AdvanceRequestsClient requests={advanceRequests.filter((request) => request.status === 'accepted' || request.status === 'admin_approved')} bills={bills} payments={payments} embedded mode="reports" />,
+    },
+    {
+      key: 'subcontractor-payments',
+      label: 'Subcontractor Payment',
+      children: <SubcontractorPaymentRequestsClient requests={subcontractorPaymentRequests.filter((request) => request.status === 'accepted' || request.status === 'admin_approved')} payments={payments} embedded mode="reports" />,
+    },
+  ];
+
   const canSeeReportData = ['admin', 'accounts_manager', 'purchase_team'].includes(role);
   const tabItems = canSeeReportData
     ? (hideProjectReport
-      ? [dailyLabourTabItems, vendorBillsTabItems, subcontractorBillsTabItems, expensesTabItems]
+      ? [dailyLabourTabItems, ...paymentTabs, vendorBillsTabItems, subcontractorBillsTabItems, expensesTabItems]
       : [projectTabItems, expensesTabItems, dailyLabourTabItems, vendorBillsTabItems, subcontractorBillsTabItems])
     : [];
 

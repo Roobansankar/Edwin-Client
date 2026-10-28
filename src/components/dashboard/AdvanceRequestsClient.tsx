@@ -55,7 +55,7 @@ type Props = {
   payments: Payment[];
   // Shown inside the Payments page's Vendor Payment tab: no page title.
   embedded?: boolean;
-  mode?: 'approvals' | 'payments' | 'all';
+  mode?: 'approvals' | 'payments' | 'all' | 'reports';
 };
 
 type RequestRow = {
@@ -333,6 +333,7 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
   };
 
   const renderActions = (row: RequestRow) => {
+    if (mode === 'reports') return null;
     const canPay = row.request.status === 'admin_approved' && row.balance > 0;
     const reason = row.displayStatus === 'paid'
       ? 'Approved request fully paid. Create another request and obtain admin approval to pay any remaining order balance.'
@@ -398,7 +399,7 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
     { title: 'Pay Date', key: 'payDate', width: 110, align: 'right', render: (_, r) => (r.payDate ? dayjs(r.payDate).format('DD-MMM') : '-') },
     {
       title: 'Approval Status', key: 'approvalStatus', width: 180,
-      render: (_, r) => <PaymentApprovalTag status={r.request.status} />,
+      render: (_, r) => <PaymentApprovalTag status={r.request.status} showHistory={mode === 'reports'} />,
     },
     {
       title: 'Status', key: 'status', width: 180,
@@ -483,7 +484,12 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
             style={{ width: 200 }}
             value={statusFilter || undefined}
             onChange={(val) => setStatusFilter(val || '')}
-            options={STATUS_OPTIONS}
+            options={mode === 'reports'
+              ? STATUS_OPTIONS.filter((option) => ['', 'accepted', 'admin_approved', 'paid'].includes(option.value)).map((option) => ({
+                  ...option,
+                  label: option.value === 'accepted' ? 'Accounts Approved' : option.value === 'admin_approved' ? 'Admin Approved' : option.label,
+                }))
+              : STATUS_OPTIONS}
             allowClear
             onClear={() => setStatusFilter('')}
           />
