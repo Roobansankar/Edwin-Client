@@ -149,7 +149,8 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
     const to = dateRange[1]?.format('YYYY-MM-DD');
     return rows.filter((row) => {
       const r = row.request;
-      if (statusFilter && row.displayStatus !== statusFilter) return false;
+      const filterStatus = mode === 'approvals' && statusFilter !== 'paid' ? r.status : row.displayStatus;
+      if (statusFilter && filterStatus !== statusFilter) return false;
       if (from && to) {
         const created = r.createdAt ? r.createdAt.split('T')[0] : '';
         if (created < from || created > to) return false;
@@ -164,7 +165,7 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
       }
       return true;
     });
-  }, [rows, statusFilter, searchText, dateRange]);
+  }, [rows, statusFilter, searchText, dateRange, mode]);
 
   const counts = useMemo(
     () => ({
@@ -489,7 +490,12 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
                   ...option,
                   label: option.value === 'accepted' ? 'Accounts Approved' : option.value === 'admin_approved' ? 'Admin Approved' : option.label,
                 }))
-              : STATUS_OPTIONS}
+              : mode === 'approvals'
+                ? STATUS_OPTIONS.map((option) => ({
+                    ...option,
+                    label: option.value === 'pending' ? 'Accounts Pending' : option.value === 'accepted' ? 'Accounts Approved' : option.value === 'admin_approved' ? 'Admin Approved' : option.label,
+                  }))
+                : STATUS_OPTIONS}
             allowClear
             onClear={() => setStatusFilter('')}
           />
