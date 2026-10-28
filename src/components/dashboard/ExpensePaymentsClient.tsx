@@ -76,7 +76,7 @@ export function ExpensePaymentsClient({ payments, unpaidSummary }: Props) {
     }
     startTransition(async () => {
       try {
-        await createExpensePayment({
+        const result = await createExpensePayment({
           userId,
           weekStart: selectedWeek.weekStart,
           weekEnd: selectedWeek.weekEnd,
@@ -84,6 +84,10 @@ export function ExpensePaymentsClient({ payments, unpaidSummary }: Props) {
           status,
           notes: notes || undefined,
         });
+        if (!result.success) {
+          message.error(result.error);
+          return;
+        }
         message.success('Payment recorded');
         resetForm();
       } catch (error) {
@@ -95,7 +99,11 @@ export function ExpensePaymentsClient({ payments, unpaidSummary }: Props) {
   const handleStatusChange = (id: string, newStatus: string) => {
     startTransition(async () => {
       try {
-        await updateExpensePaymentStatus(id, newStatus as 'pending' | 'paid');
+        const result = await updateExpensePaymentStatus(id, newStatus as 'pending' | 'paid');
+        if (!result.success) {
+          message.error(result.error);
+          return;
+        }
         message.success('Status updated');
       } catch (error) {
         message.error(error instanceof Error ? error.message : 'Failed to update status');

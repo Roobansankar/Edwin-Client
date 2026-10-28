@@ -35,14 +35,17 @@ export async function createExpensePayment(data: {
 
     if (!res.ok) {
       const error = await res.json().catch(() => ({ message: 'Failed to record payment' }));
-      throw new Error(error.message || 'Failed to record payment');
+      console.error('Expense payment API failure:', res.status, error);
+      return { success: false as const, error: res.status < 500
+        ? (Array.isArray(error.message) ? error.message.join(', ') : error.message) || 'Failed to record payment'
+        : 'Unable to confirm payment. Refresh and check payment history before trying again.' };
     }
 
     for (const path of ['/dashboard/expense-payments', '/dashboard/payments', '/dashboard/weekly-report', '/dashboard/all-reports']) revalidatePath(path);
-    return res.json();
+    return { success: true as const };
   } catch (error) {
-    if (error instanceof Error) throw error;
-    throw new Error('Something went wrong. Please try again.');
+    console.error('Expense payment action failed:', error);
+    return { success: false as const, error: 'Unable to confirm payment. Refresh and check payment history before trying again.' };
   }
 }
 
@@ -57,13 +60,16 @@ export async function updateExpensePaymentStatus(id: string, status: 'pending' |
 
     if (!res.ok) {
       const error = await res.json().catch(() => ({ message: 'Failed to update status' }));
-      throw new Error(error.message || 'Failed to update status');
+      console.error('Expense payment status API failure:', res.status, error);
+      return { success: false as const, error: res.status < 500
+        ? (Array.isArray(error.message) ? error.message.join(', ') : error.message) || 'Failed to update status'
+        : 'Unable to confirm the status update. Refresh and check payment history.' };
     }
 
     for (const path of ['/dashboard/expense-payments', '/dashboard/payments', '/dashboard/weekly-report', '/dashboard/all-reports']) revalidatePath(path);
-    return res.json();
+    return { success: true as const };
   } catch (error) {
-    if (error instanceof Error) throw error;
-    throw new Error('Something went wrong. Please try again.');
+    console.error('Expense payment action failed:', error);
+    return { success: false as const, error: 'Unable to confirm payment. Refresh and check payment history before trying again.' };
   }
 }

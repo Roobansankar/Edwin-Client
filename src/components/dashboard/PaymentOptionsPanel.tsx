@@ -242,7 +242,11 @@ export function PaymentOptionsPanel({
     const date = paymentDate.format('YYYY-MM-DD');
     startTransition(async () => {
       try {
-        await payRow.pay(date, paymentMode, referenceNumber.trim(), payAmount);
+        const result = await payRow.pay(date, paymentMode, referenceNumber.trim(), payAmount);
+        if (payRow.expense && result && typeof result === 'object' && 'success' in result && result.success === false) {
+          message.error('error' in result && typeof result.error === 'string' ? result.error : 'Failed to record payment');
+          return;
+        }
         message.success('Payment recorded');
         setPayRow(null);
         router.refresh();
