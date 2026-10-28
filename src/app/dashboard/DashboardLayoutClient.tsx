@@ -96,6 +96,7 @@ const navigationSections: Array<{ title: string; items: NavItem[]; allowedRoles?
       { key: '/dashboard/subcontract-work-orders', icon: <FileTextOutlined />, label: 'Subcontract WO', allowedRoles: ['purchase_team'] },
       { key: '/dashboard/subcontractor-work', icon: <TeamOutlined />, label: 'Subcontractor Work', allowedRoles: ['purchase_team'] },
 
+      { key: '/dashboard/site-engineer-attendance', icon: <TeamOutlined />, label: 'All User Timesheets', allowedRoles: ['admin'] },
       { key: '/dashboard/approvals', icon: <SafetyCertificateOutlined />, label: 'Approvals', allowedRoles: ['admin', 'accounts_manager'] },
       { key: '/dashboard/weekly-report', icon: <FileTextOutlined />, label: 'Weekly Report', allowedRoles: ['admin', 'accounts_manager'] },
       { key: '/dashboard/all-reports', icon: <FileTextOutlined />, label: 'Report', allowedRoles: ['admin', 'accounts_manager'] },
@@ -128,7 +129,6 @@ const navigationSections: Array<{ title: string; items: NavItem[]; allowedRoles?
       { key: '/dashboard/accounts/invoices', icon: <FileProtectOutlined />, label: 'Invoices', allowedRoles: ['admin'] },
       { key: '/dashboard/accounts/bills', icon: <FileDoneOutlined />, label: 'Vendor Bills', allowedRoles: ['admin', 'purchase_team'] },
       { key: '/dashboard/accounts/subcontractor-bills', icon: <FileDoneOutlined />, label: 'Subcontractor Bills', allowedRoles: ['admin', 'purchase_team'] },
-      { key: '/dashboard/site-engineer-attendance', icon: <TeamOutlined />, label: 'Timesheet Approvals', allowedRoles: ['admin'] },
     ],
   },
   {

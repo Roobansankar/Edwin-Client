@@ -47,7 +47,7 @@ export function SiteEngineerAttendanceClient({ timesheets }: Props) {
     for (const ts of currentRoleList) {
       if (!ts.siteEngineer) continue;
       const existing = map.get(ts.siteEngineer.id);
-      const isPendingStatus = ts.status === 'pending';
+      const isPendingStatus = ts.status === 'pending' || ts.status === 'submitted';
       if (existing) {
         existing.count += 1;
         if (isPendingStatus) existing.pendingCount += 1;
@@ -74,7 +74,7 @@ export function SiteEngineerAttendanceClient({ timesheets }: Props) {
     <div>
       <Flex justify="space-between" align="center" className={pageHeaderClassName} gap={16} wrap="wrap">
         <Typography.Title level={3} className={pageTitleClassName}>
-          <TeamOutlined className={titleIconClassName} /> Attendance
+          <TeamOutlined className={titleIconClassName} /> All User Timesheets
         </Typography.Title>
       </Flex>
 
