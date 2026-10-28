@@ -360,7 +360,13 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
       }
       if (billVendorFilter && b.vendorId !== billVendorFilter) return false;
       if (statusFilter && b.status !== statusFilter) return false;
-      if (searchText && !b.billNumber?.toLowerCase().includes(searchText.toLowerCase()) && !b.vendor?.name?.toLowerCase().includes(searchText.toLowerCase())) return false;
+      const query = searchText.trim().toLowerCase();
+      if (query && ![
+        b.billNumber,
+        b.vendor?.name,
+        b.purchaseOrder?.poNumber,
+        b.purchaseOrder?.materialRequirementNo,
+      ].some((value) => value?.toLowerCase().includes(query))) return false;
       return true;
     });
   }, [bills, dateRange, searchText, statusFilter, billVendorFilter]);

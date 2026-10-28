@@ -299,6 +299,8 @@ export function ReportsClient({
   const [dlProjectId, setDlProjectId] = useState<string | undefined>();
   const [projectDateRange, setProjectDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
   const [dlDateRange, setDlDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
+  const [vbSearch, setVbSearch] = useState('');
+  const [sbSearch, setSbSearch] = useState('');
   const [vbProjectId, setVbProjectId] = useState<string | undefined>(ALL_PROJECTS);
   const [vbDateRange, setVbDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
   const [sbProjectId, setSbProjectId] = useState<string | undefined>(ALL_PROJECTS);
@@ -410,21 +412,25 @@ export function ReportsClient({
   // Vendor bills for the Vendor Bills tab.
   const vendorBillRows = useMemo(
     () => bills
+      .filter((b) => !vbSearch.trim() || [b.billNumber, b.vendor?.name, b.project?.name, b.purchaseOrder?.project?.name, b.purchaseOrder?.poNumber]
+        .some((value) => value?.toLowerCase().includes(vbSearch.trim().toLowerCase())))
       .filter((b) => !vbProjectId || vbProjectId === ALL_PROJECTS || b.projectId === vbProjectId)
       .filter((b) => inRange(b.billDate, vbDateRange))
       .filter((b) => purchaseBillStatusOk(b.status))
       .sort((a, b) => (b.billDate || '').localeCompare(a.billDate || '')),
-    [bills, vbProjectId, vbDateRange, purchaseBillStatusOk],
+    [bills, vbProjectId, vbDateRange, purchaseBillStatusOk, vbSearch],
   );
 
   // Subcontractor bills for the Subcontractor Bills tab (dated by when they were raised).
   const subcontractorBillRows = useMemo(
     () => subcontractorBills
+      .filter((b) => !sbSearch.trim() || [b.subcontractor?.name, b.project?.name, b.subcontractWorkOrder?.woNumber]
+        .some((value) => value?.toLowerCase().includes(sbSearch.trim().toLowerCase())))
       .filter((b) => !sbProjectId || sbProjectId === ALL_PROJECTS || b.projectId === sbProjectId)
       .filter((b) => inRange(b.createdAt, sbDateRange))
       .filter((b) => purchaseBillStatusOk(b.status))
       .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')),
-    [subcontractorBills, sbProjectId, sbDateRange, purchaseBillStatusOk],
+    [subcontractorBills, sbProjectId, sbDateRange, purchaseBillStatusOk, sbSearch],
   );
 
   const vendorBillsSummary = useMemo(() => {
@@ -950,6 +956,7 @@ export function ReportsClient({
     },
     { title: 'PO Number', key: 'poNumber', width: 130, render: (_, r) => r.purchaseOrder?.poNumber || '-' },
     { title: 'Bill No', dataIndex: 'billNumber', width: 130, render: (v: string) => <Typography.Text strong>{v}</Typography.Text> },
+    { title: 'Bill Date', dataIndex: 'billDate', width: 110, render: (v?: string) => formatDate(v) },
     { title: 'Vendor', key: 'vendor', width: 180, ellipsis: true, render: (_, r) => r.vendor?.name || '-' },
     { title: 'Project', key: 'project', width: 220, ellipsis: true, render: (_, r) => r.project?.name || r.purchaseOrder?.project?.name || '-' },
     { title: 'Status', dataIndex: 'status', width: 150, render: (v: string) => billApprovalTag(v) },
@@ -991,7 +998,6 @@ export function ReportsClient({
         }));
       },
     },
-    { title: 'Bill Date', dataIndex: 'billDate', width: 110, render: (v?: string) => formatDate(v) },
   ];
 
   const subcontractorBillColumns: ColumnsType<SubcontractorBill> = [
@@ -1414,6 +1420,14 @@ export function ReportsClient({
       <div>
         <Flex justify="space-between" align="center" gap={16} wrap="wrap" className="mb-4!">
           <Flex gap={12} wrap="wrap">
+            <Input
+              allowClear
+              aria-label="Search bill no, vendor, project or PO"
+              placeholder="Search bill no, vendor, project or PO"
+              style={{ width: 300, maxWidth: '100%' }}
+              value={vbSearch}
+              onChange={(event) => setVbSearch(event.target.value)}
+            />
             <Select
               showSearch
               placeholder="Filter by project"
@@ -1473,10 +1487,12 @@ export function ReportsClient({
           <Table
             className="mantis-table"
             dataSource={vendorBillRows}
-            columns={vendorBillColumns}
+            columns={hideProjectReport && !allStatuses
+              ? vendorBillColumns.filter((column) => !['Created Date', 'MR Ref', 'Purchase Enquiry', 'PO Number'].includes(String(column.title)))
+              : vendorBillColumns}
             rowKey="id"
             size="middle"
-            scroll={{ x: 1800 }}
+            scroll={{ x: hideProjectReport && !allStatuses ? 1280 : 1800 }}
             pagination={{ pageSize: 15, showTotal: (total) => `${total} bills` }}
             locale={{ emptyText: 'No vendor bills for the selected filters' }}
           />
@@ -1496,6 +1512,14 @@ export function ReportsClient({
       <div>
         <Flex justify="space-between" align="center" gap={16} wrap="wrap" className="mb-4!">
           <Flex gap={12} wrap="wrap">
+            <Input
+              allowClear
+              aria-label="Search subcontractor, project or WO"
+              placeholder="Search subcontractor, project or WO"
+              style={{ width: 300, maxWidth: '100%' }}
+              value={sbSearch}
+              onChange={(event) => setSbSearch(event.target.value)}
+            />
             <Select
               showSearch
               placeholder="Filter by project"
@@ -1555,7 +1579,9 @@ export function ReportsClient({
           <Table
             className="mantis-table"
             dataSource={subcontractorBillRows}
-            columns={subcontractorBillColumns}
+            columns={hideProjectReport && !allStatuses
+              ? subcontractorBillColumns.filter((column) => column.key !== 'workOrder' && column.key !== 'notes')
+              : subcontractorBillColumns}
             rowKey="id"
             size="middle"
             scroll={{ x: 1650 }}
