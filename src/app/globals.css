@@ -134,3 +134,44 @@ body {
   border-bottom: none !important;
 }
 
+/* AntD's hidden measure row (tables with scroll.y) must not get cell padding,
+   or it shows as an empty strip under the header. */
+.mantis-table .ant-table-tbody > tr.ant-table-measure-row > td {
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+/* Projects table (Svasti inventory style): header colours come from the
+   column onHeaderCell styles; here only row hover and visible scrollbars. */
+.projects-table .ant-table-tbody > tr > td {
+  vertical-align: middle;
+}
+
+.projects-table .ant-table-tbody > tr:hover > td {
+  background: var(--subtle-bg) !important;
+}
+
+.projects-table .ant-table-body {
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 var(--subtle-bg);
+}
+
+.projects-table .ant-table-body::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.projects-table .ant-table-body::-webkit-scrollbar-track {
+  background: var(--subtle-bg);
+  border-radius: 999px;
+}
+
+.projects-table .ant-table-body::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 999px;
+}
+
+.projects-table .ant-table-body::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+

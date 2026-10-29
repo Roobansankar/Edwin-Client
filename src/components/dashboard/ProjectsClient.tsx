@@ -2,29 +2,22 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AutoComplete, Button, Card, Col, DatePicker, Divider, Drawer, Flex, Form, Input, InputNumber, Popconfirm, Progress, Row, Select, Space, Table, Tag, Typography, App } from 'antd';
-import type { ColumnsType } from 'antd/es/table';
-import { DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined, ProjectOutlined } from '@ant-design/icons';
+import { AutoComplete, Button, DatePicker, Divider, Drawer, Flex, Form, Input, InputNumber, Select, Space, Typography, App } from 'antd';
+import { PlusOutlined, ProjectOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import dayjs from 'dayjs';
 import { createProject, deleteProject, updateProject } from '@/actions/projects';
+import { ProjectsTable } from './ProjectsTable';
 import { createProjectCategory } from '@/actions/project-categories';
 import type { AppUser, Project, ProjectCategory } from '@/types/erp';
 import {
   formatCurrency,
-  formatDate,
   pageHeaderClassName,
   pageTitleClassName,
-  secondaryTextClassName,
-  titleCase,
   titleIconClassName,
 } from './ui';
-
-function StatusDot({ value, label }: { value: string; label?: string }) {
-  return <Typography.Text>{label || titleCase(value)}</Typography.Text>;
-}
 
 function generateFinancialYears(): string[] {
   const currentYear = dayjs().year();
@@ -211,129 +204,6 @@ export function ProjectsClient({ projects, projectCategories, users }: ProjectsC
     });
   };
 
-  const columns: ColumnsType<Project> = [
-    {
-      title: 'S.No',
-      key: 'sno',
-      width: 80,
-      render: (_text, _record, index) => index + 1,
-    },
-    {
-      title: 'Code',
-      dataIndex: 'projectCode',
-      width: 120,
-      sorter: (a, b) => (a.projectCode || '').localeCompare(b.projectCode || ''),
-    },
-    {
-      title: 'Project',
-      dataIndex: 'name',
-      sorter: (a, b) => a.name.localeCompare(b.name),
-      render: (value: string, record) => (
-        <Flex vertical gap={0}>
-          <Typography.Text strong>{value}</Typography.Text>
-          <Typography.Text type="secondary" className={`${secondaryTextClassName} text-xs`}>
-            {record.clientName || record.location || 'No client assigned'}
-          </Typography.Text>
-        </Flex>
-      ),
-    },
-    {
-      title: 'Category',
-      key: 'category',
-      width: 130,
-      render: (_, record) => record.projectCategory?.name || '-',
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      filters: [
-        { text: 'Planning', value: 'planning' },
-        { text: 'In Progress', value: 'in_progress' },
-        { text: 'On Hold', value: 'on_hold' },
-        { text: 'Completed', value: 'completed' },
-      ],
-      onFilter: (value, record) => record.status === value,
-      render: (value: string) => <StatusDot value={value} />,
-    },
-    {
-      title: 'Completion',
-      dataIndex: 'completionPct',
-      width: 150,
-      sorter: (a, b) => Number(a.completionPct) - Number(b.completionPct),
-      render: (value: number | string) => (
-        <Progress
-          percent={Number(value || 0)}
-          size="small"
-          strokeColor={{ from: '#3b82f6', to: '#10b981' }}
-        />
-      ),
-    },
-    {
-      title: 'Budget',
-      key: 'budget',
-      align: 'right',
-      sorter: (a, b) => Number(a.estimatedTotal || a.estimatedBudget) - Number(b.estimatedTotal || b.estimatedBudget),
-      render: (_, record) => {
-        const base = Number(record.estimatedBudget) || 0;
-        const gst = Number(record.estimatedGst) || 0;
-        const total = Number(record.estimatedTotal) || base + gst;
-        return (
-          <Flex vertical gap={0} className="items-end">
-            <Typography.Text strong>{formatCurrency(total)}</Typography.Text>
-            <Typography.Text type="secondary" className={`${secondaryTextClassName} text-[10px]`}>
-              Amount: {formatCurrency(base)} · GST: {formatCurrency(gst)}
-            </Typography.Text>
-          </Flex>
-        );
-      },
-    },
-    {
-      title: 'Timeline',
-      key: 'timeline',
-      render: (_, record) => (
-        <Flex vertical gap={0}>
-          <Typography.Text>{formatDate(record.startDate)}</Typography.Text>
-          <Typography.Text type="secondary" className={`${secondaryTextClassName} text-xs`}>
-            to {formatDate(record.endDate)}
-          </Typography.Text>
-        </Flex>
-      ),
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      width: 100,
-      render: (_, record) => (
-        <Space>
-          <Button
-            type="text"
-            icon={<EyeOutlined className="text-emerald-500" />}
-            onClick={() => router.push(`/dashboard/projects/${record.id}`)}
-          />
-          <Button
-            type="text"
-            icon={<EditOutlined className="text-sky-500" />}
-            onClick={() => handleEdit(record)}
-          />
-          <Popconfirm
-            title="Delete Project"
-            description="Are you sure you want to delete this project?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Yes"
-            cancelText="No"
-            okButtonProps={{ danger: true, loading: isPending }}
-          >
-            <Button
-              type="text"
-              danger
-              icon={<DeleteOutlined />}
-            />
-          </Popconfirm>
-        </Space>
-      ),
-    },
-  ];
-
   const submit = (values: ProjectFormValues) => {
     const base = Number(values.estimatedBudget || 0);
     const pct = Number(values.gstPercent || 0);
@@ -373,61 +243,23 @@ export function ProjectsClient({ projects, projectCategories, users }: ProjectsC
     setEditingProject(null);
   };
 
-  const statusStats = [
-    { status: 'planning', label: 'Planning' },
-    { status: 'in_progress', label: 'In Progress' },
-    { status: 'on_hold', label: 'On Hold' },
-    { status: 'completed', label: 'Completed' },
-  ];
-
   return (
     <div>
       <Flex justify="space-between" align="center" className={pageHeaderClassName} gap={16} wrap="wrap">
         <Typography.Title level={3} className={pageTitleClassName}>
           <ProjectOutlined className={titleIconClassName} /> Projects
         </Typography.Title>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>
-          Add Project
-        </Button>
       </Flex>
 
-      <Row gutter={[16, 16]} className="mb-4">
-        {statusStats.map((item) => {
-          const count = projects.filter((p) => p.status === item.status).length;
-          return (
-            <Col xs={24} sm={12} md={6} key={item.status}>
-              <Card
-                className="rounded-xl! border! border-[var(--border)]!"
-                styles={{ body: { padding: '18px 20px', background: 'var(--subtle-bg)', borderRadius: 12 } }}
-              >
-                <Flex vertical gap={10}>
-                  <Typography.Text className="text-sm text-[var(--text-muted)]!">{item.label}</Typography.Text>
-                  <Flex align="center" gap={10}>
-                    <Typography.Title level={4} className="m-0! text-[var(--text-primary)]!">
-                      {count}
-                    </Typography.Title>
-                  </Flex>
-                </Flex>
-              </Card>
-            </Col>
-          );
-        })}
-      </Row>
-
-      <Card
-        className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
-        styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
-      >
-        <Table
-          className="mantis-table"
-          dataSource={projects}
-          columns={columns}
-          rowKey="id"
-          size="middle"
-          scroll={{ x: 1000 }}
-          pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} projects` }}
-        />
-      </Card>
+      <ProjectsTable
+        projects={projects}
+        onView={(project) => router.push(`/dashboard/projects/${project.id}`)}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        onAdd={() => setOpen(true)}
+        onRefresh={() => router.refresh()}
+        deleting={isPending}
+      />
 
       <Drawer
         title={editingProject ? 'Edit Project' : 'Add New Project'}

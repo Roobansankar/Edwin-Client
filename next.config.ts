@@ -16,6 +16,10 @@ const nextConfig: NextConfig = {
   },
 
   async headers() {
+    // Long-term caching only for production builds (hashed file names). In
+    // `next dev` the same URLs serve changing files, so caching them makes the
+    // browser keep stale CSS/JS.
+    if (process.env.NODE_ENV !== 'production') return [];
     return [
       {
         source: "/_next/static/:path*",
