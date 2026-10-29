@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Button, Card, Descriptions, Divider, Drawer, Flex, Form, Input, List, Modal, Popconfirm, Select, Space, Table, Typography, App } from 'antd';
+import { Button, Descriptions, Divider, Drawer, Flex, Form, Input, List, Modal, Popconfirm, Select, Space, Typography, App } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined, SearchOutlined, TeamOutlined } from '@ant-design/icons';
 import { Controller, useForm } from 'react-hook-form';
@@ -17,6 +17,7 @@ import {
   pageTitleClassName,
   titleIconClassName,
 } from './ui';
+import { PagedTableCard, StatusCards } from './DataTablePanel';
 
 const vendorSchema = z.object({
   name: z.string().min(2, 'Vendor name is required'),
@@ -167,12 +168,15 @@ export function VendorsClient({ vendors, categories }: VendorsClientProps) {
     });
   };
 
+  // S.No follows the filtered list, so numbering continues across pages.
+  const serialById = new Map(filteredVendors.map((v, i) => [v.id, i + 1]));
+
   const columns: ColumnsType<Vendor> = [
     {
       title: 'S.No',
       key: 'sno',
       width: 80,
-      render: (_text, _record, index) => index + 1,
+      render: (_text, record) => serialById.get(record.id),
     },
     {
       title: 'Name',
@@ -323,40 +327,47 @@ export function VendorsClient({ vendors, categories }: VendorsClientProps) {
         </Space>
       </Flex>
 
-      <Flex gap={12} wrap="wrap" className="mb-4!">
-        <Input.Search
-          placeholder="Search by vendor name or category..."
-          allowClear
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
-          style={{ width: 260 }}
-        />
-        <Select
-          value={categoryFilter}
-          onChange={setCategoryFilter}
-          style={{ width: 200 }}
-          options={[
-            { value: 'ALL', label: 'All Categories' },
-            ...categoryOptions.map((c) => ({ value: c, label: c })),
-          ]}
-        />
-      </Flex>
+      <StatusCards
+        items={[
+          { key: 'total', label: 'Total Vendors', value: vendors.length },
+          { key: 'shown', label: 'Shown', value: filteredVendors.length },
+          { key: 'categories', label: 'Categories', value: categoryOptions.length },
+          { key: 'gst', label: 'With GST No.', value: vendors.filter((v) => v.gstNumber).length },
+        ]}
+      />
 
-      <Card
-        className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
-        styles={{ body: { padding: '8px 0' } }}
-      >
-        <Table
-          className="mantis-table"
-          dataSource={filteredVendors}
-          columns={columns}
-          rowKey="id"
-          size="middle"
-          scroll={{ x: 1300 }}
-          pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} vendors` }}
-        />
-      </Card>
+      <PagedTableCard
+        title="Vendor List"
+        subtitle={`${filteredVendors.length} ${filteredVendors.length === 1 ? 'vendor' : 'vendors'}`}
+        toolbar={(
+          <>
+            <Input
+              placeholder="Search by vendor name or category..."
+              allowClear
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+              style={{ width: 260 }}
+            />
+            <Select
+              value={categoryFilter}
+              onChange={setCategoryFilter}
+              style={{ width: 200 }}
+              options={[
+                { value: 'ALL', label: 'All Categories' },
+                ...categoryOptions.map((c) => ({ value: c, label: c })),
+              ]}
+            />
+          </>
+        )}
+        noun="vendors"
+        className="mantis-table"
+        dataSource={filteredVendors}
+        columns={columns}
+        rowKey="id"
+        size="middle"
+        scroll={{ x: 1300 }}
+      />
 
       <Drawer
         title="Vendor Details"

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition, useEffect, useMemo } from 'react';
-import { App, Button, Card, Col, DatePicker, Drawer, Flex, Input, Row, Select, Space, Statistic, Table, Typography, Popconfirm, Tooltip, Image } from 'antd';
+import { App, Button, DatePicker, Drawer, Flex, Input, Select, Space, Typography, Popconfirm, Tooltip, Image } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DollarOutlined, PlusOutlined, EditOutlined, DeleteOutlined, FileTextOutlined, PictureOutlined, SearchOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -11,7 +11,6 @@ import { ExpenseForm } from './ExpenseForm';
 import { clientApiFetch } from '@/lib/client-api';
 import { useAuthStore } from '@/store/auth';
 import {
-  cardClassName,
   StatusTag,
   formatCurrency,
   formatDate,
@@ -19,6 +18,7 @@ import {
   pageTitleClassName,
   titleIconClassName,
 } from './ui';
+import { PagedTableCard, StatusCards } from './DataTablePanel';
 
 const STATUS_OPTIONS = [
   { label: 'Pending', value: 'pending' },
@@ -138,22 +138,27 @@ export function ExpensesClient({ expenses: initialExpenses, projects }: Expenses
     });
   };
 
+  // S.No follows the filtered list, so numbering continues across pages.
+  const serialById = new Map(filteredExpenses.map((e, i) => [e.id, i + 1]));
+
   const columns: ColumnsType<Expense> = [
     {
       title: 'S.No',
       key: 'sno',
-      width: 60,
-      render: (_text, _record, index) => index + 1,
+      width: 70,
+      render: (_text, record) => serialById.get(record.id),
     },
     {
       title: 'Date',
       dataIndex: 'expenseDate',
+      width: 120,
       sorter: (a, b) => new Date(a.expenseDate || 0).getTime() - new Date(b.expenseDate || 0).getTime(),
       render: formatDate,
     },
     {
       title: 'Added By',
       dataIndex: 'creator',
+      width: 190,
         render: (creator) => creator ? (
           <Space orientation="vertical" size={0}>
             <Typography.Text strong>{creator.name}</Typography.Text>
@@ -166,22 +171,26 @@ export function ExpensesClient({ expenses: initialExpenses, projects }: Expenses
     {
       title: 'Project',
       dataIndex: ['project', 'name'],
+      width: 200,
       render: (val, record) => val || (record.project ? <Typography.Text>{record.project.name}</Typography.Text> : '-'),
     },
     
     {
       title: 'Expense Type',
       dataIndex: ['expenseType', 'name'],
+      width: 160,
       render: (val, record) => val || (record.category ? <StatusTag value={record.category} /> : '-'),
     },
     {
       title: 'Trade',
       dataIndex: ['trade', 'name'],
+      width: 140,
       render: (val) => val || '-',
     },
     {
       title: 'Description',
       dataIndex: 'description',
+      width: 260,
       sorter: (a, b) => a.description.localeCompare(b.description),
       render: (value: string, record) => (
         <Space orientation="vertical" size={0}>
@@ -197,6 +206,7 @@ export function ExpensesClient({ expenses: initialExpenses, projects }: Expenses
     {
       title: 'Amount',
       dataIndex: 'amount',
+      width: 130,
       align: 'right',
       sorter: (a, b) => Number(a.amount) - Number(b.amount),
       render: formatCurrency,
@@ -236,6 +246,7 @@ export function ExpensesClient({ expenses: initialExpenses, projects }: Expenses
     {
       title: 'Receipts',
       dataIndex: 'receiptUrls',
+      width: 110,
       render: (urls: string[]) => urls?.length ? (
         <Space>
           {urls.map((url, i) => (
@@ -253,6 +264,7 @@ export function ExpensesClient({ expenses: initialExpenses, projects }: Expenses
     {
       title: 'Site Photos',
       dataIndex: 'sitePhotoUrls',
+      width: 150,
       render: (urls: string[]) => urls?.length ? (
         <Image.PreviewGroup>
           <Space>
@@ -312,51 +324,48 @@ export function ExpensesClient({ expenses: initialExpenses, projects }: Expenses
         </Button>
       </Flex>
 
-      <Row gutter={[16, 16]} className="mb-4">
-        <Col xs={24} sm={12} md={8}>
-          <Card className={cardClassName} variant="borderless">
-            <Statistic
-              title="Total Amount"
-              value={totalAmount}
-              precision={2}
-              styles={{ content: { color: '#cf1322' } }}
-              formatter={(val) => formatCurrency(val as number)}
+      <StatusCards
+        items={[
+          { key: 'count', label: 'Expenses', value: filteredExpenses.length },
+          { key: 'total', label: 'Total Amount', value: formatCurrency(totalAmount) },
+          { key: 'pending', label: 'Pending', value: filteredExpenses.filter((e) => e.status === 'pending').length },
+          {
+            key: 'approved',
+            label: 'Approved',
+            value: filteredExpenses.filter((e) => e.status === 'approved' || e.status === 'admin_approved').length,
+          },
+        ]}
+      />
+
+      <PagedTableCard
+        title="Expenses"
+        subtitle={`${filteredExpenses.length} ${filteredExpenses.length === 1 ? 'expense' : 'expenses'}`}
+        toolbar={(
+          <>
+            <Input
+              placeholder="Search description, type, project..."
+              allowClear
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+              style={{ width: 240 }}
             />
-          </Card>
-        </Col>
-      </Row>
-
-      <Flex gap={12} wrap="wrap" className="mb-6!">
-        <Input.Search
-          placeholder="Search description, type, project..."
-          allowClear
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
-          style={{ width: 220 }}
-        />
-        <DatePicker.RangePicker
-          value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
-          onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
-          allowClear
-          placeholder={['From date', 'To date']}
-        />
-      </Flex>
-
-      <Card
-        className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
-        styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
-      >
-        <Table
-          className="mantis-table"
-          dataSource={filteredExpenses}
-          columns={columns}
-          rowKey="id"
-          size="middle"
-          scroll={{ x: 1200 }}
-          pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} expenses` }}
-        />
-      </Card>
+            <DatePicker.RangePicker
+              value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
+              onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+              allowClear
+              placeholder={['From date', 'To date']}
+            />
+          </>
+        )}
+        noun="expenses"
+        className="mantis-table"
+        dataSource={filteredExpenses}
+        columns={columns}
+        rowKey="id"
+        size="middle"
+        scroll={{ x: 1770 }}
+      />
 
       <Drawer
         title={editingExpense ? "Edit Expense" : "Add Expense"}

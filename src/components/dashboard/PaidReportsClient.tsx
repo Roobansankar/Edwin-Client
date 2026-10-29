@@ -1,19 +1,79 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { Button, Card, DatePicker, Flex, Input, Select, Table, Tabs, Tag, Typography } from 'antd';
+import { useMemo, useState, type ReactNode } from 'react';
+import { Button, DatePicker, Flex, Input, Select, Table, Tabs, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { Dayjs } from 'dayjs';
-import { FileExcelOutlined } from '@ant-design/icons';
+import { FileExcelOutlined, SearchOutlined } from '@ant-design/icons';
 import { buildPaidReport, type PaidReportRow, type PaidReportSources } from '@/lib/paid-report';
 import { labourHistoryText } from '@/lib/labour-payment-history';
 import { LabourPaymentHistory } from './LabourPaymentHistory';
 import { paymentStatus } from '@/lib/payment-status';
 import { exportToExcel } from '@/lib/excel';
-import { formatCurrency, weekRangeLabel, weekStartOf } from './ui';
+import { formatCurrency, pageHeaderClassName, pageTitleClassName, weekRangeLabel, weekStartOf } from './ui';
+import { PaginationCard, StatusCards, TableCard, TABLE_BODY_HEIGHT, useClientPagination } from './DataTablePanel';
 
 const weekNumber = (date: string) => `${Math.ceil(Number(date.slice(8, 10)) / 7)}${['st', 'nd', 'rd'][Math.ceil(Number(date.slice(8, 10)) / 7) - 1] || 'th'} Week`;
 const headers = ['S.No', 'Date', 'Week', 'Project Name', 'Items', 'Type', 'Vendor / Team', 'Description', 'GST / Non GST', 'Bill No', 'Without GST', 'GST Amount', 'With GST', 'Total Amount', 'Paid Amount', 'Balance', 'Payment Status', 'Payment History'];
+
+const TABS = [
+  ['all', 'All'],
+  ['labour', 'Daily Labour List'],
+  ['vendor', 'Vendor Payments'],
+  ['subcontractor', 'Subcontractor Payments'],
+  ['expenses', 'Expenses'],
+] as const;
+
+// One tab: summary cards, the table card (filters in its header) and the
+// pagination card. Paging lives here so each tab keeps its own page.
+function PaidTab({
+  title,
+  records,
+  columns,
+  toolbar,
+}: {
+  title: string;
+  records: PaidReportRow[];
+  columns: ColumnsType<PaidReportRow>;
+  toolbar: ReactNode;
+}) {
+  const pager = useClientPagination(records);
+  const total = records.reduce((sum, row) => sum + row.total, 0);
+  const paid = records.reduce((sum, row) => sum + row.paid, 0);
+  const balance = records.reduce((sum, row) => sum + (row.balance ?? 0), 0);
+
+  return (
+    <div>
+      <StatusCards
+        items={[
+          { key: 'records', label: 'Records', value: records.length },
+          { key: 'total', label: 'Total Amount', value: formatCurrency(total) },
+          { key: 'paid', label: 'Total Paid', value: formatCurrency(paid) },
+          { key: 'balance', label: 'Balance', value: formatCurrency(balance) },
+        ]}
+      />
+      <TableCard title={title} subtitle={`${records.length} ${records.length === 1 ? 'record' : 'records'}`} toolbar={toolbar}>
+        <Table
+          className="mantis-table approvals-table"
+          rowKey="key"
+          columns={columns}
+          dataSource={pager.pageRows}
+          pagination={false}
+          scroll={{ x: 2600, y: TABLE_BODY_HEIGHT }}
+          locale={{ emptyText: 'No recorded payments' }}
+        />
+      </TableCard>
+      <PaginationCard
+        total={pager.total}
+        start={pager.start}
+        page={pager.page}
+        size={pager.size}
+        onPageChange={pager.setPage}
+        onSizeChange={pager.setSize}
+      />
+    </div>
+  );
+}
 
 export function PaidReportsClient(props: PaidReportSources) {
   const [search, setSearch] = useState('');
@@ -55,41 +115,60 @@ export function PaidReportsClient(props: PaidReportSources) {
     { title: 'History', key: 'history', width: 140, render: (_, row) => row.labourPaymentId ? <LabourPaymentHistory payments={props.labourPayments.filter((payment) => payment.id === row.labourPaymentId)} /> : '-' },
     { title: 'Payment Status', key: 'status', width: 150, render: (_, row) => <Tag color={row.balance === null ? 'default' : row.balance > 0.005 ? 'warning' : 'success'}>{paymentStatus(row.paid, row.balance)}</Tag> },
   ];
-  return <div>
-    <Flex justify="space-between" align="center" wrap="wrap" gap={12} className="mb-4">
-      <Typography.Title level={3} className="m-0!">Paid Report</Typography.Title>
-      <Button type="primary" icon={<FileExcelOutlined />} disabled={!filtered.length} onClick={() => exportRows(filtered, 'All')}>Export All to Excel</Button>
-    </Flex>
-    <Flex gap={12} wrap="wrap" className="mb-4">
-      <Input.Search placeholder="Search project, team, vendor, description" allowClear value={search} onChange={(event) => setSearch(event.target.value)} style={{ width: 340 }} />
-      <DatePicker.RangePicker onChange={(dates) => setRange(dates ? [dates[0], dates[1]] : [null, null])} />
-    </Flex>
-    <Card><Tabs items={[
-      ['all', 'All'], ['labour', 'Daily Labour List'], ['vendor', 'Vendor Payments'], ['subcontractor', 'Subcontractor Payments'], ['expenses', 'Expenses'],
-    ].map(([key, label]) => {
-      const payeeFilter = key === 'vendor' ? vendorFilter : key === 'subcontractor' ? subcontractorFilter : undefined;
-      const records = key === 'all' ? filtered : filtered.filter((row) => row.category === key && (!payeeFilter || row.name === payeeFilter));
-      return { key, label, children: <>
-        {(key === 'vendor' || key === 'subcontractor') && (
-          <Select
-            showSearch
-            allowClear
-            className="mb-4"
-            style={{ width: '100%', maxWidth: 320 }}
-            placeholder={key === 'vendor' ? 'Filter by vendor' : 'Filter by subcontractor'}
-            aria-label={key === 'vendor' ? 'Filter vendor payments by vendor' : 'Filter subcontractor payments by subcontractor'}
-            value={payeeFilter}
-            onChange={key === 'vendor' ? setVendorFilter : setSubcontractorFilter}
-            options={payeeOptions[key]}
-            optionFilterProp="label"
-          />
-        )}
-        <Flex justify="space-between" align="center" className="mb-4" gap={12} wrap="wrap">
-          <Typography.Text strong>Total Paid: {formatCurrency(records.reduce((sum, row) => sum + row.paid, 0))}</Typography.Text>
-          {key !== 'all' && <Button icon={<FileExcelOutlined />} disabled={!records.length} onClick={() => exportRows(records, key)}>Export to Excel</Button>}
-        </Flex>
-        <Table rowKey="key" columns={columns} dataSource={records} scroll={{ x: 2600 }} pagination={{ pageSize: 20 }} locale={{ emptyText: 'No recorded payments' }} />
-      </> };
-    })} /></Card>
-  </div>;
+
+  return (
+    <div>
+      <Flex justify="space-between" align="center" wrap="wrap" gap={12} className={pageHeaderClassName}>
+        <Typography.Title level={3} className={pageTitleClassName}>Paid Report</Typography.Title>
+        <Button type="primary" icon={<FileExcelOutlined />} disabled={!filtered.length} onClick={() => exportRows(filtered, 'All')}>Export All to Excel</Button>
+      </Flex>
+
+      <Tabs
+        // Each tab starts unfiltered, like the Approvals page.
+        onChange={() => { setSearch(''); setRange([null, null]); }}
+        items={TABS.map(([key, label]) => {
+          const payeeFilter = key === 'vendor' ? vendorFilter : key === 'subcontractor' ? subcontractorFilter : undefined;
+          const records = key === 'all' ? filtered : filtered.filter((row) => row.category === key && (!payeeFilter || row.name === payeeFilter));
+          const toolbar = (
+            <>
+              <Input
+                allowClear
+                placeholder="Search project, team, vendor, description"
+                prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                style={{ width: 280 }}
+              />
+              <DatePicker.RangePicker
+                value={range[0] || range[1] ? range : [null, null]}
+                onChange={(dates) => setRange(dates ? [dates[0], dates[1]] : [null, null])}
+                placeholder={['From date', 'To date']}
+              />
+              {(key === 'vendor' || key === 'subcontractor') && (
+                <Select
+                  showSearch
+                  allowClear
+                  style={{ width: 220 }}
+                  placeholder={key === 'vendor' ? 'Filter by vendor' : 'Filter by subcontractor'}
+                  aria-label={key === 'vendor' ? 'Filter vendor payments by vendor' : 'Filter subcontractor payments by subcontractor'}
+                  value={payeeFilter}
+                  onChange={key === 'vendor' ? setVendorFilter : setSubcontractorFilter}
+                  options={payeeOptions[key]}
+                  optionFilterProp="label"
+                />
+              )}
+              {key !== 'all' && (
+                <Button icon={<FileExcelOutlined />} disabled={!records.length} onClick={() => exportRows(records, key)}>Export to Excel</Button>
+              )}
+            </>
+          );
+          return {
+            key,
+            label,
+            children: <PaidTab title={label} records={records} columns={columns} toolbar={toolbar} />,
+          };
+        })}
+      />
+    </div>
+  );
 }

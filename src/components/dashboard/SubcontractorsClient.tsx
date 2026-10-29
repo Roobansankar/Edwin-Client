@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Button, Card, Divider, Drawer, Flex, Form, Input, Popconfirm, Space, Table, Typography, App, Select } from 'antd';
+import { Button, Divider, Drawer, Flex, Form, Input, Popconfirm, Space, Typography, App, Select } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined, SearchOutlined, TeamOutlined, CloseOutlined } from '@ant-design/icons';
 import { Controller, useForm } from 'react-hook-form';
@@ -17,6 +17,7 @@ import {
   pageTitleClassName,
   titleIconClassName,
 } from './ui';
+import { PagedTableCard, StatusCards } from './DataTablePanel';
 
 const subcontractorSchema = z.object({
   name: z.string().min(2, 'Subcontractor name is required'),
@@ -183,22 +184,27 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
     });
   };
 
+  // S.No follows the filtered list, so numbering continues across pages.
+  const serialById = new Map(filteredSubcontractors.map((sc, i) => [sc.id, i + 1]));
+
   const columns: ColumnsType<Subcontractor> = [
     {
       title: 'S.No',
       key: 'sno',
       width: 80,
-      render: (_text, _record, index) => index + 1,
+      render: (_text, record) => serialById.get(record.id),
     },
     {
       title: 'Name',
       dataIndex: 'name',
+      width: 200,
       sorter: (a, b) => a.name.localeCompare(b.name),
       render: (value: string) => <Typography.Text strong>{value}</Typography.Text>,
     },
     {
       title: 'Work Category',
       dataIndex: ['workCategory', 'name'],
+      width: 170,
       render: (value: string) => value || '-',
       filters: workCategories.map(c => ({ text: c.name, value: c.id })),
       onFilter: (value, record) => record.workCategory?.id === value,
@@ -206,6 +212,7 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
     {
       title: 'GST Number',
       dataIndex: 'gstNumber',
+      width: 170,
       render: (value) => value || '-',
     },
     {
@@ -217,11 +224,13 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
     {
       title: 'Contact Person',
       dataIndex: 'contactPerson',
+      width: 170,
       render: (value) => value || '-',
     },
     {
       title: 'Contact Details',
       key: 'contact',
+      width: 240,
       render: (_, record) => (
         <Flex vertical gap={0}>
           {record.email && <Typography.Text className="text-xs">{record.email}</Typography.Text>}
@@ -308,31 +317,36 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
         </Button>
       </Flex>
 
-      <Flex gap={12} wrap="wrap" className="mb-4!">
-        <Input.Search
-          placeholder="Search by name or work category..."
-          allowClear
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
-          style={{ width: 280 }}
-        />
-      </Flex>
+      <StatusCards
+        items={[
+          { key: 'total', label: 'Total Subcontractors', value: subcontractors.length },
+          { key: 'shown', label: 'Shown', value: filteredSubcontractors.length },
+          { key: 'categories', label: 'Work Categories', value: workCategories.length },
+          { key: 'gst', label: 'With GST No.', value: subcontractors.filter((sc) => sc.gstNumber).length },
+        ]}
+      />
 
-      <Card
-        className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
-        styles={{ body: { padding: '8px 0' } }}
-      >
-        <Table
-          className="mantis-table"
-          dataSource={filteredSubcontractors}
-          columns={columns}
-          rowKey="id"
-          size="middle"
-          scroll={{ x: 1000 }}
-          pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} subcontractors` }}
-        />
-      </Card>
+      <PagedTableCard
+        title="Subcontractor List"
+        subtitle={`${filteredSubcontractors.length} ${filteredSubcontractors.length === 1 ? 'subcontractor' : 'subcontractors'}`}
+        toolbar={(
+          <Input
+            placeholder="Search by name or work category..."
+            allowClear
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+            style={{ width: 280 }}
+          />
+        )}
+        noun="subcontractors"
+        className="mantis-table"
+        dataSource={filteredSubcontractors}
+        columns={columns}
+        rowKey="id"
+        size="middle"
+        scroll={{ x: 1490 }}
+      />
 
       <Drawer
         title={editingSubcontractor ? 'Edit Subcontractor' : 'Add Subcontractor'}

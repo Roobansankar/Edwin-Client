@@ -4,26 +4,25 @@ import { useMemo, useState, useTransition } from 'react';
 import {
   App,
   Button,
-  Card,
   Checkbox,
   DatePicker,
   Drawer,
-  Empty,
   Flex,
   Form,
   Input,
-  List,
   Popconfirm,
   Segmented,
   Space,
   Tag,
   Typography,
 } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import { CheckSquareOutlined, DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { createTodo, updateTodo, deleteTodo } from '@/actions/purchase-todos';
 import type { PurchaseTodo } from '@/types/erp';
-import { cardClassName, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
+import { formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
+import { PagedTableCard, StatusCards } from './DataTablePanel';
 
 type Filter = 'ALL' | 'PENDING' | 'DONE';
 
@@ -49,6 +48,11 @@ export function PurchaseTodosClient({ initialTodos }: { initialTodos: PurchaseTo
   }, [initialTodos, filter, search]);
 
   const pendingCount = initialTodos.filter((t) => !t.isDone).length;
+  const today = dayjs().format('YYYY-MM-DD');
+  const isOverdue = (t: PurchaseTodo) => !t.isDone && !!t.dueDate && t.dueDate.split('T')[0] < today;
+  const overdueCount = initialTodos.filter(isOverdue).length;
+  // S.No follows the filtered list, so numbering continues across pages.
+  const serialById = new Map(filtered.map((t, i) => [t.id, i + 1]));
 
   const openAdd = () => {
     setEditing(null);
@@ -114,6 +118,54 @@ export function PurchaseTodosClient({ initialTodos }: { initialTodos: PurchaseTo
     });
   };
 
+  const columns: ColumnsType<PurchaseTodo> = [
+    { title: 'S.No', key: 'sno', width: 70, render: (_, t) => serialById.get(t.id) },
+    {
+      title: 'Done', key: 'done', width: 80, align: 'center',
+      render: (_, t) => <Checkbox checked={t.isDone} disabled={isPending} onChange={() => toggle(t)} />,
+    },
+    {
+      title: 'Title', key: 'title', width: 280,
+      render: (_, t) => (
+        <Typography.Text delete={t.isDone} strong={!t.isDone} type={t.isDone ? 'secondary' : undefined}>
+          {t.title}
+        </Typography.Text>
+      ),
+    },
+    {
+      title: 'Notes', key: 'notes', width: 320,
+      render: (_, t) => (t.description ? (
+        <Typography.Text type="secondary" delete={t.isDone}>{t.description}</Typography.Text>
+      ) : <Typography.Text type="secondary">-</Typography.Text>),
+    },
+    { title: 'Date', key: 'date', width: 130, render: (_, t) => (t.dueDate ? formatDate(t.dueDate) : '-') },
+    {
+      title: 'Status', key: 'status', width: 120,
+      render: (_, t) => (t.isDone
+        ? <Tag color="success" className="m-0!">Done</Tag>
+        : isOverdue(t)
+          ? <Tag color="error" className="m-0!">Overdue</Tag>
+          : <Tag color="warning" className="m-0!">Pending</Tag>),
+    },
+    {
+      title: 'Actions', key: 'actions', width: 110, align: 'center',
+      render: (_, t) => (
+        <Space size={0}>
+          <Button type="text" title="Edit" icon={<EditOutlined />} onClick={() => openEdit(t)} />
+          <Popconfirm
+            title="Delete todo?"
+            okText="Yes"
+            cancelText="No"
+            okButtonProps={{ danger: true, loading: isPending }}
+            onConfirm={() => remove(t.id)}
+          >
+            <Button type="text" danger title="Delete" icon={<DeleteOutlined />} />
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
+
   return (
     <div>
       <Flex justify="space-between" align="center" className={pageHeaderClassName} gap={16} wrap="wrap">
@@ -126,75 +178,46 @@ export function PurchaseTodosClient({ initialTodos }: { initialTodos: PurchaseTo
         </Button>
       </Flex>
 
-      <Card className={cardClassName}>
-        <Flex gap={12} wrap="wrap" className="mb-4">
-          <Segmented
-            value={filter}
-            onChange={(v) => setFilter(v as Filter)}
-            options={[
-              { value: 'ALL', label: `All (${initialTodos.length})` },
-              { value: 'PENDING', label: `Pending (${pendingCount})` },
-              { value: 'DONE', label: `Done (${initialTodos.length - pendingCount})` },
-            ]}
-          />
-          <Input.Search
-            placeholder="Search my todos..."
-            allowClear
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ maxWidth: 280 }}
-          />
-        </Flex>
+      <StatusCards
+        items={[
+          { key: 'total', label: 'Total', value: initialTodos.length },
+          { key: 'pending', label: 'Pending', value: pendingCount },
+          { key: 'done', label: 'Done', value: initialTodos.length - pendingCount },
+          { key: 'overdue', label: 'Overdue', value: overdueCount },
+        ]}
+      />
 
-        {filtered.length === 0 ? (
-          <Empty description="No todos here — enjoy the clear list or add one above" />
-        ) : (
-          <List
-            dataSource={filtered}
-            rowKey="id"
-            renderItem={(todo) => (
-              <List.Item
-                actions={[
-                  <Button key="edit" type="text" icon={<EditOutlined />} onClick={() => openEdit(todo)} />,
-                  <Popconfirm
-                    key="delete"
-                    title="Delete todo?"
-                    okText="Yes"
-                    cancelText="No"
-                    okButtonProps={{ danger: true, loading: isPending }}
-                    onConfirm={() => remove(todo.id)}
-                  >
-                    <Button type="text" danger icon={<DeleteOutlined />} />
-                  </Popconfirm>,
-                ]}
-              >
-                <List.Item.Meta
-                  avatar={<Checkbox checked={todo.isDone} onChange={() => toggle(todo)} />}
-                  title={
-                    <Typography.Text delete={todo.isDone} strong={!todo.isDone}>
-                      {todo.title}
-                    </Typography.Text>
-                  }
-                  description={
-                    <Space direction="vertical" size={0}>
-                      {todo.description && (
-                        <Typography.Text type="secondary" delete={todo.isDone}>
-                          {todo.description}
-                        </Typography.Text>
-                      )}
-                      {todo.dueDate && (
-                        <Typography.Text type="secondary" className="text-xs">
-                          Date: {formatDate(todo.dueDate)}
-                        </Typography.Text>
-                      )}
-                    </Space>
-                  }
-                />
-              </List.Item>
-            )}
-          />
+      <PagedTableCard
+        title="Todo List"
+        subtitle={`${filtered.length} ${filtered.length === 1 ? 'todo' : 'todos'}`}
+        toolbar={(
+          <>
+            <Segmented
+              value={filter}
+              onChange={(v) => setFilter(v as Filter)}
+              options={[
+                { value: 'ALL', label: `All (${initialTodos.length})` },
+                { value: 'PENDING', label: `Pending (${pendingCount})` },
+                { value: 'DONE', label: `Done (${initialTodos.length - pendingCount})` },
+              ]}
+            />
+            <Input.Search
+              placeholder="Search my todos..."
+              allowClear
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ width: 240 }}
+            />
+          </>
         )}
-      </Card>
+        noun="todos"
+        dataSource={filtered}
+        columns={columns}
+        rowKey="id"
+        size="middle"
+        scroll={{ x: 1000 }}
+        locale={{ emptyText: 'No todos here — enjoy the clear list or add one above' }}
+      />
 
       <Drawer
         title={editing ? 'Edit Todo' : 'Add Todo'}

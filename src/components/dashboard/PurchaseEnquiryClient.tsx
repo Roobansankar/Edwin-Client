@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Button, Card, Checkbox, DatePicker, Divider, Drawer, Flex, Form, Input, Modal, Popconfirm, Select, Space, Table, Tag, Typography, App, InputNumber } from 'antd';
+import { Button, Checkbox, DatePicker, Divider, Drawer, Flex, Form, Input, Modal, Popconfirm, Select, Space, Table, Tag, Typography, App, InputNumber } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DeleteOutlined, EditOutlined, FilePdfOutlined, PlusOutlined, SearchOutlined, ShoppingCartOutlined, SplitCellsOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -13,6 +13,7 @@ import { createPurchaseEnquiry, updatePurchaseEnquiry, deletePurchaseEnquiry, up
 import { createItemDescription, deleteItemDescription } from '@/actions/item-descriptions';
 import type { Project, Vendor, PurchaseEnquiry, ItemDescription, EnquiryItem, PurchaseOrder, Payment } from '@/types/erp';
 import { pageHeaderClassName, pageTitleClassName, titleIconClassName, formatCurrency, formatDate } from './ui';
+import { PagedTableCard, StatusCards } from './DataTablePanel';
 import { PurchaseEnquiryPdf } from './PurchaseEnquiryPdf';
 import { useAuthStore } from '@/store/auth';
 
@@ -283,8 +284,11 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
     });
   };
 
+  // S.No follows the filtered list, so numbering continues across pages.
+  const serialById = new Map(filteredEnquiries.map((e, i) => [e.id, i + 1]));
+
   const columns: ColumnsType<PurchaseEnquiry> = [
-    { title: 'S.No', key: 'sno', width: 60, render: (_, __, i) => i + 1 },
+    { title: 'S.No', key: 'sno', width: 70, render: (_, r) => serialById.get(r.id) },
     { title: 'MR NO', dataIndex: 'enquiryNo', key: 'enquiryNo', width: 140 },
     {
       title: 'Material Request Date',
@@ -426,47 +430,54 @@ export function PurchaseEnquiryClient({ enquiries, projects, itemDescriptions, v
         )}
       </Flex>
 
-      <Flex gap={12} wrap="wrap" className="mb-6!">
-        <Input.Search
-          placeholder="Search enquiry no, project, site engineer..."
-          allowClear
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
-          style={{ width: 280 }}
-        />
-        <Select
-          allowClear
-          placeholder="Filter by status"
-          value={statusFilter}
-          onChange={(v) => setStatusFilter(v || undefined)}
-          options={STATUS_OPTIONS}
-          style={{ width: 180 }}
-        />
-        <DatePicker.RangePicker
-          value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
-          onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
-          allowClear
-          placeholder={['From date', 'To date']}
-        />
-      </Flex>
+      <StatusCards
+        items={[
+          { key: 'total', label: 'Total', value: filteredEnquiries.length },
+          { key: 'pending', label: 'Pending', value: filteredEnquiries.filter((e) => (e.status || 'pending') === 'pending').length },
+          { key: 'approved', label: 'Approved', value: filteredEnquiries.filter((e) => e.status === 'approved').length },
+          { key: 'rejected', label: 'Rejected', value: filteredEnquiries.filter((e) => e.status === 'rejected').length },
+        ]}
+      />
 
-      <Card
-        className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
-        styles={{ body: { padding: '8px 0' } }}
-      >
-        <Table
-          className="mantis-table"
-          dataSource={filteredEnquiries}
-          columns={columns}
-          rowKey="id"
-          loading={isPending}
-          size="middle"
-          pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (total) => `${total} enquiries` }}
-          scroll={{ x: 1500 }}
-          locale={{ emptyText: isSiteEngineer ? 'No material requirements yet. Create one!' : 'No material requests yet.' }}
-        />
-      </Card>
+      <PagedTableCard
+        title={isSiteEngineer ? 'Material Requirements' : 'Material Requests'}
+        subtitle={`${filteredEnquiries.length} ${filteredEnquiries.length === 1 ? 'request' : 'requests'}`}
+        toolbar={(
+          <>
+            <Input
+              placeholder="Search enquiry no, project, site engineer..."
+              allowClear
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+              style={{ width: 260 }}
+            />
+            <Select
+              allowClear
+              placeholder="Filter by status"
+              value={statusFilter}
+              onChange={(v) => setStatusFilter(v || undefined)}
+              options={STATUS_OPTIONS}
+              style={{ width: 170 }}
+            />
+            <DatePicker.RangePicker
+              value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
+              onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+              allowClear
+              placeholder={['From date', 'To date']}
+            />
+          </>
+        )}
+        noun="requests"
+        className="mantis-table"
+        dataSource={filteredEnquiries}
+        columns={columns}
+        rowKey="id"
+        loading={isPending}
+        size="middle"
+        scroll={{ x: 1500 }}
+        locale={{ emptyText: isSiteEngineer ? 'No material requirements yet. Create one!' : 'No material requests yet.' }}
+      />
 
       {canManageEnquiry && (
         <Drawer

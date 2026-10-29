@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Button, Card, Flex, Select, Table, Tabs, Typography } from 'antd';
+import { Button, Flex, Select, Tabs, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { BookOutlined, FileExcelOutlined } from '@ant-design/icons';
 import type {
@@ -17,16 +17,15 @@ import type {
 } from '@/types/erp';
 import { exportToExcel } from '@/lib/excel';
 import {
-  cardClassName,
   formatCurrency,
   formatDate,
-  mutedTextClassName,
   pageHeaderClassName,
   pageTitleClassName,
   titleIconClassName,
   weekRangeLabel,
   weekStartOf,
 } from './ui';
+import { PagedTableCard, StatusCards } from './DataTablePanel';
 
 type Props = {
   dailyLabourReports: DailyLabourReport[];
@@ -247,20 +246,18 @@ export function AccountsLedgerClient({
         </Typography.Title>
       </Flex>
 
-      <Card className={cardClassName}>
-        <Tabs
-          items={tabs.map((tab) => ({
-            key: tab.key,
-            label: tab.label,
-            children: <LedgerTab tabKey={tab.key} refTitle={tab.refTitle} nameTitle={tab.nameTitle} entries={tab.entries} />,
-          }))}
-        />
-      </Card>
+      <Tabs
+        items={tabs.map((tab) => ({
+          key: tab.key,
+          label: tab.label,
+          children: <LedgerTab tabKey={tab.key} title={tab.label.replace(/^\d+\.\s*/, '')} refTitle={tab.refTitle} nameTitle={tab.nameTitle} entries={tab.entries} />,
+        }))}
+      />
     </div>
   );
 }
 
-function LedgerTab({ tabKey, refTitle, nameTitle, entries }: { tabKey: string; refTitle: string; nameTitle: string; entries: Entry[] }) {
+function LedgerTab({ tabKey, title, refTitle, nameTitle, entries }: { tabKey: string; title: string; refTitle: string; nameTitle: string; entries: Entry[] }) {
   const [nameFilter, setNameFilter] = useState<string | undefined>();
 
   const nameOptions = useMemo(() => {
@@ -306,33 +303,38 @@ function LedgerTab({ tabKey, refTitle, nameTitle, entries }: { tabKey: string; r
 
   return (
     <div>
-      <Flex justify="space-between" align="center" gap={12} wrap="wrap" className="mb-3!">
-        <Select
-          allowClear
-          showSearch
-          placeholder={`All ${nameTitle.toLowerCase()}s`}
-          style={{ minWidth: 240 }}
-          value={nameFilter}
-          onChange={(v) => setNameFilter(v || undefined)}
-          options={nameOptions}
-          filterOption={(input, option) => String(option?.label || '').toLowerCase().includes(input.toLowerCase())}
-        />
-        <Flex gap={16} align="center" wrap="wrap">
-          <Typography.Text className={mutedTextClassName}>
-            Credit <Typography.Text strong>{formatCurrency(totals.credit)}</Typography.Text>
-            {' · '}Debit <Typography.Text strong>{formatCurrency(totals.debit)}</Typography.Text>
-            {' · '}Balance <Typography.Text strong>{formatCurrency(totals.balance)}</Typography.Text>
-          </Typography.Text>
-          <Button icon={<FileExcelOutlined />} disabled={rows.length === 0} onClick={handleExport}>Export to Excel</Button>
-        </Flex>
-      </Flex>
-      <Table
+      <StatusCards
+        items={[
+          { key: 'entries', label: 'Entries', value: rows.length },
+          { key: 'credit', label: 'Credit', value: formatCurrency(totals.credit) },
+          { key: 'debit', label: 'Debit', value: formatCurrency(totals.debit) },
+          { key: 'balance', label: 'Balance', value: formatCurrency(totals.balance) },
+        ]}
+      />
+      <PagedTableCard
+        title={title}
+        subtitle={`${rows.length} ${rows.length === 1 ? 'entry' : 'entries'}`}
+        toolbar={(
+          <>
+            <Select
+              allowClear
+              showSearch
+              placeholder={`All ${nameTitle.toLowerCase()}s`}
+              style={{ width: 240 }}
+              value={nameFilter}
+              onChange={(v) => setNameFilter(v || undefined)}
+              options={nameOptions}
+              filterOption={(input, option) => String(option?.label || '').toLowerCase().includes(input.toLowerCase())}
+            />
+            <Button icon={<FileExcelOutlined />} disabled={rows.length === 0} onClick={handleExport}>Export to Excel</Button>
+          </>
+        )}
+        noun="entries"
         dataSource={rows}
         columns={columns}
         rowKey="key"
         size="middle"
-        pagination={{ pageSize: 20, showTotal: (total) => `${total} entries` }}
-        scroll={{ x: 1000 }}
+        scroll={{ x: 1010 }}
         locale={{ emptyText: 'No ledger entries yet' }}
       />
     </div>

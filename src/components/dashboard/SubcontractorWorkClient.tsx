@@ -4,18 +4,18 @@ import { useMemo, useState, useTransition } from 'react';
 import { App, Button, Card, Drawer, Flex, Form, Image, Input, Modal, Popconfirm, Select, Space, Table, Tag, Tooltip, Typography, Upload } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { UploadFile } from 'antd/es/upload/interface';
-import { DeleteOutlined, DownloadOutlined, FileExcelOutlined, FilePdfOutlined, FileTextOutlined, FileUnknownOutlined, HistoryOutlined, PlusOutlined, TeamOutlined, UploadOutlined } from '@ant-design/icons';
+import { DeleteOutlined, DownloadOutlined, FileExcelOutlined, FilePdfOutlined, FileTextOutlined, FileUnknownOutlined, HistoryOutlined, PlusOutlined, SearchOutlined, TeamOutlined, UploadOutlined } from '@ant-design/icons';
 import { createSubcontractorWork, deleteSubcontractorWork, updateSubcontractorWorkStatus } from '@/actions/subcontractor-work';
 import type { Payment, Project, Subcontractor, SubcontractorWork, SubcontractWorkOrder } from '@/types/erp';
 import { useAuthStore } from '@/store/auth';
 import {
-  cardClassName,
   formatCurrency,
   formatDate,
   pageHeaderClassName,
   pageTitleClassName,
   titleIconClassName,
 } from './ui';
+import { PagedTableCard, StatusCards } from './DataTablePanel';
 
 const STATUS_OPTIONS = [
   { label: 'Pending', value: 'pending' },
@@ -132,8 +132,24 @@ export function SubcontractorWorkClient({ works, projects, subcontractors, subco
     });
   };
 
+  // Search and status filter for the table.
+  const [searchText, setSearchText] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string | undefined>();
+  const filteredWorks = useMemo(() => {
+    const q = searchText.trim().toLowerCase();
+    return works.filter((w) => {
+      if (statusFilter && (w.status || 'pending') !== statusFilter) return false;
+      if (!q) return true;
+      return [w.project?.name, w.subcontractor?.name, w.subcontractWorkOrder?.woNumber, w.notes, w.createdBy?.name, (w as { description?: string | null }).description]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(q));
+    });
+  }, [works, searchText, statusFilter]);
+  // S.No follows the filtered list, so numbering continues across pages.
+  const serialById = new Map(filteredWorks.map((w, i) => [w.id, i + 1]));
+
   const columns: ColumnsType<SubcontractorWork> = [
-    { title: 'S.No', key: 'sno', width: 60, render: (_text, _record, index) => index + 1 },
+    { title: 'S.No', key: 'sno', width: 70, render: (_text, record) => serialById.get(record.id) },
     { title: 'Date', dataIndex: 'createdAt', width: 110, render: formatDate, sorter: (a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime() },
     { title: 'Project', key: 'project', width: 180, render: (_, r) => r.project?.name || '-' },
     { title: 'Subcontractor', key: 'subcontractor', width: 180, render: (_, r) => r.subcontractor?.name || '-' },
@@ -290,16 +306,45 @@ export function SubcontractorWorkClient({ works, projects, subcontractors, subco
         )}
       </Flex>
 
-      <Card className={cardClassName} styles={{ body: { padding: 0 } }}>
-        <Table
-          dataSource={works}
-          columns={columns}
-          rowKey="id"
-          size="middle"
-          scroll={{ x: 2100 }}
-          pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} entries` }}
-        />
-      </Card>
+      <StatusCards
+        items={[
+          { key: 'total', label: 'Total Entries', value: filteredWorks.length },
+          { key: 'pending', label: 'Pending', value: filteredWorks.filter((w) => (w.status || 'pending') === 'pending').length },
+          { key: 'approved', label: 'Approved', value: filteredWorks.filter((w) => w.status === 'approved').length },
+          { key: 'rejected', label: 'Rejected', value: filteredWorks.filter((w) => w.status === 'rejected').length },
+        ]}
+      />
+
+      <PagedTableCard
+        title="Work Entries"
+        subtitle={`${filteredWorks.length} ${filteredWorks.length === 1 ? 'entry' : 'entries'}`}
+        toolbar={(
+          <>
+            <Input
+              placeholder="Search project, subcontractor, WO, notes..."
+              allowClear
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+              style={{ width: 280 }}
+            />
+            <Select
+              allowClear
+              placeholder="Filter by status"
+              value={statusFilter}
+              onChange={(v) => setStatusFilter(v || undefined)}
+              options={STATUS_OPTIONS}
+              style={{ width: 170 }}
+            />
+          </>
+        )}
+        noun="entries"
+        dataSource={filteredWorks}
+        columns={columns}
+        rowKey="id"
+        size="middle"
+        scroll={{ x: 2110 }}
+      />
 
       <Drawer
         title="Add Subcontractor Work Entry"

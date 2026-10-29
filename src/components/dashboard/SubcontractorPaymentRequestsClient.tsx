@@ -4,13 +4,14 @@ import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { App, Button, Col, DatePicker, Descriptions, Drawer, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { CheckOutlined, CloseOutlined, DollarOutlined, FileTextOutlined, SearchOutlined } from '@ant-design/icons';
+import { CheckOutlined, CloseOutlined, DollarOutlined, EyeOutlined, FileTextOutlined, SearchOutlined } from '@ant-design/icons';
+import Link from 'next/link';
 import dayjs from 'dayjs';
 import { respondSubcontractorPaymentRequest } from '@/actions/subcontractor-payment-requests';
 import { createPayment } from '@/actions/payments';
 import { PaymentRowForm } from './PaymentRowForm';
 import { PaymentApprovalTag } from './PaymentApprovalTag';
-import type { Payment, SubcontractorPaymentRequest } from '@/types/erp';
+import type { Payment, SubcontractorBill, SubcontractorPaymentRequest } from '@/types/erp';
 import { useAuthStore } from '@/store/auth';
 import { formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
 import { PaginationCard, StatusCards, TableCard, TABLE_BODY_HEIGHT, useClientPagination } from './DataTablePanel';
@@ -51,6 +52,8 @@ const STATUS_OPTIONS = [
 type Props = {
   requests: SubcontractorPaymentRequest[];
   payments: Payment[];
+  // Bills raised against work orders; the eye icon opens the request's bill.
+  subcontractorBills?: SubcontractorBill[];
   // Shown inside the Payments page's Subcontractor Payment tab: no page title.
   embedded?: boolean;
   mode?: 'approvals' | 'payments' | 'all' | 'reports';
@@ -64,7 +67,7 @@ type RequestRow = {
   displayStatus: string;
 };
 
-export function SubcontractorPaymentRequestsClient({ requests, payments, embedded = false, mode = 'all' }: Props) {
+export function SubcontractorPaymentRequestsClient({ requests, payments, subcontractorBills = [], embedded = false, mode = 'all' }: Props) {
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [searchText, setSearchText] = useState('');
@@ -356,7 +359,28 @@ export function SubcontractorPaymentRequestsClient({ requests, payments, embedde
         </Tag>
       ),
     },
-    { title: 'Action', key: 'actions', width: 300, render: (_, r) => renderActions(r) },
+    {
+      // Reports only shows the eye icon here, so keep the column narrow.
+      title: 'Action', key: 'actions', width: mode === 'reports' ? 90 : 300,
+      render: (_, r) => {
+        // Opens the subcontractor bill raised against this request's work order.
+        const bill = r.request.subcontractWorkOrderId
+          ? subcontractorBills.find((b) => b.subcontractWorkOrderId === r.request.subcontractWorkOrderId)
+          : undefined;
+        return (
+          <Flex gap={6} align="center" wrap="wrap">
+            {bill ? (
+              <Link href={`/dashboard/accounts/subcontractor-bills/${encodeURIComponent(bill.id)}`}>
+                <Button size="small" icon={<EyeOutlined />} title={`View bill ${bill.billNumber}`} />
+              </Link>
+            ) : (
+              <Button size="small" icon={<EyeOutlined />} disabled title="No bill raised against this work order yet" />
+            )}
+            {renderActions(r)}
+          </Flex>
+        );
+      },
+    },
   ];
 
   // Rows shown in the table (Payments shows only approved ones), paged 5 at a time.

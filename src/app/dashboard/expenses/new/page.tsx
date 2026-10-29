@@ -1,14 +1,16 @@
 'use client';
 
-import { useEffect, useState, useCallback, useTransition } from 'react';
+import { useEffect, useMemo, useState, useCallback, useTransition } from 'react';
+import dayjs from 'dayjs';
 import { clientApiFetch } from '@/lib/client-api';
 import { ExpenseForm } from '@/components/dashboard/ExpenseForm';
 import { deleteExpense } from '@/actions/expenses';
-import { Alert, Spin, Typography, Button, Drawer, Card, Table, Space, Image, Flex, Popconfirm, Tooltip, App } from 'antd';
+import { Alert, Spin, Typography, Button, DatePicker, Drawer, Input, Space, Image, Flex, Popconfirm, Tooltip, App } from 'antd';
 import type { Project, Trade, Expense, ExpenseType } from '@/types/erp';
-import { DollarOutlined, PlusOutlined, FileTextOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { DollarOutlined, PlusOutlined, FileTextOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
 import { formatCurrency, formatDate, StatusTag, pageHeaderClassName, pageTitleClassName, titleIconClassName } from '@/components/dashboard/ui';
 import type { ColumnsType } from 'antd/es/table';
+import { PagedTableCard, StatusCards } from '@/components/dashboard/DataTablePanel';
 
 export default function NewExpensePage() {
   const [data, setData] = useState<{ projects: Project[], trades: Trade[], expenseTypes: ExpenseType[], expenses: Expense[] } | null>(null);
@@ -18,6 +20,28 @@ export default function NewExpensePage() {
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [isPending, startTransition] = useTransition();
   const { message } = App.useApp();
+  const [searchText, setSearchText] = useState('');
+  const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
+
+  // Search and date filters (this page only ever lists the signed-in user's own expenses).
+  const filteredExpenses = useMemo(() => {
+    const list = data?.expenses || [];
+    const from = dateRange[0]?.format('YYYY-MM-DD');
+    const to = dateRange[1]?.format('YYYY-MM-DD');
+    const q = searchText.trim().toLowerCase();
+    return list.filter((e) => {
+      const day = (e.expenseDate || '').split('T')[0];
+      if (from && day < from) return false;
+      if (to && day > to) return false;
+      if (!q) return true;
+      return [e.description, e.expenseType?.name, e.category, e.project?.name, e.trade?.name]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(q));
+    });
+  }, [data, searchText, dateRange]);
+  const totalAmount = filteredExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+  // S.No follows the filtered list, so numbering continues across pages.
+  const serialById = new Map(filteredExpenses.map((e, i) => [e.id, i + 1]));
 
   const load = useCallback(async (isRefresh = false) => {
     if (!isRefresh) setLoading(true);
@@ -26,7 +50,7 @@ export default function NewExpensePage() {
         clientApiFetch<Project[]>('/projects'),
         clientApiFetch<Trade[]>('/trades'),
         clientApiFetch<ExpenseType[]>('/expense-types'),
-        clientApiFetch<{ data: Expense[] }>('/expenses?limit=50&mine=true'),
+        clientApiFetch<{ data: Expense[] }>('/expenses?limit=5000&mine=true'),
       ]);
       setData({ projects, trades, expenseTypes, expenses: expensesRes.data });
     } catch (err) {
@@ -66,17 +90,19 @@ export default function NewExpensePage() {
     {
       title: 'S.No',
       key: 'sno',
-      width: 80,
-      render: (_text, _record, index) => index + 1,
+      width: 70,
+      render: (_text, record) => serialById.get(record.id),
     },
     {
       title: 'Date',
       dataIndex: 'expenseDate',
+      width: 120,
       render: formatDate,
     },
      {
       title: 'Added By',
       dataIndex: 'creator',
+      width: 190,
       render: (creator) => creator ? (
         <Space orientation="vertical" size={0}>
           <Typography.Text strong>{creator.name}</Typography.Text>
@@ -89,26 +115,31 @@ export default function NewExpensePage() {
     {
       title: 'Expense Type',
       dataIndex: ['expenseType', 'name'],
+      width: 160,
       render: (val, record) => val || (record.category ? <StatusTag value={record.category} /> : '-'),
     },
     {
       title: 'Trade',
       dataIndex: ['trade', 'name'],
+      width: 140,
       render: (val) => val || '-',
     },
     {
       title: 'Project',
       dataIndex: ['project', 'name'],
+      width: 200,
       render: (val) => val || '-',
     },
     {
       title: 'Description',
       dataIndex: 'description',
+      width: 260,
       render: (val) => <Typography.Text strong>{val}</Typography.Text>,
     },
     {
       title: 'Amount',
       dataIndex: 'amount',
+      width: 130,
       align: 'right',
       render: formatCurrency,
     },
@@ -116,6 +147,7 @@ export default function NewExpensePage() {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
+      width: 160,
       render: (status: string, record: Expense) => (
         <Space orientation="vertical" size={2}>
           <StatusTag value={status} />
@@ -130,6 +162,7 @@ export default function NewExpensePage() {
     {
       title: 'Receipts',
       dataIndex: 'receiptUrls',
+      width: 110,
       render: (urls: string[]) => urls?.length ? (
         <Space>
           {urls.map((url, i) => (
@@ -147,6 +180,7 @@ export default function NewExpensePage() {
     {
       title: 'Site Photos',
       dataIndex: 'sitePhotoUrls',
+      width: 150,
       render: (urls: string[]) => urls?.length ? (
         <Image.PreviewGroup>
           <Space>
@@ -214,20 +248,48 @@ export default function NewExpensePage() {
         </Button>
       </Flex>
 
-      <Card
-        className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
-        styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
-      >
-        <Table
-          className="mantis-table"
-          dataSource={data.expenses}
-          columns={columns}
-          rowKey="id"
-          size="middle"
-          scroll={{ x: 1300 }}
-          pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} expenses` }}
-        />
-      </Card>
+      <StatusCards
+        items={[
+          { key: 'count', label: 'Expenses', value: filteredExpenses.length },
+          { key: 'total', label: 'Total Amount', value: formatCurrency(totalAmount) },
+          { key: 'pending', label: 'Pending', value: filteredExpenses.filter((e) => e.status === 'pending').length },
+          {
+            key: 'approved',
+            label: 'Approved',
+            value: filteredExpenses.filter((e) => e.status === 'approved' || e.status === 'admin_approved').length,
+          },
+        ]}
+      />
+
+      <PagedTableCard
+        title="Expenses"
+        subtitle={`${filteredExpenses.length} ${filteredExpenses.length === 1 ? 'expense' : 'expenses'}`}
+        toolbar={(
+          <>
+            <Input
+              placeholder="Search description, type, project..."
+              allowClear
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+              style={{ width: 240 }}
+            />
+            <DatePicker.RangePicker
+              value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
+              onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+              allowClear
+              placeholder={['From date', 'To date']}
+            />
+          </>
+        )}
+        noun="expenses"
+        className="mantis-table"
+        dataSource={filteredExpenses}
+        columns={columns}
+        rowKey="id"
+        size="middle"
+        scroll={{ x: 1790 }}
+      />
 
       <Drawer
         title={editingExpense ? 'Edit Expense' : 'New Expense Claim'}

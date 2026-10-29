@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { App, Button, Card, DatePicker, Flex, Input, Select, Tag, Typography, Table, Space, Drawer, Tooltip } from 'antd';
+import { App, Button, DatePicker, Flex, Input, Select, Tag, Typography, Table, Space, Drawer, Tooltip } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { CalendarOutlined, PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, SearchOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -11,6 +11,7 @@ import { deleteDailyLabourReport } from '@/actions/daily-labour';
 import { DpwForm } from './DpwForm';
 import type { DailyLabourReport, Project, Trade, Team, DailyWorker } from '@/types/erp';
 import { pageHeaderClassName, pageTitleClassName, titleIconClassName, weekRangeLabel, weekStartOf } from './ui';
+import { PagedTableCard, StatusCards } from './DataTablePanel';
 
 // One row of the weekly Daily Entry List: a site engineer's reports for one
 // project in one Monday-to-Sunday week.
@@ -157,8 +158,11 @@ export function DpwClient({
 
   const [expandedWeeks, setExpandedWeeks] = useState<string[]>([]);
 
+  // S.No follows the filtered list, so numbering continues across pages.
+  const weekSerial = new Map(weekRows.map((w, i) => [w.key, i + 1]));
+
   const weekColumns: ColumnsType<WeekRow> = [
-    { title: 'S.No', key: 'sno', width: 70, render: (_, __, i) => i + 1 },
+    { title: 'S.No', key: 'sno', width: 70, render: (_, w) => weekSerial.get(w.key) },
     { title: 'Week', key: 'week', width: 150, render: (_, w) => <Typography.Text strong>{weekRangeLabel(w.weekStart)}</Typography.Text> },
     { title: 'Project Code', key: 'project', width: 150, render: (_, w) => w.reports[0]?.project?.projectCode || 'N/A' },
     { title: 'Site Engineer', key: 'engineer', width: 180, render: (_, w) => w.reports[0]?.createdBy?.name || '-' },
@@ -347,71 +351,73 @@ export function DpwClient({
         )}
       </Flex>
 
-      <Flex gap={12} wrap="wrap" style={{ marginTop: '14px' }}>
-        <Input.Search
-          placeholder="Search project, team, trade, remarks..."
-          allowClear
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
-          style={{ width: 300 }}
-        />
-        <DatePicker.RangePicker
-          value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
-          onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
-          allowClear
-          format="DD-MM-YYYY"
-          placeholder={['From date', 'To date']}
-        />
-        <Select
-          allowClear
-          placeholder="Filter by status"
-          style={{ width: 180 }}
-          value={statusFilter}
-          onChange={(v) => setStatusFilter(v || undefined)}
-          options={[
-            { label: 'Pending', value: 'pending' },
-            { label: 'Approved', value: 'approved' },
-            { label: 'Rejected', value: 'rejected' },
-          ]}
-        />
-      </Flex>
+      <StatusCards
+        items={[
+          { key: 'weeks', label: 'Weeks', value: weekRows.length },
+          { key: 'reports', label: 'Daily Reports', value: filteredReports.length },
+          { key: 'pending', label: 'Pending', value: filteredReports.filter((r) => r.status !== 'approved' && r.status !== 'rejected').length },
+          { key: 'rejected', label: 'Rejected', value: filteredReports.filter((r) => r.status === 'rejected').length },
+        ]}
+      />
 
-      <Card
-        className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
-        style={{ marginTop: '14px' }}
-        styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
-      >
-        <Table
-          className="mantis-table"
-          dataSource={weekRows}
-          columns={weekColumns}
-          rowKey="key"
-          size="middle"
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: true,
-            showTotal: (total) => `${total} weeks · ${filteredReports.length} reports`,
-          }}
-          scroll={{ x: 1100 }}
-          expandable={{
-            expandedRowKeys: expandedWeeks,
-            onExpand: (expanded, w) =>
-              setExpandedWeeks((keys) => (expanded ? [...keys, w.key] : keys.filter((k) => k !== w.key))),
-            // The week's daily reports, with the usual view / edit / delete actions.
-            expandedRowRender: (w) => (
-              <Table
-                dataSource={w.reports}
-                columns={columns}
-                rowKey="id"
-                size="small"
-                pagination={false}
-                scroll={{ x: 1000 }}
-              />
-            ),
-          }}
-        />
-      </Card>
+      <PagedTableCard
+        title="Weekly Entries"
+        subtitle={`${weekRows.length} weeks · ${filteredReports.length} reports`}
+        toolbar={(
+          <>
+            <Input
+              placeholder="Search project, team, trade, remarks..."
+              allowClear
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+              style={{ width: 260 }}
+            />
+            <DatePicker.RangePicker
+              value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
+              onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+              allowClear
+              format="DD-MM-YYYY"
+              placeholder={['From date', 'To date']}
+            />
+            <Select
+              allowClear
+              placeholder="Filter by status"
+              style={{ width: 170 }}
+              value={statusFilter}
+              onChange={(v) => setStatusFilter(v || undefined)}
+              options={[
+                { label: 'Pending', value: 'pending' },
+                { label: 'Approved', value: 'approved' },
+                { label: 'Rejected', value: 'rejected' },
+              ]}
+            />
+          </>
+        )}
+        noun="weeks"
+        className="mantis-table"
+        dataSource={weekRows}
+        columns={weekColumns}
+        rowKey="key"
+        size="middle"
+        scroll={{ x: 1100 }}
+        expandable={{
+          expandedRowKeys: expandedWeeks,
+          onExpand: (expanded, w) =>
+            setExpandedWeeks((keys) => (expanded ? [...keys, w.key] : keys.filter((k) => k !== w.key))),
+          // The week's daily reports, with the usual view / edit / delete actions.
+          expandedRowRender: (w) => (
+            <Table
+              dataSource={w.reports}
+              columns={columns}
+              rowKey="id"
+              size="small"
+              pagination={false}
+              scroll={{ x: 1000 }}
+            />
+          ),
+        }}
+      />
 
       <Drawer
         title={editingReport ? "Edit Daily Labour Report" : "Daily Labour Entry"}

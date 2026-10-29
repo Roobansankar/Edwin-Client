@@ -2,11 +2,11 @@ import { Alert } from 'antd';
 import { redirect } from 'next/navigation';
 import { getUserFromToken } from '@/lib/auth';
 import { PaymentsClient } from '@/components/dashboard/PaymentsClient';
-import { fetchLabourPayments, fetchExpensePayments, fetchPayments, fetchPaymentsSummary, fetchProjects, fetchVendors, fetchPurchaseOrders, fetchAdvanceRequests, fetchSubcontractWorkOrders, fetchSubcontractorPaymentRequests, fetchUnpaidLabourWeeklySummary, fetchUnpaidExpenseWeeklySummary, fetchBills } from '@/lib/api';
+import { fetchLabourPayments, fetchExpensePayments, fetchPayments, fetchPaymentsSummary, fetchProjects, fetchVendors, fetchPurchaseOrders, fetchAdvanceRequests, fetchSubcontractWorkOrders, fetchSubcontractorPaymentRequests, fetchUnpaidLabourWeeklySummary, fetchUnpaidExpenseWeeklySummary, fetchBills, fetchSubcontractorBills } from '@/lib/api';
 
 async function loadPageData() {
   try {
-    const [paymentsRes, summary, projects, vendors, purchaseOrders, advanceRequests, subcontractWorkOrders, subcontractorPaymentRequests, unpaidLabourSummary, unpaidExpenseSummary, bills, labourPayments, expensePayments] = await Promise.all([
+    const [paymentsRes, summary, projects, vendors, purchaseOrders, advanceRequests, subcontractWorkOrders, subcontractorPaymentRequests, unpaidLabourSummary, unpaidExpenseSummary, bills, labourPayments, expensePayments, subcontractorBills] = await Promise.all([
       fetchPayments('limit=5000'),
       fetchPaymentsSummary(),
       fetchProjects(),
@@ -21,6 +21,8 @@ async function loadPageData() {
       fetchBills(),
       fetchLabourPayments(),
       fetchExpensePayments(),
+      // For the eye icon on subcontractor payment requests.
+      fetchSubcontractorBills().catch(() => []),
     ]);
 
     // Server-side normalization
@@ -41,6 +43,7 @@ async function loadPageData() {
       unpaidLabourSummary,
       unpaidExpenseSummary,
       bills: Array.isArray(bills) ? bills : [],
+      subcontractorBills: Array.isArray(subcontractorBills) ? subcontractorBills : [],
     };
   } catch (error) {
     console.error('Payments Page Error:', error);
@@ -57,6 +60,7 @@ async function loadPageData() {
       unpaidLabourSummary: [],
       unpaidExpenseSummary: [],
       bills: [],
+      subcontractorBills: [],
       error: error instanceof Error ? error.message : 'Unable to load payments data',
     };
   }
@@ -78,7 +82,7 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
   }
   const {
     labourPayments, expensePayments, payments, summary, projects, vendors, purchaseOrders, advanceRequests, subcontractWorkOrders,
-    subcontractorPaymentRequests, unpaidLabourSummary, unpaidExpenseSummary, bills, error,
+    subcontractorPaymentRequests, unpaidLabourSummary, unpaidExpenseSummary, bills, subcontractorBills, error,
   } = await loadPageData();
 
   return (
@@ -98,6 +102,7 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
         unpaidLabourSummary={unpaidLabourSummary}
         unpaidExpenseSummary={unpaidExpenseSummary}
         bills={bills}
+        subcontractorBills={subcontractorBills}
         initialTab={tab}
       />
     </>

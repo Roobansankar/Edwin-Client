@@ -49,6 +49,7 @@ import {
   weekRangeLabel,
   weekStartOf,
 } from './ui';
+import { PagedTable } from './DataTablePanel';
 
 function inRange(dateStr: string | null | undefined, range: [Dayjs | null, Dayjs | null]) {
   if (!range[0] || !range[1] || !dateStr) return true;
@@ -841,7 +842,7 @@ export function ReportsClient({
     { title: 'S.No', dataIndex: 'serial', width: 60, onCell: projectSpan },
     { title: 'Date', dataIndex: 'dateRange', width: 190, onCell: summarySpan },
     { title: 'Week', key: 'week', width: 160, render: (_, row) => weekRangeLabel(row.weekStart), onCell: projectSpan },
-    { title: 'All Project', dataIndex: 'projects', width: 180, onCell: projectSpan },
+    { title: 'All Project', dataIndex: 'projects', width: 240, onCell: projectSpan },
     { title: 'Team', dataIndex: 'team', width: 140, onCell: summarySpan },
     { title: 'Trade', dataIndex: 'category', width: 120, render: (value: string, row) => <Typography.Text strong={row.isTotal}>{value}</Typography.Text> },
     { title: 'Total Shift', dataIndex: 'totalShift', width: 110, align: 'right', render: (value: number, row) => <Typography.Text strong={row.isTotal}>{value}</Typography.Text> },
@@ -959,8 +960,8 @@ export function ReportsClient({
     { title: 'Bill Date', dataIndex: 'billDate', width: 110, render: (v?: string) => formatDate(v) },
     { title: 'Vendor', key: 'vendor', width: 180, ellipsis: true, render: (_, r) => r.vendor?.name || '-' },
     { title: 'Project', key: 'project', width: 220, ellipsis: true, render: (_, r) => r.project?.name || r.purchaseOrder?.project?.name || '-' },
-    { title: 'Status', dataIndex: 'status', width: 150, render: (v: string) => billApprovalTag(v) },
-    { title: 'Payment Status', key: 'paymentStatus', width: 160, render: (_, r) => paymentTag(Number(r.paidAmount || 0), Math.max(0, Number(r.amount || 0) - Number(r.paidAmount || 0))) },
+    { title: 'Status', dataIndex: 'status', width: 190, render: (v: string) => billApprovalTag(v) },
+    { title: 'Payment Status', key: 'paymentStatus', width: 180, render: (_, r) => paymentTag(Number(r.paidAmount || 0), Math.max(0, Number(r.amount || 0) - Number(r.paidAmount || 0))) },
     {
       title: 'GST', dataIndex: 'gstAmount', align: 'right' as const, width: 110,
       render: (v) => Number(v) > 0 ? formatCurrency(v) : <Typography.Text type="secondary">-</Typography.Text>,
@@ -1164,14 +1165,14 @@ export function ReportsClient({
               className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
               styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
             >
-              <Table
+              <PagedTable
+                noun="bills"
                 className="mantis-table"
                 dataSource={projectBills}
                 columns={billColumns}
                 rowKey="id"
                 size="middle"
                 scroll={{ x: 1100 }}
-                pagination={{ pageSize: 10, showTotal: (total) => `${total} bills` }}
                 locale={{ emptyText: 'No purchase bills for this project yet' }}
               />
             </Card>
@@ -1274,14 +1275,14 @@ export function ReportsClient({
               className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
               styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
             >
-              <Table
+              <PagedTable
+                noun="weeks"
                 className="mantis-table"
                 dataSource={expenseWeekRows}
                 columns={expenseWeekColumns}
                 rowKey="key"
                 size="middle"
                 scroll={{ x: 1150 }}
-                pagination={{ pageSize: 10, showTotal: (total) => `${total} weeks · ${projectExpenses.length} expenses` }}
                 locale={{ emptyText: 'No expenses for the selected filters' }}
                 expandable={{
                   expandedRowKeys: expandedExpenseWeeks,
@@ -1383,25 +1384,25 @@ export function ReportsClient({
           styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
         >
           {hideProjectReport ? (
-            <Table<DailySummaryRow>
+            <PagedTable<DailySummaryRow>
+              noun="rows"
               className="mantis-table"
               rowKey="key"
               bordered
               size="small"
               dataSource={dailySummaryRows}
               columns={dailySummaryColumns}
-              pagination={false}
               scroll={{ x: 1450 }}
               locale={{ emptyText: 'No daily labour reports for the selected filters' }}
             />
-          ) : <Table
+          ) : <PagedTable
+            noun="weeks"
             className="mantis-table"
             dataSource={dailyWeekRows}
             columns={dailyWeekColumns}
             {...dailyWeekTableProps}
             size="middle"
             scroll={{ x: 1200 }}
-            pagination={{ pageSize: 15, showTotal: (total) => `${total} weeks` }}
             locale={{ emptyText: 'No daily labour reports for the selected filters' }}
           />}
         </Card>
@@ -1484,7 +1485,8 @@ export function ReportsClient({
           className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
           styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
         >
-          <Table
+          <PagedTable
+            noun="bills"
             className="mantis-table"
             dataSource={vendorBillRows}
             columns={hideProjectReport && !allStatuses
@@ -1492,8 +1494,7 @@ export function ReportsClient({
               : vendorBillColumns}
             rowKey="id"
             size="middle"
-            scroll={{ x: hideProjectReport && !allStatuses ? 1280 : 1800 }}
-            pagination={{ pageSize: 15, showTotal: (total) => `${total} bills` }}
+            scroll={{ x: hideProjectReport && !allStatuses ? 1350 : 1870 }}
             locale={{ emptyText: 'No vendor bills for the selected filters' }}
           />
         </Card>
@@ -1576,7 +1577,8 @@ export function ReportsClient({
           className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
           styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}
         >
-          <Table
+          <PagedTable
+            noun="bills"
             className="mantis-table"
             dataSource={subcontractorBillRows}
             columns={hideProjectReport && !allStatuses
@@ -1585,7 +1587,6 @@ export function ReportsClient({
             rowKey="id"
             size="middle"
             scroll={{ x: 1650 }}
-            pagination={{ pageSize: 15, showTotal: (total) => `${total} bills` }}
             locale={{ emptyText: 'No subcontractor bills for the selected filters' }}
           />
         </Card>
@@ -1603,7 +1604,7 @@ export function ReportsClient({
     {
       key: 'subcontractor-payments',
       label: 'Subcontractor Payment',
-      children: <SubcontractorPaymentRequestsClient requests={subcontractorPaymentRequests.filter((request) => request.status === 'accepted' || request.status === 'admin_approved')} payments={payments} embedded mode="reports" />,
+      children: <SubcontractorPaymentRequestsClient requests={subcontractorPaymentRequests.filter((request) => request.status === 'accepted' || request.status === 'admin_approved')} payments={payments} subcontractorBills={subcontractorBills} embedded mode="reports" />,
     },
   ];
 

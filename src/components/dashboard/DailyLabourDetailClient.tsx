@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Card, Flex, Typography, Tag, Space, Row, Col, Image, Button, Spin, Alert, Divider, Select, Modal, Input, message } from 'antd';
+import { Card, Descriptions, Flex, Typography, Tag, Row, Col, Image, Button, Spin, Alert, Divider, Select, Modal, Input, message } from 'antd';
 import { CalendarOutlined, ArrowLeftOutlined, ProjectOutlined, TeamOutlined, PictureOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { clientApiFetch } from '@/lib/client-api';
 import type { DailyLabourReport, DailyWorker, Trade } from '@/types/erp';
 import { useAuthStore } from '@/store/auth';
 import { formatCurrency } from './ui';
+import { StatusCards } from './DataTablePanel';
 
 const PHOTO_SLOTS = [1, 2, 3, 4, 5] as const;
 
@@ -124,81 +125,101 @@ export function DailyLabourDetailClient() {
     { label: 'Rejected', value: 'rejected' },
   ];
 
+  const tradeBreakdown = Object.entries(
+    report.workers.reduce((acc, w) => {
+      const trade = w.trade || 'Other';
+      acc[trade] = (acc[trade] || 0) + (Number(w.count) || 1);
+      return acc;
+    }, {} as Record<string, number>),
+  );
+
+  // Session photos, shown as a small gallery under each trade.
+  const photoGrid = (urls: string[], emptyText: string) => (
+    <Image.PreviewGroup>
+      <Row gutter={[12, 12]}>
+        {urls.map((url, i) => (
+          <Col span={12} key={i}>
+            <Image
+              src={url}
+              alt={`Site photo ${i + 1}`}
+              className="aspect-video w-full rounded-lg border border-[var(--border)] object-cover"
+              placeholder={<div className="aspect-video w-full animate-pulse rounded-lg bg-[var(--subtle-hover-bg)]" />}
+            />
+          </Col>
+        ))}
+        {urls.length === 0 && (
+          <Col span={24}>
+            <Typography.Text type="secondary" italic className="text-xs">{emptyText}</Typography.Text>
+          </Col>
+        )}
+      </Row>
+    </Image.PreviewGroup>
+  );
+
   return (
-    <div className="space-y-6 pb-10">
-      <Flex justify="space-between" align="center" wrap="wrap" gap={12}>
-        <Typography.Title level={2} className="m-0">Daily Labour Detail</Typography.Title>
-        <Button icon={<ArrowLeftOutlined />} onClick={() => router.back()}>Back to List</Button>
+    <div className="bill-detail pb-10">
+      <Flex justify="space-between" align="flex-start" gap={12} wrap="wrap" className="mb-6!">
+        <div>
+          <Typography.Title level={3} className="m-0! text-[var(--text-primary)]!" style={{ fontWeight: 800, letterSpacing: '-0.01em' }}>
+            Daily Labour Report
+          </Typography.Title>
+          <Typography.Text className="block text-[var(--text-muted)]!">
+            {[report.project?.name, dayjs(report.reportDate).format('DD MMMM YYYY')].filter(Boolean).join(' · ')}
+          </Typography.Text>
+          <Button icon={<ArrowLeftOutlined />} onClick={() => router.back()} className="mt-3!">
+            Back
+          </Button>
+        </div>
       </Flex>
 
-      <Row gutter={[24, 24]}>
-        {/* Basic Info */}
+      <StatusCards
+        items={[
+          { key: 'headcount', label: 'Headcount', value: `${totalHeadcount} Workers` },
+          { key: 'shift', label: 'Total Shift', value: totalShift },
+          ...(showAmount ? [{ key: 'amount', label: 'Total Amount', value: formatCurrency(totalAmount) }] : []),
+          { key: 'trades', label: 'Trades', value: report.workers.length },
+        ]}
+      />
+
+      <Row gutter={[20, 20]}>
+        {/* Report info, trade breakdown, overall remarks */}
         <Col xs={24} lg={8}>
-          <Card 
-            title={<><ProjectOutlined className="mr-2 text-sky-400" /> Project Info</>} 
-            className="border-[var(--border)] bg-[var(--subtle-bg)]"
-          >
-            <Space orientation="vertical" size={16} className="w-full">
-              <div>
-                <Typography.Text type="secondary" className="text-xs uppercase block">Project Name</Typography.Text>
-                <Typography.Text strong className="text-lg">{report.project?.name || 'N/A'}</Typography.Text>
-              </div>
-              <div>
-                <Typography.Text type="secondary" className="text-xs uppercase block">Report Date</Typography.Text>
-                <Typography.Text strong className="text-lg">{dayjs(report.reportDate).format('DD MMMM YYYY')}</Typography.Text>
-              </div>
-              <div>
-                <Typography.Text type="secondary" className="text-xs uppercase block">Total Headcount</Typography.Text>
-                <Typography.Title level={3} style={{ margin: 0, color: '#38bdf8' }}>{totalHeadcount} Workers</Typography.Title>
-              </div>
-              <div>
-                <Typography.Text type="secondary" className="text-xs uppercase block">Total Shift</Typography.Text>
-                <Typography.Title level={3} style={{ margin: 0, color: '#38bdf8' }}>{totalShift}</Typography.Title>
-              </div>
-              {showAmount && (
-                <div>
-                  <Typography.Text type="secondary" className="text-xs uppercase block">Total Amount</Typography.Text>
-                  <Typography.Title level={3} style={{ margin: 0, color: '#34d399' }}>{formatCurrency(totalAmount)}</Typography.Title>
-                </div>
-              )}
+          <Flex vertical gap={20}>
+            <Card size="small" title={<><ProjectOutlined className="mr-2" /> Report Info</>}>
+              <Descriptions
+                bordered
+                size="small"
+                column={1}
+                items={[
+                  { key: 'project', label: 'Project', children: report.project?.name || 'N/A' },
+                  { key: 'date', label: 'Report Date', children: dayjs(report.reportDate).format('DD MMMM YYYY') },
+                  { key: 'by', label: 'Submitted By', children: report.createdBy?.name || '-' },
+                ]}
+              />
+            </Card>
 
-              <div className="mt-4 pt-4 border-t border-white/5">
-                <Typography.Text type="secondary" className="text-xs uppercase block mb-3">Trade Breakdown</Typography.Text>
-                <Space orientation="vertical" size={8} className="w-full">
-                  {Object.entries(
-                    report.workers.reduce((acc, w) => {
-                      const trade = w.trade || 'Other';
-                      acc[trade] = (acc[trade] || 0) + (Number(w.count) || 1);
-                      return acc;
-                    }, {} as Record<string, number>)
-                  ).map(([trade, count]) => (
-                    <Flex key={trade} justify="space-between" align="center" className="bg-[var(--subtle-bg)] px-3! py-2! rounded-md">
-                      <Typography.Text className="text-[var(--text-secondary)]">{trade}</Typography.Text>
-                      <Tag color="blue" className="m-0!">{count} Workers</Tag>
-                    </Flex>
-                  ))}
-                </Space>
-              </div>
-            </Space>
-          </Card>
+            <Card size="small" title={<><TeamOutlined className="mr-2" /> Trade Breakdown</>}>
+              <Flex vertical gap={8}>
+                {tradeBreakdown.map(([trade, count]) => (
+                  <Flex key={trade} justify="space-between" align="center" className="rounded-lg border border-[var(--border)] px-3! py-2!">
+                    <Typography.Text className="text-[var(--text-secondary)]!">{trade}</Typography.Text>
+                    <Typography.Text strong>{count} Workers</Typography.Text>
+                  </Flex>
+                ))}
+              </Flex>
+            </Card>
 
-          <Card 
-            title={<><TeamOutlined className="mr-2 text-sky-400" /> Overall Remarks</>} 
-            className="mt-6 border-[var(--border)] bg-[var(--subtle-bg)]"
-          >
-            <Typography.Paragraph className="text-[var(--text-secondary)] italic">
-              {report.remarks || "No overall remarks provided for this date."}
-            </Typography.Paragraph>
-          </Card>
+            <Card size="small" title={<><CalendarOutlined className="mr-2" /> Overall Remarks</>}>
+              <Typography.Paragraph className="m-0! text-[var(--text-secondary)]!">
+                {report.remarks || 'No overall remarks provided for this date.'}
+              </Typography.Paragraph>
+            </Card>
+          </Flex>
         </Col>
 
-        {/* Worker + Photos, one trade at a time */}
+        {/* One card per trade */}
         <Col xs={24} lg={16}>
-          <Typography.Title level={4} className="mb-4">
-            <TeamOutlined className="mr-2 text-sky-400" /> Trade Attendance Log
-          </Typography.Title>
-
-          <div className="space-y-6">
+          <Flex vertical gap={20}>
             {report.workers.map((worker, index) => {
               const rowTotalShift = (Number(worker.count) || 1) * (Number(worker.shift) || 0);
               const rowAmount = rowTotalShift * getShiftRate(worker);
@@ -209,121 +230,66 @@ export function DailyLabourDetailClient() {
               return (
                 <Card
                   key={worker.id || index}
+                  size="small"
                   title={
-                    <Space size={8} wrap>
-                      <Typography.Text strong className="text-sky-400">{worker.trade}</Typography.Text>
-                      <Tag color="cyan">Team: {worker.tradeRel?.team?.name || 'No team'}</Tag>
-                    </Space>
+                    <Flex gap={8} align="center" wrap="wrap">
+                      <span>{worker.trade}</span>
+                      <Tag className="m-0!">Team: {worker.tradeRel?.team?.name || 'No team'}</Tag>
+                    </Flex>
                   }
-                  className="border-[var(--border)] bg-[var(--subtle-bg)]"
+                  extra={canApprove ? (
+                    <Select
+                      value={worker.status || 'pending'}
+                      size="small"
+                      style={{ width: 130 }}
+                      onChange={(newStatus) => handleStatusSelect(worker.id, worker.trade, newStatus)}
+                      options={STATUS_OPTIONS}
+                      popupMatchSelectWidth={false}
+                    />
+                  ) : (
+                    <Tag color={worker.status === 'approved' ? 'success' : worker.status === 'rejected' ? 'error' : 'default'} className="m-0!">
+                      {worker.status || 'pending'}
+                    </Tag>
+                  )}
                 >
-                  <Row gutter={[16, 16]}>
-                    <Col xs={12} sm={6}>
-                      <Typography.Text type="secondary" className="text-xs uppercase block">Count</Typography.Text>
-                      <Typography.Text strong className="text-lg text-sky-400">{worker.count}</Typography.Text>
-                    </Col>
-                    <Col xs={12} sm={6}>
-                      <Typography.Text type="secondary" className="text-xs uppercase block">Shift</Typography.Text>
-                      <Tag color="blue">{worker.shift}</Tag>
-                    </Col>
-                    <Col xs={12} sm={6}>
-                      <Typography.Text type="secondary" className="text-xs uppercase block">Total Shift</Typography.Text>
-                      <Typography.Text strong className="text-sky-400">{rowTotalShift}</Typography.Text>
-                    </Col>
-                    {showAmount && (
-                      <Col xs={12} sm={6}>
-                        <Typography.Text type="secondary" className="text-xs uppercase block">Amount</Typography.Text>
-                        <Typography.Text strong className="text-emerald-400">{formatCurrency(rowAmount)}</Typography.Text>
-                      </Col>
-                    )}
-                    <Col xs={12} sm={6}>
-                      <Typography.Text type="secondary" className="text-xs uppercase block">In Time</Typography.Text>
-                      <Tag color="green">{formatTime(worker.inTime || '')}</Tag>
-                    </Col>
-                    <Col xs={12} sm={6}>
-                      <Typography.Text type="secondary" className="text-xs uppercase block">Out Time</Typography.Text>
-                      <Tag color="orange">{formatTime(worker.outTime || '')}</Tag>
-                    </Col>
-                    <Col xs={12} sm={6}>
-                      <Typography.Text type="secondary" className="text-xs uppercase block">Status</Typography.Text>
-                      {canApprove ? (
-                        <Select
-                          value={worker.status || 'pending'}
-                          size="small"
-                          variant="borderless"
-                          className="w-full"
-                          onChange={(newStatus) => handleStatusSelect(worker.id, worker.trade, newStatus)}
-                          options={STATUS_OPTIONS}
-                          popupMatchSelectWidth={false}
-                        />
-                      ) : (
-                        <Tag color={worker.status === 'approved' ? 'success' : worker.status === 'rejected' ? 'error' : 'default'}>
-                          {worker.status || 'pending'}
-                        </Tag>
-                      )}
-                    </Col>
-                    <Col xs={24}>
-                      <Typography.Text type="secondary" className="text-xs uppercase block">Task/Remarks</Typography.Text>
-                      <Typography.Text>{worker.remarks || '-'}</Typography.Text>
-                    </Col>
-                    {worker.reviewRemarks && (
-                      <Col xs={24}>
-                        <Alert
-                          type={worker.status === 'rejected' ? 'error' : 'warning'}
-                          showIcon
-                          message="Remarks from Accounts"
-                          description={worker.reviewRemarks}
-                        />
-                      </Col>
-                    )}
-                  </Row>
+                  <Descriptions
+                    bordered
+                    size="small"
+                    column={{ xs: 1, sm: 2, md: 3 }}
+                    items={[
+                      { key: 'count', label: 'Count', children: <Typography.Text strong>{worker.count}</Typography.Text> },
+                      { key: 'shift', label: 'Shift', children: worker.shift },
+                      { key: 'totalShift', label: 'Total Shift', children: <Typography.Text strong>{rowTotalShift}</Typography.Text> },
+                      ...(showAmount ? [{ key: 'amount', label: 'Amount', children: <Typography.Text strong>{formatCurrency(rowAmount)}</Typography.Text> }] : []),
+                      { key: 'in', label: 'In Time', children: formatTime(worker.inTime || '') },
+                      { key: 'out', label: 'Out Time', children: formatTime(worker.outTime || '') },
+                      { key: 'remarks', label: 'Task / Remarks', span: 'filled' as const, children: worker.remarks || '-' },
+                    ]}
+                  />
+
+                  {worker.reviewRemarks && (
+                    <Alert
+                      className="mt-3!"
+                      type={worker.status === 'rejected' ? 'error' : 'warning'}
+                      showIcon
+                      message="Remarks from Accounts"
+                      description={worker.reviewRemarks}
+                    />
+                  )}
 
                   {hasPhotos && (
                     <>
-                      <Divider className="border-[var(--border)] text-[var(--text-muted)]">Site Photographs</Divider>
-                      <Row gutter={[24, 24]}>
+                      <Divider className="my-4! text-xs! text-[var(--text-muted)]!">
+                        <PictureOutlined className="mr-1" /> Site Photographs
+                      </Divider>
+                      <Row gutter={[24, 16]}>
                         <Col xs={24} md={12}>
                           <Typography.Text type="secondary" className="mb-2 block text-xs uppercase">Morning Session</Typography.Text>
-                          <Image.PreviewGroup>
-                            <Row gutter={[12, 12]}>
-                              {morningUrls.map((url, i) => (
-                                <Col span={12} key={i}>
-                                  <Image
-                                    src={url}
-                                    className="rounded-lg object-cover w-full aspect-video border border-[var(--border)] shadow-lg hover:scale-[1.02] transition-transform"
-                                    placeholder={<div className="w-full aspect-video bg-slate-800 animate-pulse rounded-lg" />}
-                                  />
-                                </Col>
-                              ))}
-                              {morningUrls.length === 0 && (
-                                <Col span={24}>
-                                  <Typography.Text type="secondary" italic className="text-xs">No morning photos</Typography.Text>
-                                </Col>
-                              )}
-                            </Row>
-                          </Image.PreviewGroup>
+                          {photoGrid(morningUrls, 'No morning photos')}
                         </Col>
-
                         <Col xs={24} md={12}>
                           <Typography.Text type="secondary" className="mb-2 block text-xs uppercase">Evening Session</Typography.Text>
-                          <Image.PreviewGroup>
-                            <Row gutter={[12, 12]}>
-                              {eveningUrls.map((url, i) => (
-                                <Col span={12} key={i}>
-                                  <Image
-                                    src={url}
-                                    className="rounded-lg object-cover w-full aspect-video border border-[var(--border)] shadow-lg hover:scale-[1.02] transition-transform"
-                                    placeholder={<div className="w-full aspect-video bg-slate-800 animate-pulse rounded-lg" />}
-                                  />
-                                </Col>
-                              ))}
-                              {eveningUrls.length === 0 && (
-                                <Col span={24}>
-                                  <Typography.Text type="secondary" italic className="text-xs">No evening photos</Typography.Text>
-                                </Col>
-                              )}
-                            </Row>
-                          </Image.PreviewGroup>
+                          {photoGrid(eveningUrls, 'No evening photos')}
                         </Col>
                       </Row>
                     </>
@@ -331,7 +297,7 @@ export function DailyLabourDetailClient() {
                 </Card>
               );
             })}
-          </div>
+          </Flex>
         </Col>
       </Row>
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Button, Card, Drawer, Flex, Form, Input, Popconfirm, Select, Space, Table, Typography, Upload, App, InputNumber, Image, Tag } from 'antd';
+import { Button, Drawer, Flex, Form, Input, Popconfirm, Select, Space, Typography, Upload, App, InputNumber, Image, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { RcFile } from 'antd/es/upload/interface';
 import { DeleteOutlined, EditOutlined, FilePdfOutlined, PlusOutlined, SearchOutlined, UploadOutlined, InboxOutlined, WarningOutlined } from '@ant-design/icons';
@@ -11,7 +11,8 @@ import { z } from 'zod';
 import { createMaterialReceived, updateMaterialReceived, deleteMaterialReceived, uploadMaterialFile, updateMaterialReceivedStatus } from '@/actions/material-received';
 import type { Project, MaterialReceived, ItemDescription, PurchaseOrder } from '@/types/erp';
 import { useAuthStore } from '@/store/auth';
-import { cardClassName, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
+import { formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
+import { PagedTableCard, StatusCards } from './DataTablePanel';
 
 const STATUS_OPTIONS = [
   { label: 'Pending', value: 'pending' },
@@ -222,8 +223,11 @@ export function MaterialReceivedClient({ records, projects, itemDescriptions, pu
     setOpen(true);
   };
 
+  // S.No follows the filtered list, so numbering continues across pages.
+  const serialById = new Map(filteredRecords.map((r, i) => [r.id, i + 1]));
+
   const columns: ColumnsType<MaterialReceived> = [
-    { title: 'S.No', key: 'sno', width: 60, render: (_, __, i) => i + 1 },
+    { title: 'S.No', key: 'sno', width: 70, render: (_, r) => serialById.get(r.id) },
     { title: 'MR Number', dataIndex: 'mrNumber', key: 'mrNumber', width: 150, render: (v: string) => <Typography.Text strong>{v}</Typography.Text> },
     { title: 'PO Number', key: 'po', width: 130, render: (_, r) => r.purchaseOrder?.poNumber || r.purchaseOrderId || '-' },
     { title: 'Project', key: 'project', width: 200, render: (_, r) => r.project ? `${r.project.name} (${r.project.projectCode || 'No Code'})` : r.projectId },
@@ -342,28 +346,36 @@ export function MaterialReceivedClient({ records, projects, itemDescriptions, pu
         )}
       </Flex>
 
-      <Flex gap={12} wrap="wrap" className="mb-6!">
-        <Input.Search
-          placeholder="Search MR number, PO number..."
-          allowClear
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
-          style={{ width: 280 }}
-        />
-      </Flex>
+      <StatusCards
+        items={[
+          { key: 'total', label: 'Total Records', value: filteredRecords.length },
+          { key: 'pending', label: 'Pending', value: filteredRecords.filter((r) => (r.status || 'pending') === 'pending').length },
+          { key: 'approved', label: 'Approved', value: filteredRecords.filter((r) => r.status === 'approved').length },
+          { key: 'damage', label: 'With Damage / Missing', value: filteredRecords.filter((r) => r.damageRemarks).length },
+        ]}
+      />
 
-      <Card className={cardClassName} styles={{ body: { padding: 0 } }}>
-        <Table
-          dataSource={filteredRecords}
-          columns={columns}
-          rowKey="id"
-          loading={isPending}
-          pagination={{ pageSize: 20, showSizeChanger: true }}
-          scroll={{ x: 'max-content' }}
-          locale={{ emptyText: 'No material received records yet. Create one!' }}
-        />
-      </Card>
+      <PagedTableCard
+        title="Material Received"
+        subtitle={`${filteredRecords.length} ${filteredRecords.length === 1 ? 'record' : 'records'}`}
+        toolbar={(
+          <Input
+            placeholder="Search MR number, PO number..."
+            allowClear
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+            style={{ width: 280 }}
+          />
+        )}
+        noun="records"
+        dataSource={filteredRecords}
+        columns={columns}
+        rowKey="id"
+        loading={isPending}
+        scroll={{ x: columns.reduce((sum, c) => sum + Number(c.width || 0), 0) }}
+        locale={{ emptyText: 'No material received records yet. Create one!' }}
+      />
 
       <Drawer
         title={editing ? `Edit — ${editing.mrNumber}` : 'New Material Received'}

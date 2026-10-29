@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition, type ReactNode } from 'react';
-import { App, Button, DatePicker, Flex, Input, Modal, Popconfirm, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
+import { App, Button, DatePicker, Descriptions, Dropdown, Flex, Input, Modal, Popconfirm, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
 import type { TableProps } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
-  CalendarOutlined, CameraOutlined, CheckCircleOutlined, EyeOutlined, FileDoneOutlined, FilePdfOutlined, SearchOutlined, WalletOutlined
+  CalendarOutlined, CameraOutlined, HistoryOutlined, CheckCircleOutlined, EyeOutlined, FileDoneOutlined, FilePdfOutlined, SearchOutlined, WalletOutlined
 } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
@@ -261,6 +261,8 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
   // Daily labour weeks currently expanded, the trade entry being updated,
   // and the trade entry being rejected (its remark is collected first).
   const [expandedDailyWeeks, setExpandedDailyWeeks] = useState<string[]>([]);
+  // Purchase bill whose payment history popup is open.
+  const [historyBill, setHistoryBill] = useState<PurchaseBill | null>(null);
   const [updatingTradeId, setUpdatingTradeId] = useState<string | null>(null);
   const [rejectTrade, setRejectTrade] = useState<{ reportId: string; workerId: string; trade: string } | null>(null);
   const [rejectTradeReason, setRejectTradeReason] = useState('');
@@ -652,7 +654,7 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
     { title: 'Week', key: 'week', width: 150, render: (_, r) => weekRangeLabel(r.weekStart) },
     { title: 'Team', key: 'team', width: 200, render: (_, r) => <Typography.Text strong>{r.name}</Typography.Text> },
     { title: 'Project', key: 'project', width: 200, render: (_, r) => r.projectName },
-    { title: 'Reports', key: 'reports', width: 90, align: 'right', render: (_, r) => r.reports.length },
+    { title: 'Reports', key: 'reports', width: 110, align: 'right', render: (_, r) => r.reports.length },
     { title: 'Total Shift', key: 'totalShift', width: 120, align: 'right', render: (_, r) => dailyWeekShifts(r.reports) },
     { title: 'Amount', key: 'amount', width: 140, align: 'right', render: (_, r) => formatCurrency(dailyWeekAmount(r.reports)) },
     {
@@ -671,6 +673,35 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
           popupMatchSelectWidth={false}
         />
       ),
+    },
+    {
+      // Opens a day's report: straight away for one report, or pick the day
+      // when the week has several.
+      title: 'View', key: 'view', width: 80, align: 'center',
+      render: (_, r) => {
+        const reports = [...r.reports].sort((a, b) => (a.reportDate || '').localeCompare(b.reportDate || ''));
+        if (reports.length === 1) {
+          return (
+            <Button
+              size="small"
+              icon={<EyeOutlined />}
+              title="View Details"
+              onClick={() => router.push(`/dashboard/daily-labour/${reports[0].id}`)}
+            />
+          );
+        }
+        return (
+          <Dropdown
+            trigger={['click']}
+            menu={{
+              items: reports.map((rep) => ({ key: rep.id, label: formatDate(rep.reportDate) })),
+              onClick: ({ key }) => router.push(`/dashboard/daily-labour/${key}`),
+            }}
+          >
+            <Button size="small" icon={<EyeOutlined />} title="View a day's details" />
+          </Dropdown>
+        );
+      },
     },
     {
       title: 'Action', key: 'action', width: 140,
@@ -728,14 +759,6 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
     },
     { title: 'Overall Remarks', key: 'overallRemarks', width: 220, ellipsis: true, render: (_, t) => reportSpanCell(t, t.reportRemarks || '-') },
     { title: 'Trade Remarks', key: 'tradeRemarks', width: 200, ellipsis: true, render: (_, t) => t.worker.reviewRemarks || '-' },
-    {
-      // One eye icon per report (day), spanning its trade rows.
-      title: 'View', key: 'view', width: 70,
-      render: (_, t) => reportSpanCell(
-        t,
-        <Button size="small" icon={<EyeOutlined />} onClick={() => router.push(`/dashboard/daily-labour/${t.reportId}`)} title="View Details" />,
-      ),
-    },
   ];
 
   const dailyWeekTableProps = {
@@ -1094,25 +1117,17 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
       },
     },
     {
-      title: 'History', key: 'history', width: 200,
+      title: 'History', key: 'history', width: 160,
       render: (_, r) => {
-        const payments = [...(r.payments || [])].sort(
-          (a, b) => new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime(),
-        );
-        const poValue = r.purchaseOrder ? (r.purchaseOrder.totalWithGst || r.purchaseOrder.totalAmount) : r.amount;
         const balance = Number(r.amount) - Number(r.paidAmount || 0);
-        const ordinal = (n: number) => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`);
         return (
-          <Flex vertical gap={0}>
-            <Typography.Text className="text-xs">PO Value: {formatCurrency(poValue)}</Typography.Text>
-            {payments.length === 0 ? (
-              <Typography.Text type="secondary" className="text-xs">No payments yet</Typography.Text>
+          <Flex vertical gap={4}>
+            <Typography.Text strong className="text-xs">Balance: {formatCurrency(Math.max(balance, 0))}</Typography.Text>
+            {(r.payments || []).length > 0 ? (
+              <Button size="small" icon={<HistoryOutlined />} onClick={() => setHistoryBill(r)}>History</Button>
             ) : (
-              payments.slice(0, 2).map((p, i) => (
-                <Typography.Text key={p.id} className="text-xs">{ordinal(i + 1)} Payment: {formatCurrency(p.amount)}</Typography.Text>
-              ))
+              <Typography.Text type="secondary" className="text-xs">No payments yet</Typography.Text>
             )}
-            <Typography.Text strong className="text-xs">Balance Payment: {formatCurrency(balance)}</Typography.Text>
           </Flex>
         );
       },
@@ -1195,6 +1210,12 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
                 options={APPROVAL_STATUS_OPTIONS}
                 style={{ width: 160 }}
               />
+              <DatePicker.RangePicker
+                value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
+                onChange={(dates) => { setDateRange(dates ? [dates[0], dates[1]] : [null, null]); setPageOf(tabKey, { page: 1 }); }}
+                allowClear
+                placeholder={['From date', 'To date']}
+              />
               {extraFilters}
             </>
           )}
@@ -1229,11 +1250,6 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
         <Title level={3} className={pageTitleClassName}>
           <CheckCircleOutlined className={titleIconClassName} /> Approvals
         </Title>
-        <DatePicker.RangePicker
-          value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
-          onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
-          allowClear placeholder={['From date', 'To date']}
-        />
       </Flex>
 
       <Modal
@@ -1279,7 +1295,7 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
       <div>
         <Tabs
           activeKey={activeTab}
-          onChange={(key) => { setActiveTab(key); setSearchText(''); setStatusFilter(''); }}
+          onChange={(key) => { setActiveTab(key); setSearchText(''); setStatusFilter(''); setDateRange([null, null]); }}
           items={[
             {
               key: 'vendor',
@@ -1289,7 +1305,7 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
             {
               key: 'subcontractor',
               label: <span><WalletOutlined /> Subcontractor Payment</span>,
-              children: <SubcontractorPaymentRequestsClient requests={subcontractorPaymentRequests} payments={payments} embedded mode="approvals" />,
+              children: <SubcontractorPaymentRequestsClient requests={subcontractorPaymentRequests} payments={payments} subcontractorBills={subcontractorBills} embedded mode="approvals" />,
             },
             {
               key: 'daily',
@@ -1355,6 +1371,51 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
           ]}
         />
       </div>
+
+      <Modal
+        title={`Payment History — ${historyBill?.billNumber || ''}${historyBill?.vendor?.name ? ` (${historyBill.vendor.name})` : ''}`}
+        open={!!historyBill}
+        onCancel={() => setHistoryBill(null)}
+        footer={[<Button key="close" onClick={() => setHistoryBill(null)}>Close</Button>]}
+        width={700}
+      >
+        {historyBill && (() => {
+          const poValue = historyBill.purchaseOrder
+            ? Number(historyBill.purchaseOrder.totalWithGst || historyBill.purchaseOrder.totalAmount || 0)
+            : Number(historyBill.amount || 0);
+          const paid = Number(historyBill.paidAmount || 0);
+          const payments = [...(historyBill.payments || [])].sort(
+            (a, b) => new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime(),
+          );
+          return (
+            <Flex vertical gap={12}>
+              <Descriptions
+                size="small"
+                column={{ xs: 1, sm: 3 }}
+                items={[
+                  { key: 'po', label: 'PO Value', children: formatCurrency(poValue) },
+                  { key: 'paid', label: 'Paid', children: formatCurrency(paid) },
+                  { key: 'balance', label: 'Balance', children: formatCurrency(Math.max(Number(historyBill.amount || 0) - paid, 0)) },
+                ]}
+              />
+              <Table
+                dataSource={payments}
+                pagination={false}
+                size="small"
+                rowKey="id"
+                locale={{ emptyText: 'No payments recorded yet' }}
+                columns={[
+                  { title: 'S.No', key: 'sno', width: 60, render: (_, __, i) => i + 1 },
+                  { title: 'Date', dataIndex: 'paymentDate', render: (v: string) => formatDate(v) },
+                  { title: 'Amount', dataIndex: 'amount', align: 'right', render: (v: number | string) => formatCurrency(v) },
+                  { title: 'Mode', dataIndex: 'paymentMode', render: (v?: string | null) => v?.toUpperCase() || '-' },
+                  { title: 'Reference', dataIndex: 'referenceNumber', render: (v?: string | null) => v || '-' },
+                ]}
+              />
+            </Flex>
+          );
+        })()}
+      </Modal>
 
       <Modal
         title="Reject Expense — Remarks"

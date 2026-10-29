@@ -3,7 +3,7 @@
 import { useState, useMemo, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { App, Button, Card, DatePicker, Drawer, Flex, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, Typography, Upload, Divider } from 'antd';
+import { App, Button, DatePicker, Drawer, Flex, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, Typography, Upload, Divider } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DeleteOutlined, EditOutlined, EyeOutlined, FileDoneOutlined, PlusOutlined, HistoryOutlined, SearchOutlined, UploadOutlined, FileTextOutlined, FileExcelOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -21,7 +21,6 @@ import { exportToExcel } from '@/lib/excel';
 import type { Subcontractor, Project, SubcontractorBill, SubcontractWorkOrder } from '@/types/erp';
 import {
   StatusTag,
-  cardClassName,
   formatCurrency,
   formatDate,
   pageHeaderClassName,
@@ -29,6 +28,7 @@ import {
   titleCase,
   titleIconClassName,
 } from './ui';
+import { PagedTableCard, StatusCards } from './DataTablePanel';
 
 const ordinal = (n: number) => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`);
 
@@ -254,16 +254,20 @@ export function SubcontractorBillsClient({ bills, subcontractors, projects, work
     });
   };
 
+  // S.No follows the filtered list, so numbering continues across pages.
+  const serialById = new Map(filteredBills.map((b, i) => [b.id, i + 1]));
+
   const columns: ColumnsType<SubcontractorBill> = [
     {
       title: 'S.No',
       key: 'sno',
-      width: 60,
-      render: (_text, _record, index) => index + 1,
+      width: 70,
+      render: (_text, record) => serialById.get(record.id),
     },
     {
       title: 'WO No',
       key: 'subcontractWorkOrder',
+      width: 140,
       render: (_value, record) => record.subcontractWorkOrder ? (
         <Typography.Text>{record.subcontractWorkOrder.woNumber}</Typography.Text>
       ) : '-',
@@ -271,16 +275,19 @@ export function SubcontractorBillsClient({ bills, subcontractors, projects, work
     {
       title: 'Bill No',
       dataIndex: 'billNumber',
+      width: 140,
       render: (value: string) => <Typography.Text strong>{value}</Typography.Text>,
     },
     {
       title: 'Bill Date',
       dataIndex: 'billDate',
+      width: 120,
       render: formatDate,
     },
     {
       title: 'Sub Contractor',
       dataIndex: ['subcontractor', 'name'],
+      width: 190,
       render: (_value, record) => record.subcontractor?.name || '-',
     },
     {
@@ -292,6 +299,7 @@ export function SubcontractorBillsClient({ bills, subcontractors, projects, work
     {
       title: 'Total Amount',
       dataIndex: 'amount',
+      width: 140,
       align: 'right',
       render: (value) => formatCurrency(value),
     },
@@ -347,6 +355,7 @@ export function SubcontractorBillsClient({ bills, subcontractors, projects, work
     {
       title: 'Status',
       dataIndex: 'status',
+      width: 160,
       render: (value: string) => value === 'admin_approved' || value === 'approved'
         ? <Tag color={value === 'approved' ? 'success' : 'processing'}>{billStatusLabel(value)}</Tag>
         : <StatusTag value={value} />,
@@ -354,6 +363,7 @@ export function SubcontractorBillsClient({ bills, subcontractors, projects, work
     {
       title: 'Actions',
       key: 'actions',
+      width: 260,
       render: (_, record) => (
         <Space>
           <Button
@@ -455,33 +465,47 @@ export function SubcontractorBillsClient({ bills, subcontractors, projects, work
         </Space>
       </Flex>
 
-      <Flex gap={12} wrap="wrap" className="mb-6!">
-        <Input.Search
-          placeholder="Search bill, subcontractor, project..."
-          allowClear
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
-          style={{ width: 200 }}
-        />
-        <DatePicker.RangePicker
-          value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
-          onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
-          allowClear
-          placeholder={['From date', 'To date']}
-        />
-      </Flex>
+      <StatusCards
+        items={[
+          { key: 'total', label: 'Total Bills', value: filteredBills.length },
+          { key: 'pending', label: 'Pending', value: filteredBills.filter((b) => b.status === 'pending').length },
+          { key: 'approved', label: 'Admin Approved', value: filteredBills.filter((b) => b.status === 'approved').length },
+          {
+            key: 'balance',
+            label: 'Balance Due',
+            value: formatCurrency(filteredBills.reduce((sum, b) => sum + Math.max(Number(b.amount || 0) - Number(b.paidAmount || 0), 0), 0)),
+          },
+        ]}
+      />
 
-      <Card className={cardClassName}>
-        <Table
-          dataSource={filteredBills}
-          columns={columns}
-          rowKey="id"
-          size="middle"
-          scroll={{ x: 1350 }}
-          pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} bills` }}
-        />
-      </Card>
+      <PagedTableCard
+        title="Subcontractor Bills"
+        subtitle={`${filteredBills.length} ${filteredBills.length === 1 ? 'bill' : 'bills'}`}
+        toolbar={(
+          <>
+            <Input
+              placeholder="Search bill, subcontractor, project..."
+              allowClear
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+              style={{ width: 240 }}
+            />
+            <DatePicker.RangePicker
+              value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
+              onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+              allowClear
+              placeholder={['From date', 'To date']}
+            />
+          </>
+        )}
+        noun="bills"
+        dataSource={filteredBills}
+        columns={columns}
+        rowKey="id"
+        size="middle"
+        scroll={{ x: columns.reduce((sum, c) => sum + Number(c.width || 0), 0) }}
+      />
 
       <Drawer
         title={editingBill ? `Edit Bill — ${editingBill.billNumber}` : 'Record Subcontractor Bill'}

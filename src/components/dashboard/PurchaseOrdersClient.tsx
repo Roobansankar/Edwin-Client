@@ -12,13 +12,13 @@ import type { Project, Vendor, PurchaseOrder, ItemDescription, VendorQuotation, 
 import { useAuthStore } from '@/store/auth';
 import { PurchaseOrderPdf } from './PurchaseOrderPdf';
 import {
-  cardClassName,
   formatCurrency,
   formatDate,
   pageHeaderClassName,
   pageTitleClassName,
   titleIconClassName,
 } from './ui';
+import { PagedTableCard, StatusCards, TableCard } from './DataTablePanel';
 
 type PurchaseOrdersClientProps = {
   purchaseOrders: PurchaseOrder[];
@@ -394,13 +394,15 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
     });
   };
 
-  const colSno: ColumnsType<PurchaseOrder>[number] = { title: 'S.No', key: 'sno', width: 60, render: (_text, _record, index) => index + 1 };
-  const colPoNumber: ColumnsType<PurchaseOrder>[number] = { title: 'PO Number', dataIndex: 'poNumber', sorter: (a, b) => a.poNumber.localeCompare(b.poNumber), render: (value: string) => <Typography.Text strong>{value}</Typography.Text> };
-  const colMrRef: ColumnsType<PurchaseOrder>[number] = { title: 'MR No', dataIndex: 'materialRequirementNo', sorter: (a, b) => (a.materialRequirementNo || '').localeCompare(b.materialRequirementNo || ''), render: (value?: string | null) => value || <Typography.Text type="secondary">-</Typography.Text> };
+  // S.No follows the filtered list, so numbering continues across pages.
+  const serialById = new Map(filteredOrders.map((o, i) => [o.id, i + 1]));
+  const colSno: ColumnsType<PurchaseOrder>[number] = { title: 'S.No', key: 'sno', width: 70, render: (_text, record) => serialById.get(record.id) };
+  const colPoNumber: ColumnsType<PurchaseOrder>[number] = { title: 'PO Number', dataIndex: 'poNumber', width: 140, sorter: (a, b) => a.poNumber.localeCompare(b.poNumber), render: (value: string) => <Typography.Text strong>{value}</Typography.Text> };
+  const colMrRef: ColumnsType<PurchaseOrder>[number] = { title: 'MR No', dataIndex: 'materialRequirementNo', width: 140, sorter: (a, b) => (a.materialRequirementNo || '').localeCompare(b.materialRequirementNo || ''), render: (value?: string | null) => value || <Typography.Text type="secondary">-</Typography.Text> };
   const colExpectedDate: ColumnsType<PurchaseOrder>[number] = { title: 'Expected By', key: 'expectedDate', width: 160, render: (_, r) => <Typography.Text className="text-xs">{formatDateTime(r.expectedDate)}</Typography.Text> };
   const colPaymentTerms: ColumnsType<PurchaseOrder>[number] = { title: 'Payment Terms', key: 'paymentTerms', width: 130, render: (_, r) => r.paymentTerms ? <Tag color="blue">{PAYMENT_TERMS_LABELS[r.paymentTerms] || r.paymentTerms}</Tag> : <Typography.Text type="secondary">-</Typography.Text> };
-  const colVendor: ColumnsType<PurchaseOrder>[number] = { title: 'Vendor', dataIndex: ['vendor', 'name'], sorter: (a, b) => (a.vendor?.name || '').localeCompare(b.vendor?.name || ''), render: (_value, record) => record.vendor?.name || '-' };
-  const colProject: ColumnsType<PurchaseOrder>[number] = { title: 'Project', key: 'project', sorter: (a, b) => (a.project?.name || '').localeCompare(b.project?.name || ''), render: (_value, record) => record.project ? `${record.project.name} (${record.project.projectCode || 'No Code'})` : '-' };
+  const colVendor: ColumnsType<PurchaseOrder>[number] = { title: 'Vendor', dataIndex: ['vendor', 'name'], width: 180, sorter: (a, b) => (a.vendor?.name || '').localeCompare(b.vendor?.name || ''), render: (_value, record) => record.vendor?.name || '-' };
+  const colProject: ColumnsType<PurchaseOrder>[number] = { title: 'Project', key: 'project', width: 240, sorter: (a, b) => (a.project?.name || '').localeCompare(b.project?.name || ''), render: (_value, record) => record.project ? `${record.project.name} (${record.project.projectCode || 'No Code'})` : '-' };
   const colStatus: ColumnsType<PurchaseOrder>[number] = { title: 'Status', dataIndex: 'status', width: 150, filters: STATUS_OPTIONS.map((opt) => ({ text: opt.label, value: opt.value })), onFilter: (value, record) => record.status === value, render: (value: string, record) =>
     canUpdateStatus ? (
       <Select defaultValue={value} size="small" variant="borderless" className="w-full" onChange={(newStatus) => handleStatusChange(record.id, newStatus)} options={statusOptions} popupMatchSelectWidth={false} styles={{ popup: { root: { minWidth: 140 } } }} disabled={isPending} />
@@ -426,7 +428,7 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
       <Button size="small" icon={<EyeOutlined />} onClick={() => setPreviewPo(record)}>Preview</Button>
     ) : null,
   };
-  const colCreatedDate: ColumnsType<PurchaseOrder>[number] = { title: 'PO Created Date', dataIndex: 'createdAt', sorter: (a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime(), render: formatDate };
+  const colCreatedDate: ColumnsType<PurchaseOrder>[number] = { title: 'PO Created Date', dataIndex: 'createdAt', width: 140, sorter: (a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime(), render: formatDate };
   const actionColumns: ColumnsType<PurchaseOrder> = canManagePo ? [{ title: 'Actions', key: 'actions', width: 100, render: (_: unknown, record: PurchaseOrder) => (
     <Space>
       <Button type="text" icon={<EditOutlined className="text-blue-500" />} title="Edit" onClick={() => handleEdit(record)} />
@@ -456,25 +458,38 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
         )}
       </Flex>
 
-      <Flex gap={12} wrap="wrap" className="mb-6!">
-        <Input.Search
-          placeholder="Search PO, vendor, project..."
-          allowClear
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
-          style={{ width: 200 }}
-        />
-        <DatePicker.RangePicker
-          value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
-          onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
-          allowClear
-          placeholder={['From date', 'To date']}
-        />
-      </Flex>
+      <StatusCards
+        items={[
+          { key: 'total', label: 'Total POs', value: filteredOrders.length },
+          { key: 'pending', label: 'Pending', value: filteredOrders.filter((o) => o.status === 'pending').length },
+          { key: 'approved', label: 'Approved', value: filteredOrders.filter((o) => o.status === 'approved' || o.status === 'admin_approved').length },
+          { key: 'value', label: 'Total Value', value: formatCurrency(filteredOrders.reduce((sum, o) => sum + Number(o.totalWithGst || o.totalAmount || 0), 0)) },
+        ]}
+      />
 
-      <Card className={cardClassName} styles={{ body: { padding: 0 } }}>
-        {isMobile ? (
+      {isMobile ? (
+        <TableCard
+          title="Purchase Orders"
+          subtitle={`${filteredOrders.length} POs`}
+          toolbar={(
+          <>
+            <Input
+              placeholder="Search PO, vendor, project..."
+              allowClear
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+              style={{ width: 220 }}
+            />
+            <DatePicker.RangePicker
+              value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
+              onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+              allowClear
+              placeholder={['From date', 'To date']}
+            />
+          </>
+        )}
+        >
           <div className="flex flex-col">
             {filteredOrders.length === 0 ? (
               <div className="p-4 text-center text-gray-400">No purchase orders</div>
@@ -521,10 +536,37 @@ export function PurchaseOrdersClient({ purchaseOrders, projects, vendors, itemDe
               ))
             )}
           </div>
-        ) : (
-          <Table dataSource={filteredOrders} columns={columns} rowKey="id" size="middle" scroll={{ x: 'max-content' }} pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} POs` }} />
+        </TableCard>
+      ) : (
+        <PagedTableCard
+          title="Purchase Orders"
+          subtitle={`${filteredOrders.length} POs`}
+          toolbar={(
+          <>
+            <Input
+              placeholder="Search PO, vendor, project..."
+              allowClear
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+              style={{ width: 220 }}
+            />
+            <DatePicker.RangePicker
+              value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
+              onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+              allowClear
+              placeholder={['From date', 'To date']}
+            />
+          </>
         )}
-      </Card>
+          noun="POs"
+          dataSource={filteredOrders}
+          columns={columns}
+          rowKey="id"
+          size="middle"
+          scroll={{ x: columns.reduce((sum, c) => sum + Number(c.width || 0), 0) }}
+        />
+      )}
 
       <Drawer
         title={editingPo ? `Edit PO — ${editingPo.poNumber}` : 'Create Purchase Order(s)'}

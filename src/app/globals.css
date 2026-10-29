@@ -179,6 +179,7 @@ body {
 /* Approvals tables (same look as the Projects table): bold uppercase header,
    row hover, visible scrollbars. */
 .approvals-table .ant-table-thead > tr > th {
+  white-space: nowrap;
   background: var(--card-bg) !important;
   color: var(--text-primary) !important;
   font-size: 12.5px;
@@ -190,6 +191,13 @@ body {
 
 .approvals-table .ant-table-tbody > tr > td {
   vertical-align: middle;
+}
+
+/* Long text wraps to a second line instead of running over the next column
+   (columns set to ellipsis keep their one-line "..." behaviour). */
+.approvals-table .ant-table-tbody > tr > td:not(.ant-table-cell-ellipsis) {
+  white-space: normal !important;
+  overflow-wrap: break-word;
 }
 
 .approvals-table .ant-table-tbody > tr.ant-table-row:hover > td {
@@ -284,4 +292,9 @@ body {
 .bill-detail .vendor-compare .compare-total-row > td {
   background: var(--subtle-hover-bg) !important;
   font-size: 15px;
+}
+
+/* Row-wise comparison (subcontractor enquiries): the bill's subcontractor row. */
+.bill-detail .vendor-compare .compare-selected-row > td {
+  background: rgba(16, 185, 129, 0.07) !important;
 }

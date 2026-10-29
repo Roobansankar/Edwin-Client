@@ -9,13 +9,13 @@ import Link from 'next/link';
 import { createAdvanceRequest } from '@/actions/advance-requests';
 import type { Project, AdvanceRequest, PurchaseOrder, PurchaseBill, Payment } from '@/types/erp';
 import {
-  cardClassName,
   formatCurrency,
   formatDate,
   pageHeaderClassName,
   pageTitleClassName,
   titleIconClassName,
 } from './ui';
+import { PagedTableCard, StatusCards } from './DataTablePanel';
 
 type Props = {
   projects: Project[];
@@ -161,30 +161,35 @@ export function AdvanceRequestClient({ projects, advanceRequests, purchaseOrders
       .sort((a, b) => new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime());
   }, [payments, historyRecord]);
 
+  // S.No follows the filtered list, so numbering continues across pages.
+  const serialById = new Map(filteredRequests.map((r, i) => [r.id, i + 1]));
+
   const columns: ColumnsType<AdvanceRequest> = [
-    { title: 'S.No', key: 'sno', width: 60, render: (_, __, i) => i + 1 },
+    { title: 'S.No', key: 'sno', width: 70, render: (_, record) => serialById.get(record.id) },
 
     {
       title: 'Bill No',
       key: 'billNo',
+      width: 140,
       render: (_, record) => {
         const bill = record.purchaseBill || bills.find((b) => record.purchaseBillId ? b.id === record.purchaseBillId : !!record.purchaseOrderId && b.purchaseOrderId === record.purchaseOrderId);
         return bill ? bill.billNumber : <Typography.Text type="secondary">-</Typography.Text>;
       },
     },
-    { title: 'PO No', key: 'po', render: (_, record) => record.purchaseOrder?.poNumber || <Typography.Text type="secondary">-</Typography.Text> },
-    { title: 'Vendor', key: 'vendor', render: (_, record) => record.vendor?.name || record.vendorId },
-    { title: 'Project', key: 'project', render: (_, record) => record.project?.name || '-' },
-    { title: 'MR No', dataIndex: 'materialRequirementNo', render: (value?: string | null) => value || <Typography.Text type="secondary">-</Typography.Text> },
-    { title: 'Amount', dataIndex: 'amount', align: 'right', render: (value: number | string) => formatCurrency(value) },
+    { title: 'PO No', key: 'po', width: 130, render: (_, record) => record.purchaseOrder?.poNumber || <Typography.Text type="secondary">-</Typography.Text> },
+    { title: 'Vendor', key: 'vendor', width: 180, render: (_, record) => record.vendor?.name || record.vendorId },
+    { title: 'Project', key: 'project', width: 200, render: (_, record) => record.project?.name || '-' },
+    { title: 'MR No', dataIndex: 'materialRequirementNo', width: 130, render: (value?: string | null) => value || <Typography.Text type="secondary">-</Typography.Text> },
+    { title: 'Amount', dataIndex: 'amount', align: 'right', width: 130, render: (value: number | string) => formatCurrency(value) },
     {
       // Final amount admin approved for payment.
-      title: 'Final Amount', dataIndex: 'approvedAmount', align: 'right',
+      title: 'Final Amount', dataIndex: 'approvedAmount', align: 'right', width: 130,
       render: (value?: number | string | null) => (value !== null && value !== undefined && value !== '' ? formatCurrency(value) : '-'),
     },
     {
       title: 'Payment Terms',
       key: 'paymentTerms',
+      width: 140,
       render: (_, record) => {
         const label = paymentTermsLabel(record.purchaseOrder, record.vendor?.paymentTerms);
         return label ? <Tag color="blue">{label}</Tag> : <Typography.Text type="secondary">-</Typography.Text>;
@@ -214,8 +219,8 @@ export function AdvanceRequestClient({ projects, advanceRequests, purchaseOrders
         );
       },
     },
-    { title: 'Requested At', dataIndex: 'createdAt', render: formatDate },
-    { title: 'Status', key: 'status', render: (_, record) => <Tag color={STATUS_COLORS[record.status] || 'default'}>{STATUS_LABELS[record.status] || record.status.toUpperCase()}</Tag> },
+    { title: 'Requested At', dataIndex: 'createdAt', width: 130, render: formatDate },
+    { title: 'Status', key: 'status', width: 190, render: (_, record) => <Tag color={STATUS_COLORS[record.status] || 'default'}>{STATUS_LABELS[record.status] || record.status.toUpperCase()}</Tag> },
     {
       title: 'Actions',
       key: 'actions',
@@ -246,7 +251,10 @@ export function AdvanceRequestClient({ projects, advanceRequests, purchaseOrders
         </Typography.Title>
       </Flex>
 
-      <Card className={`${cardClassName} mb-6`}>
+      <Card
+        className="mb-6! rounded-2xl! border! border-[var(--border)]!"
+        title={<Typography.Text strong className="text-[var(--text-primary)]!">New Vendor Payment Request</Typography.Text>}
+      >
         <Form layout="vertical">
           <Form.Item label="Bill Number" required>
             <Select
@@ -313,36 +321,54 @@ export function AdvanceRequestClient({ projects, advanceRequests, purchaseOrders
         </Form>
       </Card>
 
-      <Flex gap={12} wrap="wrap" className="mb-6!">
-        <Input.Search
-          placeholder="Search PO, bill, vendor, MR no..."
-          allowClear
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
-          style={{ width: 240 }}
-        />
-        <Select
-          allowClear
-          showSearch
-          placeholder="Filter by project"
-          style={{ width: 220 }}
-          value={projectFilter}
-          onChange={setProjectFilter}
-          options={projects.map((p) => ({ value: p.id, label: p.name }))}
-          filterOption={(input, option) => String(option?.label || '').toLowerCase().includes(input.toLowerCase())}
-        />
-        <DatePicker.RangePicker
-          value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
-          onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
-          allowClear
-          placeholder={['From date', 'To date']}
-        />
-      </Flex>
+      <StatusCards
+        items={[
+          { key: 'count', label: 'Requests', value: filteredRequests.length },
+          { key: 'pending', label: 'Pending', value: filteredRequests.filter((r) => r.status === 'pending' || r.status === 'accepted').length },
+          { key: 'approved', label: 'Approved', value: filteredRequests.filter((r) => r.status === 'admin_approved').length },
+          { key: 'total', label: 'Total Requested', value: formatCurrency(filteredRequests.reduce((sum, r) => sum + Number(r.amount || 0), 0)) },
+        ]}
+      />
 
-      <Card className={cardClassName} styles={{ body: { padding: 0 } }}>
-        <Table dataSource={filteredRequests} columns={columns} rowKey="id" size="middle" scroll={{ x: 1200 }} pagination={{ pageSize: 10 }} locale={{ emptyText: 'No vendor payment requests yet' }} />
-      </Card>
+      <PagedTableCard
+        title="My Payment Requests"
+        subtitle={`${filteredRequests.length} ${filteredRequests.length === 1 ? 'request' : 'requests'}`}
+        toolbar={(
+          <>
+            <Input
+              placeholder="Search PO, bill, vendor, MR no..."
+              allowClear
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+              style={{ width: 240 }}
+            />
+            <Select
+              allowClear
+              showSearch
+              placeholder="Filter by project"
+              style={{ width: 200 }}
+              value={projectFilter}
+              onChange={setProjectFilter}
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              filterOption={(input, option) => String(option?.label || '').toLowerCase().includes(input.toLowerCase())}
+            />
+            <DatePicker.RangePicker
+              value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
+              onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+              allowClear
+              placeholder={['From date', 'To date']}
+            />
+          </>
+        )}
+        noun="requests"
+        dataSource={filteredRequests}
+        columns={columns}
+        rowKey="id"
+        size="middle"
+        scroll={{ x: columns.reduce((sum, c) => sum + Number(c.width || 0), 0) }}
+        locale={{ emptyText: 'No vendor payment requests yet' }}
+      />
 
       <Modal
         title={`Payment History — ${historyRecord?.purchaseBill?.billNumber || bills.find((bill) => bill.id === historyRecord?.purchaseBillId)?.billNumber || historyRecord?.purchaseOrder?.poNumber || ''}`}

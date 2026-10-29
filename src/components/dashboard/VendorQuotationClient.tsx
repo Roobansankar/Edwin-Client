@@ -8,7 +8,8 @@ import dayjs from 'dayjs';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, UploadOutlined, DeleteOutlined, EyeOutlined, FileTextOutlined, EditOutlined, SearchOutlined } from '@ant-design/icons';
 import type { Project, Vendor, VendorQuotation, PurchaseEnquiry } from '@/types/erp';
-import { cardClassName, formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
+import { formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
+import { PaginationCard, StatusCards, TableCard, TABLE_BODY_HEIGHT, useClientPagination } from './DataTablePanel';
 import { clientApiFetch } from '@/lib/client-api';
 import { useAuthStore } from '@/store/auth';
 
@@ -505,13 +506,20 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
     return data.filter((r) => matchedGroups.has(r.groupId));
   }, [data, searchText]);
 
-  const flatData = filteredData.reduce<Array<VendorQuotation & { _groupSize: number; _isFirst: boolean }>>((acc, r, idx) => {
-    const prev = filteredData[idx - 1];
+  // Pagination counts whole enquiries (groups), so a group's vendor rows are
+  // never split across pages.
+  const groupIds = [...new Set(filteredData.map((r) => r.groupId))];
+  const groupPager = useClientPagination(groupIds);
+  const pageGroups = new Set(groupPager.pageRows);
+  const pageData = filteredData.filter((r) => pageGroups.has(r.groupId));
+
+  const flatData = pageData.reduce<Array<VendorQuotation & { _groupSize: number; _isFirst: boolean }>>((acc, r, idx) => {
+    const prev = pageData[idx - 1];
     const isNewGroup = !prev || prev.groupId !== r.groupId;
     const groupSize = isNewGroup
-      ? filteredData.slice(idx).findIndex((x) => x.groupId !== r.groupId)
+      ? pageData.slice(idx).findIndex((x) => x.groupId !== r.groupId)
       : 0;
-    const realGroupSize = groupSize === -1 ? filteredData.length - idx : groupSize > 0 ? groupSize : 0;
+    const realGroupSize = groupSize === -1 ? pageData.length - idx : groupSize > 0 ? groupSize : 0;
     acc.push({ ...r, _groupSize: isNewGroup ? (realGroupSize || 1) : 0, _isFirst: isNewGroup });
     return acc;
   }, []);
@@ -520,11 +528,7 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
     {
       title: 'S.No', key: 'sno', width: 60,
       onCell: (r) => ({ rowSpan: r._isFirst ? r._groupSize : 0 }),
-      render: (_, r, idx) => {
-        if (!r._isFirst) return null;
-        const sno = flatData.slice(0, idx + 1).filter((x) => x._isFirst).length;
-        return sno;
-      },
+      render: (_, r) => (r._isFirst ? groupIds.indexOf(r.groupId) + 1 : null),
     },
     {
       title: '', key: 'addVendor', width: 90,
@@ -671,19 +675,31 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
         </Button>
       </Flex>
 
-      <Flex gap={12} wrap="wrap" className="mb-6!">
-        <Input.Search
-          placeholder="Search by MR Ref, project, vendor..."
-          allowClear
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
-          style={{ width: 300 }}
-        />
-      </Flex>
+      <StatusCards
+        items={[
+          { key: 'enquiries', label: 'Enquiries', value: groupIds.length },
+          { key: 'quotations', label: 'Vendor Quotations', value: filteredData.length },
+          { key: 'approved', label: 'Approved', value: filteredData.filter((r) => r.status === 'approved').length },
+          { key: 'pending', label: 'Pending', value: filteredData.filter((r) => !r.status || r.status === 'pending').length },
+        ]}
+      />
 
-      <Card className={cardClassName} styles={{ body: { padding: 0 } }}>
+      <TableCard
+        title="Purchase Enquiries"
+        subtitle={`${groupIds.length} ${groupIds.length === 1 ? 'enquiry' : 'enquiries'} · ${filteredData.length} vendor quotations`}
+        toolbar={(
+          <Input
+            placeholder="Search by MR Ref, project, vendor..."
+            allowClear
+            value={searchText}
+            onChange={(e) => { setSearchText(e.target.value); groupPager.reset(); }}
+            prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+            style={{ width: 300 }}
+          />
+        )}
+      >
         <Table
+          className="approvals-table"
           dataSource={flatData}
           columns={columns}
           rowKey="id"
@@ -691,9 +707,19 @@ export function VendorQuotationClient({ vendors, projects }: Props) {
           size="small"
           loading={loading}
           locale={{ emptyText: 'No purchase enquiries yet' }}
-          scroll={{ x: 'max-content' }}
+          scroll={{ x: 'max-content', y: TABLE_BODY_HEIGHT }}
         />
-      </Card>
+      </TableCard>
+
+      <PaginationCard
+        total={groupPager.total}
+        start={groupPager.start}
+        page={groupPager.page}
+        size={groupPager.size}
+        onPageChange={groupPager.setPage}
+        onSizeChange={groupPager.setSize}
+        noun="enquiries"
+      />
 
       <Drawer
         title="New Purchase Enquiry"

@@ -59,6 +59,7 @@ import {
   pageTitleClassName,
   titleIconClassName,
 } from './ui';
+import { PagedTableCard, StatusCards } from './DataTablePanel';
 import { useAuthStore } from '@/store/auth';
 
 const swoSchema = z.object({
@@ -381,12 +382,15 @@ export function SubcontractWorkOrdersClient({
     return false;
   };
 
+  // S.No follows the filtered list, so numbering continues across pages.
+  const serialById = new Map(filteredWorkOrders.map((w, i) => [w.id, i + 1]));
+
   const columns: ColumnsType<SubcontractWorkOrder> = [
     {
       title: 'S.No',
       key: 'sno',
-      width: 60,
-      render: (_, __, index) => index + 1,
+      width: 70,
+      render: (_, record) => serialById.get(record.id),
     },
     {
       title: 'SCR No',
@@ -583,31 +587,36 @@ export function SubcontractWorkOrdersClient({
         </Button>
       </Flex>
 
-      <Flex gap={12} wrap="wrap" className="mb-4!">
-        <Input.Search
-          placeholder="Search WO number, project, subcontractor..."
-          allowClear
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
-          style={{ width: 320 }}
-        />
-      </Flex>
+      <StatusCards
+        items={[
+          { key: 'total', label: 'Total WOs', value: filteredWorkOrders.length },
+          { key: 'pending', label: 'Pending', value: filteredWorkOrders.filter((w) => w.status === 'pending').length },
+          { key: 'approved', label: 'Approved', value: filteredWorkOrders.filter((w) => w.status === 'approved' || w.status === 'admin_approved').length },
+          { key: 'value', label: 'Total Value', value: formatCurrency(filteredWorkOrders.reduce((sum, w) => sum + Number(w.totalAmount || 0), 0)) },
+        ]}
+      />
 
-      <Card
-        className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!"
-        styles={{ body: { padding: '8px 0' } }}
-      >
-        <Table
-          className="mantis-table"
-          dataSource={filteredWorkOrders}
-          columns={columns}
-          rowKey="id"
-          size="middle"
-          scroll={{ x: 1560 }}
-          pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} work orders` }}
-        />
-      </Card>
+      <PagedTableCard
+        title="Work Orders"
+        subtitle={`${filteredWorkOrders.length} ${filteredWorkOrders.length === 1 ? 'work order' : 'work orders'}`}
+        toolbar={(
+          <Input
+            placeholder="Search WO number, project, subcontractor..."
+            allowClear
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+            style={{ width: 320 }}
+          />
+        )}
+        noun="work orders"
+        className="mantis-table"
+        dataSource={filteredWorkOrders}
+        columns={columns}
+        rowKey="id"
+        size="middle"
+        scroll={{ x: 1600 }}
+      />
 
       <Drawer
         title={editingSwo ? 'Edit Subcontract WO' : 'New Subcontract WO'}

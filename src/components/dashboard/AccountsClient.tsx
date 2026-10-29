@@ -2,19 +2,19 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Card, Col, Row, Statistic, Table, Typography, Tag, Flex, Tabs, Button, Select, DatePicker } from 'antd';
-import { ArrowDownOutlined, ArrowUpOutlined, BankOutlined, ShoppingCartOutlined, DollarOutlined, FileTextOutlined, RightOutlined } from '@ant-design/icons';
+import { Typography, Tag, Flex, Tabs, Button, Select, DatePicker } from 'antd';
+import { BankOutlined, ShoppingCartOutlined, DollarOutlined, RightOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { Dayjs } from 'dayjs';
 import type { Project, SalesInvoice } from '@/types/erp';
 import {
-  cardClassName,
   formatCurrency,
   formatDate,
   pageHeaderClassName,
   pageTitleClassName,
   titleIconClassName,
 } from './ui';
+import { PagedTableCard, StatusCards } from './DataTablePanel';
 
 const { Title, Text } = Typography;
 
@@ -63,7 +63,12 @@ export function AccountsClient({ payables, receivables, projects }: AccountsClie
   const totalPaid = useMemo(() => filteredPayables.reduce((s, b) => s + Number(b.paidAmount || 0), 0), [filteredPayables]);
   const totalReceived = useMemo(() => filteredReceivables.reduce((s, i) => s + Number(i.paidAmount || 0), 0), [filteredReceivables]);
 
+  // S.No follows the filtered list, so numbering continues across pages.
+  const payableSerial = new Map(filteredPayables.map((r, i) => [r.id, i + 1]));
+  const receivableSerial = new Map(filteredReceivables.map((r, i) => [r.id, i + 1]));
+
   const payableColumns: ColumnsType<PayableRow> = [
+    { title: 'S.No', key: 'sno', width: 70, render: (_, r) => payableSerial.get(r.id) },
     {
       title: 'PO Number',
       dataIndex: 'billNumber',
@@ -71,7 +76,7 @@ export function AccountsClient({ payables, receivables, projects }: AccountsClie
       width: 130,
       render: (v) => (
         <Link href="/dashboard/purchase-orders">
-          <Text strong style={{ color: '#1677ff' }}>{v}</Text>
+          <Text strong className="hover:text-[var(--primary)]!">{v}</Text>
         </Link>
       )
     },
@@ -80,7 +85,7 @@ export function AccountsClient({ payables, receivables, projects }: AccountsClie
     { title: 'Date', dataIndex: 'billDate', key: 'billDate', render: formatDate, width: 110 },
     { title: 'Amount', dataIndex: 'amount', key: 'amount', align: 'right', render: formatCurrency, width: 130, sorter: (a, b) => Number(a.amount) - Number(b.amount) },
     { title: 'Paid', dataIndex: 'paidAmount', key: 'paidAmount', align: 'right', render: formatCurrency, width: 130 },
-    { title: 'Balance', key: 'balance', align: 'right', width: 130, render: (_, r) => <Text type="danger" strong>{formatCurrency(Number(r.amount) - Number(r.paidAmount || 0))}</Text> },
+    { title: 'Balance', key: 'balance', align: 'right', width: 130, render: (_, r) => <Text strong>{formatCurrency(Number(r.amount) - Number(r.paidAmount || 0))}</Text> },
     {
       title: 'Status',
       dataIndex: 'status',
@@ -101,6 +106,7 @@ export function AccountsClient({ payables, receivables, projects }: AccountsClie
   ];
 
   const receivableColumns: ColumnsType<SalesInvoice> = [
+    { title: 'S.No', key: 'sno', width: 70, render: (_, r) => receivableSerial.get(r.id) },
     { 
       title: 'Invoice #', 
       dataIndex: 'invoiceNumber', 
@@ -108,7 +114,7 @@ export function AccountsClient({ payables, receivables, projects }: AccountsClie
       width: 140, 
       render: (v, r) => (
         <Link href={`/dashboard/accounts/invoices/${r.id}`}>
-          <Text strong style={{ color: '#1677ff' }}>{v}</Text>
+          <Text strong className="hover:text-[var(--primary)]!">{v}</Text>
         </Link>
       )
     },
@@ -116,7 +122,7 @@ export function AccountsClient({ payables, receivables, projects }: AccountsClie
     { title: 'Total', dataIndex: 'totalAmount', key: 'totalAmount', align: 'right', render: formatCurrency, width: 130, sorter: (a, b) => Number(a.totalAmount) - Number(b.totalAmount) },
     { title: 'GST', dataIndex: 'gstAmount', key: 'gstAmount', align: 'right', render: formatCurrency, width: 110 },
     { title: 'Paid', dataIndex: 'paidAmount', key: 'paidAmount', align: 'right', render: formatCurrency, width: 130 },
-    { title: 'Balance', key: 'balance', align: 'right', width: 130, render: (_, r) => <Text type="success" strong>{formatCurrency(Number(r.totalAmount) + Number(r.gstAmount) - Number(r.paidAmount || 0))}</Text> },
+    { title: 'Balance', key: 'balance', align: 'right', width: 130, render: (_, r) => <Text strong>{formatCurrency(Number(r.totalAmount) + Number(r.gstAmount) - Number(r.paidAmount || 0))}</Text> },
     { title: 'Due Date', dataIndex: 'dueDate', key: 'dueDate', render: (v) => v ? formatDate(v) : '-', width: 110 },
     {
       title: 'Status',
@@ -137,93 +143,47 @@ export function AccountsClient({ payables, receivables, projects }: AccountsClie
     },
   ];
 
+  // Project and date filters, shown in each table card's header; they also
+  // drive the summary cards.
+  const filters = (
+    <>
+      <Select
+        showSearch
+        placeholder="Filter by project"
+        allowClear
+        style={{ width: 220 }}
+        value={projectId}
+        onChange={setProjectId}
+        options={projects.map((p) => ({ value: p.id, label: p.name }))}
+        filterOption={(input, option) =>
+          String(option?.label || '').toLowerCase().includes(input.toLowerCase())
+        }
+      />
+      <DatePicker.RangePicker
+        value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
+        onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+        allowClear
+        placeholder={['From', 'To']}
+      />
+    </>
+  );
+
   return (
     <div>
       <Flex justify="space-between" align="center" className={pageHeaderClassName} gap={16} wrap="wrap">
         <Title level={3} className={pageTitleClassName}>
           <BankOutlined className={titleIconClassName} /> Accounts
         </Title>
-        <Flex gap={8}>
-          <Link href="/dashboard/accounts/bills">
-            <Button icon={<ShoppingCartOutlined />}>Purchase Bills</Button>
-          </Link>
-          <Link href="/dashboard/accounts/invoices">
-            <Button type="primary" icon={<FileTextOutlined />}>Sales Invoices</Button>
-          </Link>
-        </Flex>
       </Flex>
 
-      <Flex gap={12} wrap="wrap" className="mb-6!" style={{ marginBottom: 24 }}>
-        <Select
-          showSearch
-          placeholder="Filter by project"
-          allowClear
-          style={{ minWidth: 240 }}
-          value={projectId}
-          onChange={setProjectId}
-          options={projects.map((p) => ({ value: p.id, label: p.name }))}
-          filterOption={(input, option) =>
-            String(option?.label || '').toLowerCase().includes(input.toLowerCase())
-          }
-        />
-        <DatePicker.RangePicker
-          value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
-          onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
-          allowClear
-          placeholder={['From', 'To']}
-        />
-      </Flex>
-
-      <Row gutter={[16, 16]} className="mb-6">
-        <Col xs={24} sm={12}>
-          <Card className={cardClassName} variant="borderless">
-            <Statistic
-              title="Total Payables"
-              value={totalPayables}
-              precision={2}
-              styles={{ content: { color: '#cf1322' } }}
-              prefix={<ArrowDownOutlined />}
-              formatter={(val) => formatCurrency(val as number)}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12}>
-          <Card className={cardClassName} variant="borderless">
-            <Statistic
-              title="Total Receivables"
-              value={totalReceivables}
-              precision={2}
-              styles={{ content: { color: '#3f8600' } }}
-              prefix={<ArrowUpOutlined />}
-              formatter={(val) => formatCurrency(val as number)}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12}>
-          <Card className={cardClassName} variant="borderless">
-            <Statistic
-              title="Total Paid Amount"
-              value={totalPaid}
-              precision={2}
-              styles={{ content: { color: '#cf1322' } }}
-              prefix={<ArrowDownOutlined />}
-              formatter={(val) => formatCurrency(val as number)}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12}>
-          <Card className={cardClassName} variant="borderless">
-            <Statistic
-              title="Total Received Amount"
-              value={totalReceived}
-              precision={2}
-              styles={{ content: { color: '#3f8600' } }}
-              prefix={<ArrowUpOutlined />}
-              formatter={(val) => formatCurrency(val as number)}
-            />
-          </Card>
-        </Col>
-      </Row>
+      <StatusCards
+        items={[
+          { key: 'payables', label: 'Total Payables', value: formatCurrency(totalPayables) },
+          { key: 'receivables', label: 'Total Receivables', value: formatCurrency(totalReceivables) },
+          { key: 'paid', label: 'Total Paid Amount', value: formatCurrency(totalPaid) },
+          { key: 'received', label: 'Total Received Amount', value: formatCurrency(totalReceived) },
+        ]}
+      />
 
       <Tabs
         defaultActiveKey="payables"
@@ -236,15 +196,16 @@ export function AccountsClient({ payables, receivables, projects }: AccountsClie
               </span>
             ),
             children: (
-              <Card className={`${cardClassName} mb-6`} styles={{ body: { padding: 0 } }}>
-                <Table
-                  dataSource={filteredPayables}
-                  columns={payableColumns}
-                  rowKey="id"
-                  pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `${t} payables` }}
-                  scroll={{ x: 800 }}
-                />
-              </Card>
+              <PagedTableCard
+                title="Payables"
+                subtitle={`${filteredPayables.length} payables`}
+                toolbar={filters}
+                noun="payables"
+                dataSource={filteredPayables}
+                columns={payableColumns}
+                rowKey="id"
+                scroll={{ x: 1100 }}
+              />
             ),
           },
           {
@@ -255,15 +216,16 @@ export function AccountsClient({ payables, receivables, projects }: AccountsClie
               </span>
             ),
             children: (
-              <Card className={cardClassName} styles={{ body: { padding: 0 } }}>
-                <Table
-                  dataSource={filteredReceivables}
-                  columns={receivableColumns}
-                  rowKey="id"
-                  pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `${t} receivables` }}
-                  scroll={{ x: 800 }}
-                />
-              </Card>
+              <PagedTableCard
+                title="Receivables"
+                subtitle={`${filteredReceivables.length} receivables`}
+                toolbar={filters}
+                noun="receivables"
+                dataSource={filteredReceivables}
+                columns={receivableColumns}
+                rowKey="id"
+                scroll={{ x: 1100 }}
+              />
             ),
           },
         ]}

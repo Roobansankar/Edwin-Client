@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { App, Button, Card, Flex, Table, Tag, Typography } from 'antd';
+import { App, Button, Card, Descriptions, Flex, Table, Tag, Typography } from 'antd';
 import { ArrowLeftOutlined, ArrowRightOutlined, CameraOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { markSubcontractorBillDocumentChecked } from '@/actions/subcontractor-bills';
 import { useAuthStore } from '@/store/auth';
 import type { SubcontractorBill, SubcontractorBillTrail, SubcontractorEnquiry } from '@/types/erp';
+import { StatusCards } from './DataTablePanel';
 import {
   StatusTag,
   formatCurrency,
@@ -36,7 +37,7 @@ function TrailStage({
   muted?: boolean;
 }) {
   return (
-    <Card size="small" className={`min-w-44 flex-1 border! border-[var(--border)]! ${muted ? 'opacity-50' : ''}`}>
+    <Card size="small" className={`trail-stage min-w-44 flex-1 border! border-[var(--border)]! bg-[var(--subtle-bg)]! ${muted ? 'opacity-50' : ''}`}>
       <Typography.Text type="secondary" className="text-[10px] uppercase tracking-wide block">{label}</Typography.Text>
       <Typography.Text strong className="block">{refNo || '-'}</Typography.Text>
       {sub && <Typography.Text type="secondary" className="text-xs block">{sub}</Typography.Text>}
@@ -203,14 +204,19 @@ function EnquiryComparison({ bill, trail }: { bill: SubcontractorBill; trail?: S
   return (
     <Card size="small" title={`Subcontractor Enquiry — Comparison (${enquiries[0].scrNo}, ${enquiries.length} ${enquiries.length === 1 ? 'quotation' : 'quotations'})`}>
       <Table
+        className="vendor-compare"
+        bordered
         dataSource={enquiries}
         rowKey="id"
         size="small"
         pagination={false}
-        scroll={{ x: 900 }}
-        rowClassName={(e) => (e.id === selectedId || e.subcontractorId === bill.subcontractorId ? 'bg-emerald-500/10' : '')}
+        scroll={{ x: 1300 }}
+        rowClassName={(e) => (e.id === selectedId || e.subcontractorId === bill.subcontractorId ? 'compare-selected-row' : '')}
         columns={[
-          { title: '#', key: 'sno', width: 40, render: (_, __, i) => i + 1 },
+          {
+            title: 'S.No', key: 'sno', width: 60, align: 'center',
+            render: (_, __, i) => <Typography.Text type="secondary">{i + 1}</Typography.Text>,
+          },
           {
             title: 'Subcontractor', key: 'subcontractor', width: 200,
             render: (_, e) => (
@@ -266,19 +272,35 @@ export function SubcontractorBillDetailClient({ bill, trail }: Props) {
 
   const wo = trail?.subcontractWorkOrder || bill.subcontractWorkOrder;
 
+  const billBalance = Number(bill.amount || 0) - Number(bill.paidAmount || 0);
+
   return (
-    <div>
-      <Flex align="center" gap={12} className="mb-6!">
-        <Button icon={<ArrowLeftOutlined />} onClick={() => router.back()}>
-          Back to Bills
-        </Button>
-        <Typography.Title level={4} className="m-0!">
-          Bill Details — {bill.billNumber}
-        </Typography.Title>
+    <div className="bill-detail">
+      <Flex justify="space-between" align="flex-start" gap={12} wrap="wrap" className="mb-6!">
+        <div>
+          <Typography.Title level={3} className="m-0! text-[var(--text-primary)]!" style={{ fontWeight: 800, letterSpacing: '-0.01em' }}>
+            Bill {bill.billNumber}
+          </Typography.Title>
+          <Typography.Text className="block text-[var(--text-muted)]!">
+            {[bill.subcontractor?.name, bill.project?.name || wo?.project?.name].filter(Boolean).join(' · ') || 'Subcontractor bill'}
+          </Typography.Text>
+          <Button icon={<ArrowLeftOutlined />} onClick={() => router.back()} className="mt-3!">
+            Back
+          </Button>
+        </div>
         <StatusTag value={bill.status} />
       </Flex>
 
-      <Flex gap={16} vertical>
+      <StatusCards
+        items={[
+          { key: 'amount', label: 'Bill Amount', value: formatCurrency(bill.amount) },
+          { key: 'paid', label: 'Paid', value: formatCurrency(bill.paidAmount) },
+          { key: 'balance', label: 'Balance', value: formatCurrency(Math.max(billBalance, 0)) },
+          { key: 'date', label: 'Bill Date', value: formatDate(bill.billDate) },
+        ]}
+      />
+
+      <Flex gap={20} vertical>
         <Card size="small" title="Document Trail — Enquiry → Work Order → Subcontractor Bill → Work Done">
           <Flex gap={8} align="stretch" wrap="wrap">
             <TrailStage
@@ -327,35 +349,64 @@ export function SubcontractorBillDetailClient({ bill, trail }: Props) {
         <EnquiryComparison bill={bill} trail={trail} />
 
         <Card size="small" title="Bill Information">
-          <table className="w-full text-sm">
-            <tbody>
-              <tr><td className="pr-6 py-1.5 text-[var(--text-muted)] w-40">Subcontractor</td><td>{bill.subcontractor?.name || '-'}</td></tr>
-              <tr><td className="pr-6 py-1.5 text-[var(--text-muted)]">Project</td><td>{bill.project?.name || wo?.project?.name || '-'}</td></tr>
-              <tr><td className="pr-6 py-1.5 text-[var(--text-muted)]">Bill Amount</td><td><Typography.Text strong>{formatCurrency(bill.amount)}</Typography.Text></td></tr>
-              {!!bill.gstPercent && <tr><td className="pr-6 py-1.5 text-[var(--text-muted)]">GST</td><td>{Number(bill.gstPercent)}% ({formatCurrency(bill.gstAmount || 0)})</td></tr>}
-              <tr><td className="pr-6 py-1.5 text-[var(--text-muted)]">Paid Amount</td><td>{formatCurrency(bill.paidAmount)}</td></tr>
-              <tr><td className="pr-6 py-1.5 text-[var(--text-muted)]">Bill Date</td><td>{formatDate(bill.billDate)}</td></tr>
-              <tr><td className="pr-6 py-1.5 text-[var(--text-muted)]">Due Date</td><td>{bill.dueDate ? formatDate(bill.dueDate) : '-'}</td></tr>
-              {bill.notes && <tr><td className="pr-6 py-1.5 text-[var(--text-muted)]">Notes</td><td>{bill.notes}</td></tr>}
-              {bill.billFileUrl && (
-                <tr><td className="pr-6 py-1.5 text-[var(--text-muted)]">Bill File</td><td><Button type="link" size="small" icon={<FilePdfOutlined />} href={bill.billFileUrl} target="_blank">View Document</Button></td></tr>
-              )}
-            </tbody>
-          </table>
+          <Descriptions
+            bordered
+            size="small"
+            column={{ xs: 1, md: 2 }}
+            items={[
+              { key: 'subcontractor', label: 'Subcontractor', children: bill.subcontractor?.name || '-' },
+              { key: 'project', label: 'Project', children: bill.project?.name || wo?.project?.name || '-' },
+              { key: 'amount', label: 'Bill Amount', children: <Typography.Text strong>{formatCurrency(bill.amount)}</Typography.Text> },
+              { key: 'gst', label: 'GST', children: bill.gstPercent ? `${Number(bill.gstPercent)}% (${formatCurrency(bill.gstAmount || 0)})` : '-' },
+              { key: 'paid', label: 'Paid Amount', children: formatCurrency(bill.paidAmount) },
+              { key: 'billDate', label: 'Bill Date', children: formatDate(bill.billDate) },
+              { key: 'dueDate', label: 'Due Date', children: bill.dueDate ? formatDate(bill.dueDate) : '-' },
+              { key: 'balance', label: 'Balance', children: formatCurrency(Math.max(billBalance, 0)) },
+              ...(bill.notes ? [{ key: 'notes', label: 'Notes', span: 2, children: bill.notes }] : []),
+              ...(bill.billFileUrl
+                ? [{
+                    key: 'file',
+                    label: 'Bill File',
+                    span: 2,
+                    children: (
+                      <Button type="link" size="small" className="px-0!" icon={<FilePdfOutlined />} href={bill.billFileUrl} target="_blank">
+                        View Document
+                      </Button>
+                    ),
+                  }]
+                : []),
+            ]}
+          />
         </Card>
 
         {wo && (
           <Card size="small" title={`Subcontract Work Order — ${wo.woNumber}`}>
-            <table className="w-full text-sm">
-              <tbody>
-                <tr><td className="pr-6 py-1.5 text-[var(--text-muted)] w-40">Description</td><td>{wo.description || '-'}</td></tr>
-                <tr><td className="pr-6 py-1.5 text-[var(--text-muted)]">Work Order Amount</td><td>{formatCurrency(wo.amount)}</td></tr>
-                <tr><td className="pr-6 py-1.5 text-[var(--text-muted)]">Total w/ GST</td><td><Typography.Text strong>{formatCurrency(wo.totalAmount)}</Typography.Text></td></tr>
-                <tr><td className="pr-6 py-1.5 text-[var(--text-muted)]">Paid So Far</td><td>{formatCurrency(wo.paidAmount || 0)}</td></tr>
-                {wo.startDate && <tr><td className="pr-6 py-1.5 text-[var(--text-muted)]">Start Date</td><td>{formatDate(wo.startDate)}</td></tr>}
-                {wo.endDate && <tr><td className="pr-6 py-1.5 text-[var(--text-muted)]">End Date</td><td>{formatDate(wo.endDate)}</td></tr>}
-              </tbody>
-            </table>
+            <Descriptions
+              bordered
+              size="small"
+              column={{ xs: 1, md: 2 }}
+              items={[
+                { key: 'description', label: 'Description', span: 2, children: wo.description || '-' },
+                { key: 'amount', label: 'Work Order Amount', children: formatCurrency(wo.amount) },
+                { key: 'total', label: 'Total w/ GST', children: <Typography.Text strong>{formatCurrency(wo.totalAmount)}</Typography.Text> },
+                { key: 'paid', label: 'Paid So Far', children: formatCurrency(wo.paidAmount || 0) },
+                { key: 'woBalance', label: 'WO Balance', children: formatCurrency(Math.max(Number(wo.totalAmount || 0) - Number(wo.paidAmount || 0), 0)) },
+                ...(wo.startDate ? [{ key: 'start', label: 'Start Date', children: formatDate(wo.startDate) }] : []),
+                ...(wo.endDate ? [{ key: 'end', label: 'End Date', children: formatDate(wo.endDate) }] : []),
+                ...(wo.workorderUrl
+                  ? [{
+                      key: 'woFile',
+                      label: 'Work Order File',
+                      span: 2,
+                      children: (
+                        <Button type="link" size="small" className="px-0!" icon={<FilePdfOutlined />} href={wo.workorderUrl} target="_blank">
+                          View Work Order
+                        </Button>
+                      ),
+                    }]
+                  : []),
+              ]}
+            />
           </Card>
         )}
       </Flex>

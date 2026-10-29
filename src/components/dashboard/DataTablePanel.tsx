@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { Card, Col, Pagination, Row, Select, Space, Typography } from 'antd';
+import { Card, Col, Pagination, Row, Select, Space, Table, Typography } from 'antd';
+import type { TableProps } from 'antd';
 
 // Shared list layout used by Projects-style pages (Approvals tabs, vendor /
 // subcontractor payment requests): grey status cards, a table card with the
@@ -146,5 +147,142 @@ export function PaginationCard({
         />
       </div>
     </Card>
+  );
+}
+
+// AntD sorts / filters only the rows it is given, which on a paged table is
+// just the current page. This applies the columns' sorter and onFilter to the
+// whole list instead, before it is split into pages.
+type SortableColumn<T> = {
+  key?: unknown;
+  dataIndex?: unknown;
+  sorter?: unknown;
+  onFilter?: (value: unknown, record: T) => boolean;
+};
+
+const columnKeyOf = (col: { key?: unknown; dataIndex?: unknown }, index: number) => {
+  if (col.key != null) return String(col.key);
+  if (Array.isArray(col.dataIndex)) return col.dataIndex.join('.');
+  if (col.dataIndex != null) return String(col.dataIndex);
+  return String(index);
+};
+
+function useSortFilter<T>(rows: T[], columns: TableProps<T>['columns']) {
+  const [sort, setSort] = useState<{ compare: (a: T, b: T) => number; desc: boolean } | null>(null);
+  const [filters, setFilters] = useState<Record<string, unknown[] | null>>({});
+
+  const cols = (columns || []) as SortableColumn<T>[];
+  let result = rows;
+  cols.forEach((col, i) => {
+    const values = filters[columnKeyOf(col, i)];
+    if (col.onFilter && values && values.length) {
+      result = result.filter((row) => values.some((v) => col.onFilter!(v, row)));
+    }
+  });
+  if (sort) {
+    result = [...result].sort((a, b) => (sort.desc ? -sort.compare(a, b) : sort.compare(a, b)));
+  }
+
+  const onChange = (nextFilters: Record<string, unknown[] | null>, sorter: unknown) => {
+    setFilters(nextFilters || {});
+    const s = (Array.isArray(sorter) ? sorter[0] : sorter) as
+      | { order?: 'ascend' | 'descend' | null; column?: { sorter?: unknown } }
+      | undefined;
+    const fn = s?.column?.sorter;
+    const compare = typeof fn === 'function'
+      ? (fn as (a: T, b: T) => number)
+      : fn && typeof fn === 'object' && typeof (fn as { compare?: unknown }).compare === 'function'
+        ? (fn as { compare: (a: T, b: T) => number }).compare
+        : null;
+    setSort(s?.order && compare ? { compare, desc: s.order === 'descend' } : null);
+  };
+
+  return { rows: result, onChange };
+}
+
+// Drop-in replacement for an AntD Table on list pages: same props, but the
+// body scrolls inside a fixed height and a pagination card is shown below it.
+export function PagedTable<T extends object>({
+  dataSource,
+  className,
+  scroll,
+  noun,
+  defaultPageSize,
+  ...rest
+}: Omit<TableProps<T>, 'pagination'> & { noun?: string; defaultPageSize?: number }) {
+  const sortFilter = useSortFilter<T>([...(dataSource || [])], rest.columns);
+  const pager = useClientPagination<T>(sortFilter.rows, defaultPageSize);
+  return (
+    <>
+      <Table<T>
+        {...rest}
+        className={`${className || ''} approvals-table`}
+        dataSource={pager.pageRows}
+        pagination={false}
+        scroll={{ ...scroll, y: TABLE_BODY_HEIGHT }}
+        onChange={(pagination, filters, sorter, extra) => {
+          sortFilter.onChange(filters as Record<string, unknown[] | null>, sorter);
+          pager.reset();
+          rest.onChange?.(pagination, filters, sorter, extra);
+        }}
+      />
+      <PaginationCard
+        total={pager.total}
+        start={pager.start}
+        page={pager.page}
+        size={pager.size}
+        onPageChange={pager.setPage}
+        onSizeChange={pager.setSize}
+        noun={noun}
+      />
+    </>
+  );
+}
+
+// Table card (title, count, filters in the header) + scrolling table + its
+// own pagination card underneath. Same table props as an AntD Table.
+export function PagedTableCard<T extends object>({
+  title,
+  subtitle,
+  toolbar,
+  noun,
+  dataSource,
+  className,
+  scroll,
+  ...rest
+}: Omit<TableProps<T>, 'pagination' | 'title'> & {
+  title: ReactNode;
+  subtitle?: ReactNode;
+  toolbar?: ReactNode;
+  noun?: string;
+}) {
+  const sortFilter = useSortFilter<T>([...(dataSource || [])], rest.columns);
+  const pager = useClientPagination<T>(sortFilter.rows);
+  return (
+    <div>
+      <TableCard title={title} subtitle={subtitle} toolbar={toolbar}>
+        <Table<T>
+          {...rest}
+          className={`${className || ''} approvals-table`}
+          dataSource={pager.pageRows}
+          pagination={false}
+          scroll={{ ...scroll, y: TABLE_BODY_HEIGHT }}
+          onChange={(pagination, filters, sorter, extra) => {
+            sortFilter.onChange(filters as Record<string, unknown[] | null>, sorter);
+            pager.reset();
+            rest.onChange?.(pagination, filters, sorter, extra);
+          }}
+        />
+      </TableCard>
+      <PaginationCard
+        total={pager.total}
+        start={pager.start}
+        page={pager.page}
+        size={pager.size}
+        onPageChange={pager.setPage}
+        onSizeChange={pager.setSize}
+        noun={noun}
+      />
+    </div>
   );
 }

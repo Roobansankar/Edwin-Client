@@ -1,12 +1,13 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Card, Col, DatePicker, Flex, Input, Row, Select, Space, Statistic, Table, Tabs, Tag, Typography } from 'antd';
+import { DatePicker, Flex, Input, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { BankOutlined, SearchOutlined, TeamOutlined } from '@ant-design/icons';
 import type { Vendor, PurchaseOrder, Subcontractor, SubcontractWorkOrder, Payment, LineItem } from '@/types/erp';
-import { StatusTag, cardClassName, formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
+import { StatusTag, formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
+import { PagedTableCard, StatusCards } from './DataTablePanel';
 
 type Props = {
   vendors: Vendor[];
@@ -238,8 +239,12 @@ export function PurchaseLedgerClient({ vendors, purchaseOrders, subcontractors, 
     });
   }, [subcontractorWOs, payments]);
 
+  // S.No follows the filtered lists, so numbering continues across pages.
+  const poSerial = new Map(vendorPOs.map((po, i) => [po.id, i + 1]));
+  const woSerial = new Map(subcontractorWOs.map((wo, i) => [wo.id, i + 1]));
+
   const poColumns: ColumnsType<PurchaseOrder> = [
-    { title: 'S.No', key: 'sno', width: 60, render: (_text, _record, index) => index + 1 },
+    { title: 'S.No', key: 'sno', width: 70, render: (_text, record) => poSerial.get(record.id) },
     { title: 'PO Number', dataIndex: 'poNumber', width: 150, render: (v) => <Typography.Text strong>{v}</Typography.Text> },
     ...(showingAllVendors ? [{ title: 'Vendor', key: 'vendor', width: 160, render: (_: unknown, po: PurchaseOrder) => po.vendor?.name || '-' } as ColumnsType<PurchaseOrder>[number]] : []),
     { title: 'Project', key: 'project', width: 180, render: (_, po) => po.project?.name || '-' },
@@ -257,11 +262,11 @@ export function PurchaseLedgerClient({ vendors, purchaseOrders, subcontractors, 
   ];
 
   const woColumns: ColumnsType<SubcontractWorkOrder> = [
-    { title: 'S.No', key: 'sno', width: 60, render: (_text, _record, index) => index + 1 },
+    { title: 'S.No', key: 'sno', width: 70, render: (_text, record) => woSerial.get(record.id) },
     { title: 'WO Number', dataIndex: 'woNumber', width: 150, render: (v) => <Typography.Text strong>{v}</Typography.Text> },
     ...(showingAllSubcontractors ? [{ title: 'Subcontractor', key: 'subcontractor', width: 160, render: (_: unknown, wo: SubcontractWorkOrder) => wo.subcontractor?.name || '-' } as ColumnsType<SubcontractWorkOrder>[number]] : []),
     { title: 'Project', key: 'project', width: 180, render: (_, wo) => wo.project?.name || '-' },
-    { title: 'Description', dataIndex: 'description', render: (v?: string | null) => v || '-' },
+    { title: 'Description', dataIndex: 'description', width: 240, render: (v?: string | null) => v || '-' },
     { title: 'Total', dataIndex: 'totalAmount', align: 'right', width: 130, render: (v) => formatCurrency(v) },
     { title: 'Paid', dataIndex: 'paidAmount', align: 'right', width: 120, render: (v) => formatCurrency(v || 0) },
     {
@@ -286,112 +291,86 @@ export function PurchaseLedgerClient({ vendors, purchaseOrders, subcontractors, 
       ),
       children: (
         <div>
-          <Flex gap={12} wrap="wrap" className="mb-4!">
-            <Select
-              showSearch
-              placeholder="Choose a vendor"
-              style={{ minWidth: 260 }}
-              value={vendorId}
-              onChange={setVendorId}
-              options={[{ value: ALL, label: 'All Vendors' }, ...vendors.map((v) => ({ value: v.id, label: v.name }))]}
-              filterOption={(input, option) => String(option?.label || '').toLowerCase().includes(input.toLowerCase())}
-            />
-            <Input.Search
-              placeholder="Search PO, project, MR ref..."
-              allowClear
-              value={vendorSearchText}
-              onChange={(e) => setVendorSearchText(e.target.value)}
-              prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
-              style={{ width: 240 }}
-            />
-            <DatePicker.RangePicker
-              value={vendorDateRange[0] || vendorDateRange[1] ? vendorDateRange : [null, null]}
-              onChange={(dates) => setVendorDateRange(dates ? [dates[0], dates[1]] : [null, null])}
-              allowClear
-              placeholder={['From date', 'To date']}
-            />
-          </Flex>
+          <StatusCards
+            items={[
+              { key: 'count', label: 'Purchase Orders', value: vendorSummary.count },
+              { key: 'total', label: 'Total Value', value: formatCurrency(vendorSummary.total) },
+              { key: 'paid', label: 'Paid', value: formatCurrency(vendorSummary.paid) },
+              { key: 'balance', label: 'Balance', value: formatCurrency(vendorSummary.balance) },
+            ]}
+          />
 
-          <>
-              <Row gutter={[16, 16]} className="mb-4">
-                <Col xs={12} sm={6}>
-                  <Card className={cardClassName} variant="borderless">
-                    <Statistic title="Purchase Orders" value={vendorSummary.count} />
-                  </Card>
-                </Col>
-                <Col xs={12} sm={6}>
-                  <Card className={cardClassName} variant="borderless">
-                    <Statistic title="Total Value" value={vendorSummary.total} precision={2} formatter={(v) => formatCurrency(v as number)} />
-                  </Card>
-                </Col>
-                <Col xs={12} sm={6}>
-                  <Card className={cardClassName} variant="borderless">
-                    <Statistic title="Paid" value={vendorSummary.paid} precision={2} styles={{ content: { color: '#059669' } }} formatter={(v) => formatCurrency(v as number)} />
-                  </Card>
-                </Col>
-                <Col xs={12} sm={6}>
-                  <Card className={cardClassName} variant="borderless">
-                    <Statistic title="Balance" value={vendorSummary.balance} precision={2} styles={{ content: { color: '#d97706' } }} formatter={(v) => formatCurrency(v as number)} />
-                  </Card>
-                </Col>
-              </Row>
-
-              <Tabs
-                size="small"
-                items={[
-                  {
-                    key: 'orders',
-                    label: 'Purchase Orders',
-                    children: (
-                      <Card className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!" styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}>
-                        <Table
-                          dataSource={vendorPOs}
-                          columns={poColumns}
-                          rowKey="id"
-                          size="middle"
-                          scroll={{ x: showingAllVendors ? 1160 : 1010 }}
-                          pagination={{ pageSize: 10 }}
-                          locale={{ emptyText: 'No purchase orders for this vendor yet' }}
-                          expandable={{
-                            expandedRowRender: (po) => {
-                              const history = orderLedgerRows(vendorLedgerRows, po.id);
-                              const items = (po.items || []).map((item, i) => ({ ...item, _key: item.id || `${po.id}-item-${i}` }));
-                              return (
-                                <Space orientation="vertical" size={16} className="w-full">
-                                  <div>
-                                    <Typography.Text strong className="mb-2 block">Items</Typography.Text>
-                                    <Table
-                                      size="small"
-                                      dataSource={items}
-                                      columns={itemColumns}
-                                      rowKey="_key"
-                                      pagination={false}
-                                      locale={{ emptyText: 'No items recorded' }}
-                                    />
-                                  </div>
-                                  <div>
-                                    <Typography.Text strong className="mb-2 block">Transactions</Typography.Text>
-                                    <Table
-                                      size="small"
-                                      dataSource={history}
-                                      columns={orderLedgerColumns}
-                                      scroll={{ x: 1100 }}
-                                      rowKey="key"
-                                      pagination={false}
-                                      locale={{ emptyText: 'No transactions recorded yet' }}
-                                    />
-                                  </div>
-                                </Space>
-                              );
-                            },
-                          }}
-                        />
-                      </Card>
-                    ),
-                  },
-                ]}
-              />
-            </>
+          <PagedTableCard
+            title="Purchase Orders"
+            subtitle={`${vendorPOs.length} purchase orders`}
+            toolbar={(
+              <>
+                <Select
+                  showSearch
+                  placeholder="Choose a vendor"
+                  style={{ width: 240 }}
+                  value={vendorId}
+                  onChange={setVendorId}
+                  options={[{ value: ALL, label: 'All Vendors' }, ...vendors.map((v) => ({ value: v.id, label: v.name }))]}
+                  filterOption={(input, option) => String(option?.label || '').toLowerCase().includes(input.toLowerCase())}
+                />
+                <Input
+                  placeholder="Search PO, project, MR ref..."
+                  allowClear
+                  value={vendorSearchText}
+                  onChange={(e) => setVendorSearchText(e.target.value)}
+                  prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+                  style={{ width: 240 }}
+                />
+                <DatePicker.RangePicker
+                  value={vendorDateRange[0] || vendorDateRange[1] ? vendorDateRange : [null, null]}
+                  onChange={(dates) => setVendorDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+                  allowClear
+                  placeholder={['From date', 'To date']}
+                />
+              </>
+            )}
+            noun="purchase orders"
+            dataSource={vendorPOs}
+            columns={poColumns}
+            rowKey="id"
+            size="middle"
+            scroll={{ x: showingAllVendors ? 1180 : 1030 }}
+            locale={{ emptyText: 'No purchase orders for this vendor yet' }}
+            expandable={{
+              expandedRowRender: (po) => {
+                const history = orderLedgerRows(vendorLedgerRows, po.id);
+                const items = (po.items || []).map((item, i) => ({ ...item, _key: item.id || `${po.id}-item-${i}` }));
+                return (
+                  <Space orientation="vertical" size={16} className="w-full">
+                    <div>
+                      <Typography.Text strong className="mb-2 block">Items</Typography.Text>
+                      <Table
+                        size="small"
+                        dataSource={items}
+                        columns={itemColumns}
+                        rowKey="_key"
+                        pagination={false}
+                        locale={{ emptyText: 'No items recorded' }}
+                      />
+                    </div>
+                    <div>
+                      <Typography.Text strong className="mb-2 block">Transactions</Typography.Text>
+                      <Table
+                        size="small"
+                        dataSource={history}
+                        columns={orderLedgerColumns}
+                        scroll={{ x: 1100 }}
+                        rowKey="key"
+                        pagination={false}
+                        locale={{ emptyText: 'No transactions recorded yet' }}
+                      />
+                    </div>
+                  </Space>
+                );
+              },
+            }}
+          />
         </div>
       ),
     },
@@ -404,98 +383,72 @@ export function PurchaseLedgerClient({ vendors, purchaseOrders, subcontractors, 
       ),
       children: (
         <div>
-          <Flex gap={12} wrap="wrap" className="mb-4!">
-            <Select
-              showSearch
-              placeholder="Choose a subcontractor"
-              style={{ minWidth: 260 }}
-              value={subcontractorId}
-              onChange={setSubcontractorId}
-              options={[{ value: ALL, label: 'All Subcontractors' }, ...subcontractors.map((s) => ({ value: s.id, label: s.name }))]}
-              filterOption={(input, option) => String(option?.label || '').toLowerCase().includes(input.toLowerCase())}
-            />
-            <Input.Search
-              placeholder="Search WO, project, description..."
-              allowClear
-              value={subSearchText}
-              onChange={(e) => setSubSearchText(e.target.value)}
-              prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
-              style={{ width: 240 }}
-            />
-            <DatePicker.RangePicker
-              value={subDateRange[0] || subDateRange[1] ? subDateRange : [null, null]}
-              onChange={(dates) => setSubDateRange(dates ? [dates[0], dates[1]] : [null, null])}
-              allowClear
-              placeholder={['From date', 'To date']}
-            />
-          </Flex>
+          <StatusCards
+            items={[
+              { key: 'count', label: 'Work Orders', value: subcontractorSummary.count },
+              { key: 'total', label: 'Total Value', value: formatCurrency(subcontractorSummary.total) },
+              { key: 'paid', label: 'Paid', value: formatCurrency(subcontractorSummary.paid) },
+              { key: 'balance', label: 'Balance', value: formatCurrency(subcontractorSummary.balance) },
+            ]}
+          />
 
-          <>
-              <Row gutter={[16, 16]} className="mb-4">
-                <Col xs={12} sm={6}>
-                  <Card className={cardClassName} variant="borderless">
-                    <Statistic title="Work Orders" value={subcontractorSummary.count} />
-                  </Card>
-                </Col>
-                <Col xs={12} sm={6}>
-                  <Card className={cardClassName} variant="borderless">
-                    <Statistic title="Total Value" value={subcontractorSummary.total} precision={2} formatter={(v) => formatCurrency(v as number)} />
-                  </Card>
-                </Col>
-                <Col xs={12} sm={6}>
-                  <Card className={cardClassName} variant="borderless">
-                    <Statistic title="Paid" value={subcontractorSummary.paid} precision={2} styles={{ content: { color: '#059669' } }} formatter={(v) => formatCurrency(v as number)} />
-                  </Card>
-                </Col>
-                <Col xs={12} sm={6}>
-                  <Card className={cardClassName} variant="borderless">
-                    <Statistic title="Balance" value={subcontractorSummary.balance} precision={2} styles={{ content: { color: '#d97706' } }} formatter={(v) => formatCurrency(v as number)} />
-                  </Card>
-                </Col>
-              </Row>
-
-              <Tabs
-                size="small"
-                items={[
-                  {
-                    key: 'orders',
-                    label: 'Work Orders',
-                    children: (
-                      <Card className="rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!" styles={{ body: { padding: '8px 0', overflowX: 'auto' } }}>
-                        <Table
-                          dataSource={subcontractorWOs}
-                          columns={woColumns}
-                          rowKey="id"
-                          size="middle"
-                          scroll={{ x: showingAllSubcontractors ? 1160 : 1010 }}
-                          pagination={{ pageSize: 10 }}
-                          locale={{ emptyText: 'No work orders for this subcontractor yet' }}
-                          expandable={{
-                            expandedRowRender: (wo) => {
-                              const history = orderLedgerRows(subcontractorLedgerRows, wo.id);
-                              return (
-                                <div>
-                                  <Typography.Text strong className="mb-2 block">Transactions</Typography.Text>
-                                  <Table
-                                    size="small"
-                                    dataSource={history}
-                                    columns={orderLedgerColumns}
-                                      scroll={{ x: 1100 }}
-                                    rowKey="key"
-                                    pagination={false}
-                                    locale={{ emptyText: 'No transactions recorded yet' }}
-                                  />
-                                </div>
-                              );
-                            },
-                          }}
-                        />
-                      </Card>
-                    ),
-                  },
-                ]}
-              />
-            </>
+          <PagedTableCard
+            title="Work Orders"
+            subtitle={`${subcontractorWOs.length} work orders`}
+            toolbar={(
+              <>
+                <Select
+                  showSearch
+                  placeholder="Choose a subcontractor"
+                  style={{ width: 240 }}
+                  value={subcontractorId}
+                  onChange={setSubcontractorId}
+                  options={[{ value: ALL, label: 'All Subcontractors' }, ...subcontractors.map((s) => ({ value: s.id, label: s.name }))]}
+                  filterOption={(input, option) => String(option?.label || '').toLowerCase().includes(input.toLowerCase())}
+                />
+                <Input
+                  placeholder="Search WO, project, description..."
+                  allowClear
+                  value={subSearchText}
+                  onChange={(e) => setSubSearchText(e.target.value)}
+                  prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+                  style={{ width: 240 }}
+                />
+                <DatePicker.RangePicker
+                  value={subDateRange[0] || subDateRange[1] ? subDateRange : [null, null]}
+                  onChange={(dates) => setSubDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+                  allowClear
+                  placeholder={['From date', 'To date']}
+                />
+              </>
+            )}
+            noun="work orders"
+            dataSource={subcontractorWOs}
+            columns={woColumns}
+            rowKey="id"
+            size="middle"
+            scroll={{ x: showingAllSubcontractors ? 1420 : 1270 }}
+            locale={{ emptyText: 'No work orders for this subcontractor yet' }}
+            expandable={{
+              expandedRowRender: (wo) => {
+                const history = orderLedgerRows(subcontractorLedgerRows, wo.id);
+                return (
+                  <div>
+                    <Typography.Text strong className="mb-2 block">Transactions</Typography.Text>
+                    <Table
+                      size="small"
+                      dataSource={history}
+                      columns={orderLedgerColumns}
+                        scroll={{ x: 1100 }}
+                      rowKey="key"
+                      pagination={false}
+                      locale={{ emptyText: 'No transactions recorded yet' }}
+                    />
+                  </div>
+                );
+              },
+            }}
+          />
         </div>
       ),
     },
@@ -509,9 +462,7 @@ export function PurchaseLedgerClient({ vendors, purchaseOrders, subcontractors, 
         </Typography.Title>
       </Flex>
 
-      <Card className={cardClassName}>
-        <Tabs items={tabItems} />
-      </Card>
+      <Tabs items={tabItems} />
     </div>
   );
 }

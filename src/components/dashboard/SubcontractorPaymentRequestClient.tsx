@@ -9,13 +9,13 @@ import Link from 'next/link';
 import { createSubcontractorPaymentRequest } from '@/actions/subcontractor-payment-requests';
 import type { Project, SubcontractWorkOrder, SubcontractorPaymentRequest, SubcontractorBill, Payment } from '@/types/erp';
 import {
-  cardClassName,
   formatCurrency,
   formatDate,
   pageHeaderClassName,
   pageTitleClassName,
   titleIconClassName,
 } from './ui';
+import { PagedTableCard, StatusCards } from './DataTablePanel';
 
 type Props = {
   projects: Project[];
@@ -159,8 +159,11 @@ export function SubcontractorPaymentRequestClient({ projects, workOrders, reques
     });
   };
 
+  // S.No follows the filtered list, so numbering continues across pages.
+  const serialById = new Map(filteredRequests.map((r, i) => [r.id, i + 1]));
+
   const columns: ColumnsType<SubcontractorPaymentRequest> = [
-    { title: 'S.No', key: 'sno', width: 60, render: (_, __, i) => i + 1 },
+    { title: 'S.No', key: 'sno', width: 70, render: (_, record) => serialById.get(record.id) },
     { title: 'WO No', key: 'wo', width: 130, render: (_, record) => record.subcontractWorkOrder?.woNumber || <Typography.Text type="secondary">-</Typography.Text> },
     {
       title: 'Bill No',
@@ -204,7 +207,7 @@ export function SubcontractorPaymentRequestClient({ projects, workOrders, reques
       },
     },
     { title: 'Requested At', dataIndex: 'createdAt', width: 120, render: formatDate },
-    { title: 'Status', key: 'status', width: 140, render: (_, record) => <Tag color={STATUS_COLORS[record.status] || 'default'}>{STATUS_LABELS[record.status] || record.status.toUpperCase()}</Tag> },
+    { title: 'Status', key: 'status', width: 190, render: (_, record) => <Tag color={STATUS_COLORS[record.status] || 'default'}>{STATUS_LABELS[record.status] || record.status.toUpperCase()}</Tag> },
     {
       title: 'Actions',
       key: 'actions',
@@ -232,7 +235,10 @@ export function SubcontractorPaymentRequestClient({ projects, workOrders, reques
         </Typography.Title>
       </Flex>
 
-      <Card className={`${cardClassName} mb-6`}>
+      <Card
+        className="mb-6! rounded-2xl! border! border-[var(--border)]!"
+        title={<Typography.Text strong className="text-[var(--text-primary)]!">New Subcontractor Payment Request</Typography.Text>}
+      >
         <Form layout="vertical">
           <Form.Item label="Bill Number" required>
             <Select
@@ -285,61 +291,54 @@ export function SubcontractorPaymentRequestClient({ projects, workOrders, reques
         </Form>
       </Card>
 
-      <Flex gap={12} wrap="wrap" className="mb-6!">
-        <Input.Search
-          placeholder="Search WO, bill, subcontractor, SCR no..."
-          allowClear
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
-          style={{ width: 240 }}
-        />
-        <Select
-          allowClear
-          showSearch
-          placeholder="Filter by project"
-          style={{ width: 220 }}
-          value={projectFilter}
-          onChange={setProjectFilter}
-          options={projects.map((p) => ({ value: p.id, label: p.name }))}
-          filterOption={(input, option) => String(option?.label || '').toLowerCase().includes(input.toLowerCase())}
-        />
-        <DatePicker.RangePicker
-          value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
-          onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
-          allowClear
-          placeholder={['From date', 'To date']}
-        />
-      </Flex>
+      <StatusCards
+        items={[
+          { key: 'count', label: 'Requests', value: filteredRequests.length },
+          { key: 'pending', label: 'Pending', value: filteredRequests.filter((r) => r.status === 'pending' || r.status === 'accepted').length },
+          { key: 'approved', label: 'Approved', value: filteredRequests.filter((r) => r.status === 'admin_approved').length },
+          { key: 'total', label: 'Total Requested', value: formatCurrency(filteredRequests.reduce((sum, r) => sum + Number(r.amount || 0), 0)) },
+        ]}
+      />
 
-      <Card className={cardClassName} styles={{ body: { padding: isMobile ? '0' : undefined } }}>
-        {isMobile ? (
-          <div className="flex flex-col">
-            {filteredRequests.length === 0 ? (
-              <div className="p-4 text-center text-gray-400">No subcontractor payment requests yet</div>
-            ) : (
-              filteredRequests.map((record) => (
-                <div key={record.id} className="border-b border-[var(--border)] p-3 last:border-b-0">
-                  <Flex justify="space-between" align="center" className="mb-1">
-                    <Typography.Text strong className="text-sm">{record.subcontractor?.name || record.subcontractorId}</Typography.Text>
-                    <Tag color={STATUS_COLORS[record.status] || 'default'} className="m-0!">{STATUS_LABELS[record.status] || record.status.toUpperCase()}</Tag>
-                  </Flex>
-                  <div className="flex flex-col gap-0.5 text-xs text-[var(--text-muted)]">
-                    {record.project?.name && <span>Project: {record.project.name}</span>}
-                    {record.subcontractWorkOrder?.woNumber && <span>WO: {record.subcontractWorkOrder.woNumber}</span>}
-                    <Flex justify="space-between" align="center" className="mt-1">
-                      <Typography.Text strong>{formatCurrency(record.amount)}</Typography.Text>
-                      <span>{record.createdAt ? formatDate(record.createdAt) : ''}</span>
-                    </Flex>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        ) : (
-          <Table dataSource={filteredRequests} columns={columns} rowKey="id" size="middle" scroll={{ x: 1450 }} pagination={{ pageSize: 10 }} locale={{ emptyText: 'No subcontractor payment requests yet' }} />
+        <PagedTableCard
+          title="My Payment Requests"
+          subtitle={`${filteredRequests.length} ${filteredRequests.length === 1 ? 'request' : 'requests'}`}
+          toolbar={(
+          <>
+            <Input
+              placeholder="Search WO, bill, subcontractor, SCR no..."
+              allowClear
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+              style={{ width: 240 }}
+            />
+            <Select
+              allowClear
+              showSearch
+              placeholder="Filter by project"
+              style={{ width: 200 }}
+              value={projectFilter}
+              onChange={setProjectFilter}
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              filterOption={(input, option) => String(option?.label || '').toLowerCase().includes(input.toLowerCase())}
+            />
+            <DatePicker.RangePicker
+              value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
+              onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+              allowClear
+              placeholder={['From date', 'To date']}
+            />
+          </>
         )}
-      </Card>
+          noun="requests"
+          dataSource={filteredRequests}
+          columns={columns}
+          rowKey="id"
+          size="middle"
+          scroll={{ x: columns.reduce((sum, c) => sum + Number(c.width || 0), 0) }}
+          locale={{ emptyText: 'No subcontractor payment requests yet' }}
+        />
 
       <Modal
         title={`Payment History — ${historyRecord?.subcontractWorkOrder?.woNumber || ''}`}

@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { App, Button, Card, DatePicker, Descriptions, Flex, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
+import { App, Button, DatePicker, Descriptions, Flex, Input, InputNumber, Modal, Popconfirm, Select, Space, Tabs, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { CheckOutlined, CloseOutlined, DollarOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -12,6 +12,7 @@ import type {
   AdvanceRequest,
   Payment,
   PurchaseBill,
+  SubcontractorBill,
   SubcontractorPaymentRequest,
   UnpaidExpenseWeekSummary,
   UnpaidLabourWeekSummary,
@@ -26,7 +27,8 @@ import { useAuthStore } from '@/store/auth';
 import { AdvanceRequestsClient } from './AdvanceRequestsClient';
 import { SubcontractorPaymentRequestsClient } from './SubcontractorPaymentRequestsClient';
 import { PaymentApprovalTag } from './PaymentApprovalTag';
-import { cardClassName, formatCurrency, formatDate, mutedTextClassName, weekRangeLabel } from './ui';
+import { formatCurrency, formatDate, mutedTextClassName, weekRangeLabel } from './ui';
+import { PagedTableCard, StatusCards } from './DataTablePanel';
 
 type Props = {
   labourPayments: LabourPayment[];
@@ -37,6 +39,7 @@ type Props = {
   advanceRequests: AdvanceRequest[];
   subcontractorPaymentRequests: SubcontractorPaymentRequest[];
   bills: PurchaseBill[];
+  subcontractorBills?: SubcontractorBill[];
   // Tab to open first, e.g. "vendor" from a notification link.
   initialTab?: string;
 };
@@ -108,6 +111,7 @@ export function PaymentOptionsPanel({
   advanceRequests,
   subcontractorPaymentRequests,
   bills,
+  subcontractorBills = [],
   initialTab,
 }: Props) {
   const router = useRouter();
@@ -346,7 +350,7 @@ export function PaymentOptionsPanel({
       return {
         key: option.key,
         label: `${option.no}. ${option.label}`,
-        children: <SubcontractorPaymentRequestsClient requests={subcontractorPaymentRequests.filter((request) => request.status === 'admin_approved')} payments={payments} embedded mode="payments" />,
+        children: <SubcontractorPaymentRequestsClient requests={subcontractorPaymentRequests.filter((request) => request.status === 'admin_approved')} payments={payments} subcontractorBills={subcontractorBills} embedded mode="payments" />,
       };
     }
 
@@ -354,18 +358,7 @@ export function PaymentOptionsPanel({
     const payable = rows.filter((r) => r.status === 'admin_approved');
     const payableTotal = payable.reduce((sum, r) => sum + r.amount, 0);
     const awaiting = rows.length - payable.length;
-    return {
-      key: option.key,
-      label: `${option.no}. ${option.label}`,
-      children: (
-        <div>
-          <Typography.Text className={`mb-3 block ${mutedTextClassName}`}>
-            Ready to pay: <Typography.Text strong className="text-[var(--text-primary)]!">{formatCurrency(payableTotal)}</Typography.Text> ({payable.length} {payable.length === 1 ? 'item' : 'items'})
-            {awaiting > 0 && <> · Awaiting approval: <Typography.Text strong className="text-[var(--text-primary)]!">{awaiting}</Typography.Text></>}
-          </Typography.Text>
-          <Table
-            dataSource={rows}
-            columns={option.key === 'labour' || option.key === 'expenses'
+    const tabColumns: ColumnsType<PaymentRow> = option.key === 'labour' || option.key === 'expenses'
               ? [
                   ...columns.slice(0, 4),
                   ...(option.key === 'labour' ? [{ title: 'Team', dataIndex: 'team', key: 'team', width: 180 }] : []),
@@ -374,11 +367,29 @@ export function PaymentOptionsPanel({
                   { title: 'Remaining Balance', key: 'remainingBalance', width: 160, align: 'right', render: (_, row) => <Typography.Text strong type={row.amount > 0 ? 'warning' : 'success'}>{formatCurrency(row.amount)}</Typography.Text> },
                   ...columns.slice(5).filter((column) => column.key !== 'paid'),
                 ]
-              : columns}
+              : columns;
+    return {
+      key: option.key,
+      label: `${option.no}. ${option.label}`,
+      children: (
+        <div>
+          <StatusCards
+            items={[
+              { key: 'ready', label: 'Ready to Pay', value: formatCurrency(payableTotal) },
+              { key: 'readyCount', label: 'Ready Items', value: payable.length },
+              { key: 'awaiting', label: 'Awaiting Approval', value: awaiting },
+              { key: 'total', label: 'Total Items', value: rows.length },
+            ]}
+          />
+          <PagedTableCard
+            title={option.label}
+            subtitle={`${rows.length} ${rows.length === 1 ? 'item' : 'items'}`}
+            noun="items"
+            dataSource={rows}
+            columns={tabColumns}
             rowKey="key"
             size="middle"
-            pagination={{ pageSize: 10 }}
-            scroll={{ x: 1140 }}
+            scroll={{ x: tabColumns.reduce((sum, c) => sum + Number(c.width || 0), 0) }}
             locale={{ emptyText: 'Nothing waiting for approval or payment' }}
             expandable={{
               rowExpandable: (r) => !!r.request,
@@ -397,7 +408,8 @@ export function PaymentOptionsPanel({
   });
 
   return (
-    <Card className={`${cardClassName} mb-6`} title={<Typography.Text strong className="text-[var(--text-primary)]!">Payment Options</Typography.Text>}>
+    <div className="mb-8">
+      <Typography.Title level={4} className="mb-2! text-[var(--text-primary)]!" style={{ fontWeight: 800 }}>Payment Options</Typography.Title>
       <Tabs
         // Re-opens on the linked tab when a notification is clicked while already on Payments.
         key={initialTab || 'default'}
@@ -445,6 +457,6 @@ export function PaymentOptionsPanel({
           </Space>
         )}
       </Modal>
-    </Card>
+    </div>
   );
 }

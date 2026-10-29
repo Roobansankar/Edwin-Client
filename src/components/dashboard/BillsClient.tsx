@@ -3,7 +3,7 @@
 import { useState, useMemo, useTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { App, Button, Card, DatePicker, Drawer, Flex, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, Typography, Upload, Divider } from 'antd';
+import { App, Button, DatePicker, Drawer, Flex, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, Typography, Upload, Divider } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DeleteOutlined, EditOutlined, EyeOutlined, FileDoneOutlined, PlusOutlined, HistoryOutlined, SearchOutlined, UploadOutlined, FileTextOutlined, FileExcelOutlined, FilePdfOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -18,7 +18,6 @@ import { ACCOUNTS_BILL_STATUS_OPTIONS, ADMIN_BILL_STATUS_OPTIONS, BILL_STATUS_TA
 import { PaymentMode, BillStatus } from '@/types/erp';
 import {
   StatusTag,
-  cardClassName,
   formatCurrency,
   formatDate,
   pageHeaderClassName,
@@ -27,6 +26,7 @@ import {
   titleCase,
   titleIconClassName,
 } from './ui';
+import { PagedTableCard, StatusCards } from './DataTablePanel';
 
 const ordinal = (n: number) => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`);
 
@@ -371,12 +371,15 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
     });
   };
 
+  // S.No follows the filtered list, so numbering continues across pages.
+  const serialById = new Map(filteredBills.map((b, i) => [b.id, i + 1]));
+
   const columns: ColumnsType<PurchaseBill> = [
     {
       title: 'S.No',
       key: 'sno',
-      width: 60,
-      render: (_text, _record, index) => index + 1,
+      width: 70,
+      render: (_text, record) => serialById.get(record.id),
     },
     {
       title: 'Project',
@@ -619,33 +622,47 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
         </Space>
       </Flex>
 
-      <Flex gap={12} wrap="wrap" className="mb-6!">
-        <Input.Search
-          placeholder="Search bill, vendor, project..."
-          allowClear
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
-          style={{ width: 200 }}
-        />
-        <DatePicker.RangePicker
-          value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
-          onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
-          allowClear
-          placeholder={['From date', 'To date']}
-        />
-      </Flex>
+      <StatusCards
+        items={[
+          { key: 'total', label: 'Total Bills', value: filteredBills.length },
+          { key: 'pending', label: 'Pending', value: filteredBills.filter((b) => b.status === 'pending').length },
+          { key: 'approved', label: 'Admin Approved', value: filteredBills.filter((b) => b.status === 'approved').length },
+          {
+            key: 'balance',
+            label: 'Balance Due',
+            value: formatCurrency(filteredBills.reduce((sum, b) => sum + Math.max(Number(b.amount || 0) - Number(b.paidAmount || 0), 0), 0)),
+          },
+        ]}
+      />
 
-      <Card className={cardClassName}>
-        <Table
-          dataSource={filteredBills}
-          columns={columns}
-          rowKey="id"
-          size="middle"
-          scroll={{ x: 2210 }}
-          pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} bills` }}
-        />
-      </Card>
+      <PagedTableCard
+        title="Vendor Bills"
+        subtitle={`${filteredBills.length} ${filteredBills.length === 1 ? 'bill' : 'bills'}`}
+        toolbar={(
+          <>
+            <Input
+              placeholder="Search bill, vendor, project..."
+              allowClear
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+              style={{ width: 240 }}
+            />
+            <DatePicker.RangePicker
+              value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
+              onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+              allowClear
+              placeholder={['From date', 'To date']}
+            />
+          </>
+        )}
+        noun="bills"
+        dataSource={filteredBills}
+        columns={columns}
+        rowKey="id"
+        size="middle"
+        scroll={{ x: 2220 }}
+      />
 
       <Drawer
         title={editingBill ? `Edit Bill — ${editingBill.billNumber}` : 'Record Purchase Bill'}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
-import { App, Card, Table, Typography, Tag, Space, Flex, Button, Drawer, Form, Input, InputNumber, Select, DatePicker, Row, Col, Statistic, Tabs, Modal } from 'antd';
+import { App, Table, Typography, Tag, Space, Flex, Button, Drawer, Form, Input, InputNumber, Select, DatePicker, Row, Col, Tabs, Modal } from 'antd';
 import { CreditCardOutlined, PlusOutlined, ArrowDownOutlined, ArrowUpOutlined, SearchOutlined, HistoryOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -9,11 +9,10 @@ import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import dayjs from 'dayjs';
 import { createPayment, syncExpensesToLedger } from '@/actions/payments';
-import type { ExpensePayment, LabourPayment, AdvanceRequest, Payment, Project, PurchaseBill, PurchaseOrder, SubcontractWorkOrder, SubcontractorPaymentRequest, UnpaidExpenseWeekSummary, UnpaidLabourWeekSummary, Vendor } from '@/types/erp';
+import type { ExpensePayment, LabourPayment, AdvanceRequest, Payment, Project, PurchaseBill, PurchaseOrder, SubcontractWorkOrder, SubcontractorBill, SubcontractorPaymentRequest, UnpaidExpenseWeekSummary, UnpaidLabourWeekSummary, Vendor } from '@/types/erp';
 import { PaymentOptionsPanel } from './PaymentOptionsPanel';
 import {
   StatusTag,
-  cardClassName,
   formatCurrency,
   formatDate,
   pageHeaderClassName,
@@ -21,6 +20,7 @@ import {
   titleIconClassName,
   titleCase,
 } from './ui';
+import { PagedTableCard, StatusCards } from './DataTablePanel';
 
 const { Title, Text } = Typography;
 const paymentSchema = z.object({
@@ -55,6 +55,7 @@ type PaymentsClientProps = {
   unpaidLabourSummary: UnpaidLabourWeekSummary[];
   unpaidExpenseSummary: UnpaidExpenseWeekSummary[];
   bills: PurchaseBill[];
+  subcontractorBills?: SubcontractorBill[];
   initialTab?: string;
 };
 
@@ -72,6 +73,7 @@ export function PaymentsClient({
   unpaidLabourSummary,
   unpaidExpenseSummary,
   bills,
+  subcontractorBills = [],
   initialTab,
 }: PaymentsClientProps) {
   const [open, setOpen] = useState(false);
@@ -204,17 +206,20 @@ export function PaymentsClient({
     {
       title: 'Date',
       dataIndex: 'paymentDate',
+      width: 120,
       render: formatDate,
       sorter: (a, b) => dayjs(a.paymentDate).unix() - dayjs(b.paymentDate).unix(),
     },
     {
       title: 'Category',
       dataIndex: 'paymentType',
+      width: 140,
       render: (type) => <StatusTag value={type} />,
     },
     {
       title: 'Payee / Vendor',
       key: 'payee',
+      width: 230,
       render: (_, record) => {
         const payee = record.salesInvoice?.project?.clientName || record.vendor?.name || record.payeeName || '-';
         const project = record.project?.name || record.salesInvoice?.project?.name || 'General Office';
@@ -229,6 +234,7 @@ export function PaymentsClient({
     {
       title: 'Total Amount',
       key: 'totalAmount',
+      width: 140,
       align: 'right',
       render: (_, record) => {
         if (record.purchaseOrder) return formatCurrency(record.purchaseOrder.totalWithGst || record.purchaseOrder.totalAmount);
@@ -241,12 +247,14 @@ export function PaymentsClient({
     {
       title: activeTab === 'outflow' ? 'Paid Amount' : 'Amount',
       dataIndex: 'amount',
+      width: 140,
       align: 'right',
       render: (amount) => <Text strong type="danger">{formatCurrency(amount)}</Text>,
     },
     {
       title: 'Balance',
       key: 'balance',
+      width: 140,
       align: 'right',
       render: (_, record) => {
         if (record.purchaseOrder) {
@@ -275,6 +283,7 @@ export function PaymentsClient({
     {
       title: 'Status',
       key: 'status',
+      width: 140,
       render: (_, record) => {
         const status = record.expense?.status || record.salesInvoice?.status || record.purchaseBill?.status || 'completed';
         return <StatusTag value={status} />;
@@ -283,17 +292,19 @@ export function PaymentsClient({
     {
       title: 'Mode',
       dataIndex: 'paymentMode',
+      width: 100,
       render: (mode) => <Text className="uppercase text-xs">{mode}</Text>,
     },
     {
       title: 'Ref No',
       dataIndex: 'referenceNumber',
+      width: 150,
       render: (val) => val || '-',
     },
     {
       title: 'History',
       key: 'history',
-      width: 90,
+      width: 120,
       render: (_, record) =>
         record.purchaseOrder ? (
           <Button size="small" icon={<HistoryOutlined />} onClick={() => openHistory({ type: 'po', id: record.purchaseOrder!.id, label: record.purchaseOrder!.poNumber })}>History</Button>
@@ -312,43 +323,38 @@ export function PaymentsClient({
   const outflowSum = outflowPayments.reduce((s, p) => s + Number(p.amount), 0);
 
   const filterRow = (
-    <Row gutter={16} className="mb-4">
-      <Col xs={24} sm={12} md={8}>
-        <Input.Search
-          placeholder="Search payee or reference..."
-          allowClear
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
-        />
-      </Col>
-      <Col xs={24} sm={12} md={6}>
-        <Select
-          allowClear
-          placeholder="Filter by status"
-          className="w-full"
-          value={statusFilter || undefined}
-          onChange={(val) => setStatusFilter(val || '')}
-          options={[
-            { label: 'Admin Approved', value: 'admin_approved' },
-            { label: 'Approved', value: 'approved' },
-            { label: 'Pending', value: 'pending' },
-            { label: 'Rejected', value: 'rejected' },
-            { label: 'Completed', value: 'completed' },
-          ]}
-        />
-      </Col>
-      <Col xs={24} sm={12} md={6}>
-        <DatePicker.RangePicker
-          className="w-full"
-          value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
-          onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
-          allowClear
-          placeholder={['From date', 'To date']}
-        />
-      </Col>
-    </Row>
+    <>
+      <Input
+        placeholder="Search payee or reference..."
+        allowClear
+        value={searchText}
+        onChange={(e) => setSearchText(e.target.value)}
+        prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+        style={{ width: 220 }}
+      />
+      <Select
+        allowClear
+        placeholder="Filter by status"
+        style={{ width: 170 }}
+        value={statusFilter || undefined}
+        onChange={(val) => setStatusFilter(val || '')}
+        options={[
+          { label: 'Admin Approved', value: 'admin_approved' },
+          { label: 'Approved', value: 'approved' },
+          { label: 'Pending', value: 'pending' },
+          { label: 'Rejected', value: 'rejected' },
+          { label: 'Completed', value: 'completed' },
+        ]}
+      />
+      <DatePicker.RangePicker
+        value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
+        onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
+        allowClear
+        placeholder={['From date', 'To date']}
+      />
+    </>
   );
+  const ledgerScrollX = columns.reduce((sum, c) => sum + Number(c.width || 0), 0);
 
   const tabItems = [
     {
@@ -360,25 +366,21 @@ export function PaymentsClient({
       ),
       children: (
         <div>
-          <Row gutter={[16, 16]} className="mb-4">
-            <Col xs={24} sm={12} md={6}>
-              <Card className={cardClassName}>
-                <Statistic
-                  title="Total Inflow"
-                  value={inflowSum}
-                  prefix={<ArrowUpOutlined className="text-green-500" />}
-                  formatter={(val) => formatCurrency(val as number)}
-                />
-              </Card>
-            </Col>
-          </Row>
-          {filterRow}
-          <Table
+          <StatusCards
+            items={[
+              { key: 'total', label: 'Total Inflow', value: formatCurrency(inflowSum) },
+              { key: 'count', label: 'Payments', value: inflowPayments.length },
+            ]}
+          />
+          <PagedTableCard
+            title="Inflow"
+            subtitle={`${inflowPayments.length} payments`}
+            toolbar={filterRow}
+            noun="payments"
             dataSource={inflowPayments}
             columns={columns}
             rowKey="id"
-            pagination={{ pageSize: 15 }}
-            scroll={{ x: 1300 }}
+            scroll={{ x: ledgerScrollX }}
           />
         </div>
       ),
@@ -392,25 +394,21 @@ export function PaymentsClient({
       ),
       children: (
         <div>
-          <Row gutter={[16, 16]} className="mb-4">
-            <Col xs={24} sm={12} md={6}>
-              <Card className={cardClassName}>
-                <Statistic
-                  title="Total Outflow"
-                  value={outflowSum}
-                  prefix={<ArrowDownOutlined className="text-red-500" />}
-                  formatter={(val) => formatCurrency(val as number)}
-                />
-              </Card>
-            </Col>
-          </Row>
-          {filterRow}
-          <Table
+          <StatusCards
+            items={[
+              { key: 'total', label: 'Total Outflow', value: formatCurrency(outflowSum) },
+              { key: 'count', label: 'Payments', value: outflowPayments.length },
+            ]}
+          />
+          <PagedTableCard
+            title="Outflow"
+            subtitle={`${outflowPayments.length} payments`}
+            toolbar={filterRow}
+            noun="payments"
             dataSource={outflowPayments}
             columns={columns}
             rowKey="id"
-            pagination={{ pageSize: 15 }}
-            scroll={{ x: 1300 }}
+            scroll={{ x: ledgerScrollX }}
           />
         </div>
       ),
@@ -428,28 +426,12 @@ export function PaymentsClient({
         </Button>
       </Flex>
 
-      <Row gutter={[16, 16]} className="mb-6">
-        <Col xs={24} sm={12} md={6}>
-          <Card className={cardClassName}>
-            <Statistic
-              title="Total Inflow"
-              value={totalInflow}
-              prefix={<ArrowUpOutlined className="text-green-500" />}
-              formatter={(val) => formatCurrency(val as number)}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card className={cardClassName}>
-            <Statistic
-              title="Total Outflow"
-              value={totalOutflow}
-              prefix={<ArrowDownOutlined className="text-red-500" />}
-              formatter={(val) => formatCurrency(val as number)}
-            />
-          </Card>
-        </Col>
-      </Row>
+      <StatusCards
+        items={[
+          { key: 'inflow', label: 'Total Inflow', value: formatCurrency(totalInflow) },
+          { key: 'outflow', label: 'Total Outflow', value: formatCurrency(totalOutflow) },
+        ]}
+      />
 
       <PaymentOptionsPanel
         labourPayments={labourPayments}
@@ -460,12 +442,14 @@ export function PaymentsClient({
         advanceRequests={advanceRequests}
         subcontractorPaymentRequests={subcontractorPaymentRequests}
         bills={bills}
+        subcontractorBills={subcontractorBills}
         initialTab={initialTab}
       />
 
-      <Card className={cardClassName}>
+      <div>
+        <Title level={4} className="mb-2! text-[var(--text-primary)]!" style={{ fontWeight: 800 }}>Ledger</Title>
         <Tabs activeKey={activeTab} onChange={(key) => { setActiveTab(key); setSearchText(''); setStatusFilter(''); setDateRange([null, null]); }} items={tabItems} />
-      </Card>
+      </div>
 
       <Drawer
         title="Record Direct Payment"

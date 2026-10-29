@@ -414,7 +414,8 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
       ),
     },
     {
-      title: 'Action', key: 'actions', width: 300,
+      // Reports only shows the eye icon here, so keep the column narrow.
+      title: 'Action', key: 'actions', width: mode === 'reports' ? 90 : 300,
       render: (_, r) => (
         <Flex gap={6} align="center" wrap="wrap">
           {r.billId ? (
