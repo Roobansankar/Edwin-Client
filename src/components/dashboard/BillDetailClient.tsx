@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { App, Button, Card, Flex, Table, Typography, Tag } from 'antd';
+import { App, Button, Card, Descriptions, Flex, Table, Typography, Tag } from 'antd';
 import { ArrowLeftOutlined, ArrowRightOutlined, FilePdfOutlined, CameraOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import type { PurchaseBill, BillTrail, VendorQuotation } from '@/types/erp';
 import { markBillDocumentChecked } from '@/actions/invoices';
 import { useAuthStore } from '@/store/auth';
 import { DOC_KEYS, DOC_LABEL, docChecked, type DocKey } from './BillDocumentsMenu';
+import { StatusCards } from './DataTablePanel';
 // Same date + time format as the Purchase Enquiry page.
 import { formatDateTime } from './PurchaseEnquiryClient';
 import {
@@ -39,7 +40,7 @@ function TrailStage({
   muted?: boolean;
 }) {
   return (
-    <Card size="small" className={`min-w-44 flex-1 border! border-[var(--border)]! ${muted ? 'opacity-50' : ''}`}>
+    <Card size="small" className={`trail-stage min-w-44 flex-1 border! border-[var(--border)]! bg-[var(--subtle-bg)]! ${muted ? 'opacity-50' : ''}`}>
       <Typography.Text type="secondary" className="text-[10px] uppercase tracking-wide block">{label}</Typography.Text>
       <Typography.Text strong className="block">{refNo || '-'}</Typography.Text>
       {sub && <Typography.Text type="secondary" className="text-xs block">{sub}</Typography.Text>}
@@ -87,9 +88,10 @@ function EnquiryComparison({
   const itemFor = (q: VendorQuotation, key: string) =>
     (q.items || []).find((it) => (it.description || '').trim().toLowerCase() === key);
 
-  type Row = { key: string; label: string; qty?: number; values: (string | null)[]; bold?: boolean };
-  const rows: Row[] = itemKeys.map((key) => ({
+  type Row = { key: string; label: string; sno?: number; qty?: number; values: (string | null)[]; bold?: boolean; summary?: boolean };
+  const rows: Row[] = itemKeys.map((key, idx) => ({
     key,
+    sno: idx + 1,
     label: itemLabel.get(key)!.description,
     qty: itemLabel.get(key)!.quantity,
     values: quotations.flatMap((q) => {
@@ -100,13 +102,14 @@ function EnquiryComparison({
     }),
   }));
   const totalsRow = (key: string, label: string, pick: (q: VendorQuotation) => number | null | undefined, bold = false): Row => ({
-    key, label, bold, values: quotations.flatMap((q) => [null, formatCurrency(pick(q) || 0)]),
+    key, label, bold, summary: true, values: quotations.flatMap((q) => [null, formatCurrency(pick(q) || 0)]),
   });
   rows.push(
     {
       // When each vendor said the material would be delivered.
       key: 'expectedDate',
       label: 'Expected By',
+      summary: true,
       values: quotations.flatMap((q) => [null, q.expectedDate ? formatDateTime(q.expectedDate) : '-']),
     },
     totalsRow('basic', 'Basic Amount', (q) => Number(q.totalAmount || 0)),
@@ -115,36 +118,70 @@ function EnquiryComparison({
     totalsRow('total', 'Total', (q) => Number(q.totalWithGst || q.totalAmount || 0), true),
   );
 
+  // Cheapest quotation (by total), tagged in the Total row when comparing.
+  const totalOf = (q: VendorQuotation) => Number(q.totalWithGst || q.totalAmount || 0);
+  const positiveTotals = quotations.map(totalOf).filter((v) => v > 0);
+  const lowestTotal = positiveTotals.length ? Math.min(...positiveTotals) : null;
+  const isSelected = (q: VendorQuotation) => q.vendorId === selectedVendorId;
+
   return (
     <Card size="small" title="Purchase Enquiry — Vendor Comparison">
       <Table<Row>
+        className="vendor-compare"
+        bordered
         dataSource={rows}
         rowKey="key"
         size="small"
         pagination={false}
-        scroll={{ x: 300 + quotations.length * 240 }}
+        scroll={{ x: 360 + quotations.length * 240 }}
+        rowClassName={(r) => (r.key === 'total' ? 'compare-total-row' : r.summary ? 'compare-summary-row' : '')}
         columns={[
-          { title: 'Item', key: 'item', fixed: 'left', width: 200, render: (_, r) => <Typography.Text strong={r.bold}>{r.label}</Typography.Text> },
-          { title: 'Qty', key: 'qty', width: 70, align: 'right', render: (_, r) => (r.qty != null ? r.qty : '') },
-          ...quotations.map((q, i) => ({
-            key: q.id,
-            title: (
-              <Flex vertical gap={2}>
-                <Typography.Text strong>{q.vendor?.name || 'Vendor'}</Typography.Text>
-                <Flex gap={4} wrap="wrap">
-                  {q.vendorId === selectedVendorId && <Tag color="green" className="m-0!">Bill vendor</Tag>}
-                  <StatusTag value={q.status} />
+          {
+            title: 'S.No', key: 'sno', fixed: 'left', width: 60, align: 'center',
+            render: (_, r) => (r.sno != null ? <Typography.Text type="secondary">{r.sno}</Typography.Text> : ''),
+          },
+          {
+            title: 'Item', key: 'item', fixed: 'left', width: 220,
+            render: (_, r) => <Typography.Text strong={r.bold || r.summary}>{r.label}</Typography.Text>,
+          },
+          { title: 'Qty', key: 'qty', width: 80, align: 'right', render: (_, r) => (r.qty != null ? r.qty : '') },
+          ...quotations.map((q, i) => {
+            const cellClass = isSelected(q) ? 'compare-selected' : '';
+            return {
+              key: q.id,
+              onHeaderCell: () => ({ className: cellClass }),
+              title: (
+                <Flex vertical gap={4} align="center">
+                  <Typography.Text strong>{q.vendor?.name || 'Vendor'}</Typography.Text>
+                  <Flex gap={4} wrap="wrap" justify="center">
+                    {isSelected(q) && <Tag color="green" className="m-0!">Bill vendor</Tag>}
+                    <StatusTag value={q.status} />
+                  </Flex>
                 </Flex>
-              </Flex>
-            ),
-            children: [
-              { title: 'Rate', key: `${q.id}-rate`, width: 110, align: 'right' as const, render: (_: unknown, r: Row) => r.values[i * 2] ?? '' },
-              {
-                title: 'Amount', key: `${q.id}-amt`, width: 130, align: 'right' as const,
-                render: (_: unknown, r: Row) => <Typography.Text strong={r.bold}>{r.values[i * 2 + 1]}</Typography.Text>,
-              },
-            ],
-          })),
+              ),
+              children: [
+                {
+                  title: 'Rate', key: `${q.id}-rate`, width: 110, align: 'right' as const,
+                  onHeaderCell: () => ({ className: cellClass }),
+                  onCell: () => ({ className: cellClass }),
+                  render: (_: unknown, r: Row) => r.values[i * 2] ?? '',
+                },
+                {
+                  title: 'Amount', key: `${q.id}-amt`, width: 140, align: 'right' as const,
+                  onHeaderCell: () => ({ className: cellClass }),
+                  onCell: () => ({ className: cellClass }),
+                  render: (_: unknown, r: Row) => (
+                    <Flex gap={6} justify="flex-end" align="center">
+                      <Typography.Text strong={r.bold}>{r.values[i * 2 + 1]}</Typography.Text>
+                      {r.key === 'total' && quotations.length > 1 && lowestTotal != null && totalOf(q) === lowestTotal && (
+                        <Tag color="blue" className="m-0!">Lowest</Tag>
+                      )}
+                    </Flex>
+                  ),
+                },
+              ],
+            };
+          }),
         ]}
       />
     </Card>
@@ -297,19 +334,35 @@ export function BillDetailClient({ bill, trail }: Props) {
   const vq = trail?.vendorQuotation;
   const mrReceived = trail?.materialReceived || [];
 
+  const billBalance = Number(bill.amount || 0) - Number(bill.paidAmount || 0);
+
   return (
-    <div>
-      <Flex align="center" gap={12} className="mb-6!">
-        <Button icon={<ArrowLeftOutlined />} onClick={() => router.back()}>
-          Back to Bills
-        </Button>
-        <Typography.Title level={4} className="m-0!">
-          Bill Details — {bill.billNumber}
-        </Typography.Title>
+    <div className="bill-detail">
+      <Flex justify="space-between" align="flex-start" gap={12} wrap="wrap" className="mb-6!">
+        <div>
+          <Typography.Title level={3} className="m-0! text-[var(--text-primary)]!" style={{ fontWeight: 800, letterSpacing: '-0.01em' }}>
+            Bill {bill.billNumber}
+          </Typography.Title>
+          <Typography.Text className="block text-[var(--text-muted)]!">
+            {[bill.vendor?.name, bill.project?.name || po?.project?.name].filter(Boolean).join(' · ') || 'Vendor bill'}
+          </Typography.Text>
+          <Button icon={<ArrowLeftOutlined />} onClick={() => router.back()} className="mt-3!">
+            Back
+          </Button>
+        </div>
         <StatusTag value={bill.status} />
       </Flex>
 
-      <Flex gap={16} vertical>
+      <StatusCards
+        items={[
+          { key: 'amount', label: 'Bill Amount', value: formatCurrency(bill.amount) },
+          { key: 'paid', label: 'Paid', value: formatCurrency(bill.paidAmount) },
+          { key: 'balance', label: 'Balance', value: formatCurrency(Math.max(billBalance, 0)) },
+          { key: 'date', label: 'Bill Date', value: formatDate(bill.billDate) },
+        ]}
+      />
+
+      <Flex gap={20} vertical>
         <Card size="small" title="Document Trail — MR → Enquiry → PO → Vendor Bill → Material Received">
           <Flex gap={8} align="stretch" wrap="wrap">
             <TrailStage
@@ -378,20 +431,32 @@ export function BillDetailClient({ bill, trail }: Props) {
         />
 
         <Card size="small" title="Bill Information">
-          <table className="w-full text-sm">
-            <tbody>
-              <tr><td className="pr-6 py-1.5 text-[var(--text-muted)] w-40">Vendor</td><td>{bill.vendor?.name || '-'}</td></tr>
-              <tr><td className="pr-6 py-1.5 text-[var(--text-muted)]">Project</td><td>{bill.project?.name || '-'}</td></tr>
-              <tr><td className="pr-6 py-1.5 text-[var(--text-muted)]">Bill Amount</td><td><Typography.Text strong>{formatCurrency(bill.amount)}</Typography.Text></td></tr>
-              <tr><td className="pr-6 py-1.5 text-[var(--text-muted)]">Paid Amount</td><td>{formatCurrency(bill.paidAmount)}</td></tr>
-              <tr><td className="pr-6 py-1.5 text-[var(--text-muted)]">Bill Date</td><td>{formatDate(bill.billDate)}</td></tr>
-              <tr><td className="pr-6 py-1.5 text-[var(--text-muted)]">Due Date</td><td>{bill.dueDate ? formatDate(bill.dueDate) : '-'}</td></tr>
-              {bill.notes && <tr><td className="pr-6 py-1.5 text-[var(--text-muted)]">Notes</td><td>{bill.notes}</td></tr>}
-              {bill.billFileUrl && (
-                <tr><td className="pr-6 py-1.5 text-[var(--text-muted)]">Bill File</td><td><Button type="link" size="small" icon={<FilePdfOutlined />} href={bill.billFileUrl} target="_blank">View Document</Button></td></tr>
-              )}
-            </tbody>
-          </table>
+          <Descriptions
+            bordered
+            size="small"
+            column={{ xs: 1, md: 2 }}
+            items={[
+              { key: 'vendor', label: 'Vendor', children: bill.vendor?.name || '-' },
+              { key: 'project', label: 'Project', children: bill.project?.name || '-' },
+              { key: 'amount', label: 'Bill Amount', children: <Typography.Text strong>{formatCurrency(bill.amount)}</Typography.Text> },
+              { key: 'paid', label: 'Paid Amount', children: formatCurrency(bill.paidAmount) },
+              { key: 'billDate', label: 'Bill Date', children: formatDate(bill.billDate) },
+              { key: 'dueDate', label: 'Due Date', children: bill.dueDate ? formatDate(bill.dueDate) : '-' },
+              ...(bill.notes ? [{ key: 'notes', label: 'Notes', span: 2, children: bill.notes }] : []),
+              ...(bill.billFileUrl
+                ? [{
+                    key: 'file',
+                    label: 'Bill File',
+                    span: 2,
+                    children: (
+                      <Button type="link" size="small" className="px-0!" icon={<FilePdfOutlined />} href={bill.billFileUrl} target="_blank">
+                        View Document
+                      </Button>
+                    ),
+                  }]
+                : []),
+            ]}
+          />
         </Card>
 
         {po && (

@@ -215,3 +215,73 @@ body {
   background: #94a3b8;
   border-radius: 999px;
 }
+
+/* Bill detail page: rounded section cards with a light grey header band,
+   white body and small uppercase table headings. */
+.bill-detail .ant-card {
+  border-radius: 16px !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: none !important;
+  overflow: hidden;
+}
+
+.bill-detail .ant-card > .ant-card-head {
+  background: var(--subtle-bg);
+  border-bottom: 1px solid var(--border);
+  min-height: 50px;
+  padding: 0 20px;
+}
+
+.bill-detail .ant-card > .ant-card-head .ant-card-head-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.bill-detail .ant-card-small > .ant-card-body {
+  padding: 16px 20px;
+}
+
+.bill-detail .trail-stage.ant-card {
+  border-radius: 12px !important;
+}
+
+.bill-detail .ant-table-thead > tr > th {
+  background: var(--card-bg) !important;
+  color: var(--text-muted) !important;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.bill-detail .ant-table-thead > tr > th::before {
+  display: none !important;
+}
+
+.bill-detail .ant-descriptions-bordered .ant-descriptions-item-label {
+  background: var(--subtle-bg);
+  color: var(--text-muted);
+  font-weight: 500;
+  width: 160px;
+}
+
+/* Vendor comparison grid on the bill page. */
+.bill-detail .vendor-compare .ant-table-thead > tr > th {
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-secondary) !important;
+}
+
+.bill-detail .vendor-compare .compare-selected {
+  background: rgba(16, 185, 129, 0.07) !important;
+}
+
+.bill-detail .vendor-compare .compare-summary-row > td {
+  background: var(--subtle-bg) !important;
+}
+
+.bill-detail .vendor-compare .compare-total-row > td {
+  background: var(--subtle-hover-bg) !important;
+  font-size: 15px;
+}
