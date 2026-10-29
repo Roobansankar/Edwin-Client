@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Layout, Menu, Typography, Avatar, Dropdown, Popover, Drawer, App, Badge, Flex, Tag } from 'antd';
+import { ConfigProvider, Layout, Typography, Dropdown, Popover, Drawer, App, Badge, Flex, Tag } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   AppstoreOutlined,
@@ -22,8 +22,6 @@ import {
   FormOutlined,
   InboxOutlined,
   LogoutOutlined,
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
   MoonOutlined,
   NodeIndexOutlined,
   ProjectOutlined,
@@ -39,11 +37,13 @@ import { useAuthStore } from '@/store/auth';
 import { useThemeStore } from '@/store/theme';
 import { formatDate, titleCase } from '@/components/dashboard/ui';
 import type { EmployeeQuery } from '@/types/erp';
+import styles from '@/components/dashboard/layout/reference.module.css';
+import { ReferencePanelIcon } from '@/components/dashboard/layout/ReferencePanelIcon';
+import { PageSearch } from '@/components/dashboard/layout/PageSearch';
 
 const { Sider, Content, Header } = Layout;
-const { Text } = Typography;
 
-const SIDEBAR_WIDTH = 300;
+const SIDEBAR_WIDTH = 280;
 
 // Payment pages reached from the Payments page (not listed in the sidebar).
 const PAYMENTS_SUB_PAGES = [
@@ -52,7 +52,7 @@ const PAYMENTS_SUB_PAGES = [
   '/dashboard/expense-payments',
   '/dashboard/labour-payments',
 ];
-const COLLAPSED_WIDTH = 60;
+const COLLAPSED_WIDTH = 64;
 
 type NavItem = {
   key: string;
@@ -595,15 +595,17 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
   }
 
   return (
+    <ConfigProvider theme={{ token: { colorPrimary: '#1677ff', borderRadius: 6, colorBgContainer: mode === 'dark' ? '#101827' : '#fff', colorBgLayout: mode === 'dark' ? '#0b1120' : '#fff' } }}>
     <App>
-      <Layout className="min-h-screen bg-[var(--page-bg)]">
+      <Layout className={styles.root}>
         <Sider
           trigger={null}
+          inert={isMobile && !mobileSidebarOpen}
           collapsible
           collapsed={effectiveCollapsed}
           collapsedWidth={effectiveCollapsedWidth}
           width={SIDEBAR_WIDTH}
-          className={`mantis-drawer fixed! left-0 top-0 bottom-0 z-100 h-screen overflow-hidden border-r border-[var(--border)] bg-[var(--sidebar-bg)]! transition-all duration-300 ease-in-out ${
+          className={`${styles.sidebar} ${effectiveCollapsed ? styles.collapsed : ''} fixed! left-0 top-0 bottom-0 z-100 h-screen overflow-hidden transition-all duration-300 ease-in-out ${
             isMobile
               ? mobileSidebarOpen
                 ? 'translate-x-0 shadow-2xl'
@@ -613,38 +615,30 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
           style={isMobile ? { width: `${SIDEBAR_WIDTH}px` } : { boxShadow: effectiveCollapsed ? 'none' : 'none' }}
         >
           <div className="flex h-full flex-col">
-            <div
-              className={`flex h-[70px] shrink-0 items-center border-b border-[var(--border)] ${
-                effectiveCollapsed ? 'justify-center px-0' : 'gap-3 px-6'
-              }`}
-            >
-              <img src="/logo.png" alt="Edwin Constructions" className="h-12 w-12 shrink-0 object-contain" />
-              {!effectiveCollapsed && (
-                <Text className="truncate text-sm font-semibold! text-white!">
-                  Edwin Constructions
-                </Text>
-              )}
+            <div className={styles.brand}>
+              <img src="/logo.png" alt="Edwin Constructions" />
+              {!effectiveCollapsed && <span className={styles.brandName}>Edwin Constructions</span>}
+              {isMobile && <button type="button" className={styles.brandClose} aria-label="Close sidebar" onClick={() => setMobileSidebarOpen(false)}><CloseOutlined /></button>}
+            </div>
+            <div className={styles.sidebarBody}>
+              <PageSearch collapsed={effectiveCollapsed} pages={filteredNavigationSections.flatMap((section) => section.items.map((item) => ({ key: item.key, label: navigationSections.flatMap((group) => group.items).find((entry) => entry.key === item.key)?.label || item.key })))} onNavigate={(key) => { router.push(key); setMobileSidebarOpen(false); }} />
+              <nav id="workspace-navigation" aria-label="Main navigation">
+                {filteredNavigationSections.map((section, index) => (
+                  <div key={`${section.title}-${index}`} className={styles.section}>
+                    {!effectiveCollapsed && section.title && <p className={styles.sectionTitle}>{section.title}</p>}
+                    {section.items.map((item) => (
+                      <button key={item.key} type="button" className={`${styles.navItem} ${selectedKey === item.key ? styles.active : ''}`}
+                        aria-current={selectedKey === item.key ? 'page' : undefined}
+                        title={navigationSections.flatMap((group) => group.items).find((entry) => entry.key === item.key)?.label}
+                        onClick={() => { router.push(item.key); setMobileSidebarOpen(false); }}>
+                        {item.icon}{!effectiveCollapsed && <span>{item.label}</span>}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </nav>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto py-4">
-              {filteredNavigationSections.map((section, index) => (
-                <div key={`${section.title}-${index}`} className={`${section.title ? 'mb-5' : 'mb-0'} last:mb-0`}>
-                  {!effectiveCollapsed && section.title && (
-                    <Text className="mb-1.5 block px-6 text-sm font-medium text-[var(--sidebar-text-muted)]!">
-                      {section.title}
-                    </Text>
-                  )}
-                  <Menu
-                    mode="inline"
-                    inlineCollapsed={effectiveCollapsed}
-                    selectedKeys={[selectedKey]}
-                    items={section.items}
-                    onClick={({ key }) => router.push(key)}
-                    className="mantis-nav border-none! bg-transparent!"
-                  />
-                </div>
-              ))}
-            </div>
           </div>
         </Sider>
 
@@ -656,34 +650,27 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
         )}
 
         <Layout
-          className="min-w-0 transition-[margin-left,width] duration-300 ease-in-out"
+          className={`${styles.main} transition-[margin-left,width] duration-300 ease-in-out`}
           style={{
             marginLeft: sidebarWidth,
             width: isMobile ? '100%' : `calc(100% - ${sidebarWidth}px)`,
           }}
         >
-          <Header className="sticky top-0 z-90 flex h-16 items-center justify-between border-b border-[var(--border)] bg-[var(--header-bg)]! px-4! sm:px-6! backdrop-blur-xl">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
+          <Header className={styles.header}>
+            <div className={styles.headerTitle}>
+              <button type="button" className={styles.iconButton}
                 onClick={() => isMobile ? setMobileSidebarOpen(!mobileSidebarOpen) : setCollapsed(!collapsed)}
-                className={`flex h-10 w-10 cursor-pointer items-center justify-center rounded-full transition hover:bg-[var(--subtle-bg)] ${
-                  effectiveCollapsed ? 'bg-[var(--subtle-bg)]' : 'bg-transparent'
-                } text-[var(--text-secondary)] hover:text-[var(--text-primary)]`}
-                aria-label={isMobile ? (mobileSidebarOpen ? 'Close sidebar' : 'Open sidebar') : (collapsed ? 'Expand sidebar' : 'Collapse sidebar')}
-              >
-                {isMobile
-                  ? mobileSidebarOpen ? <CloseOutlined /> : <MenuUnfoldOutlined />
-                  : collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />
-                }
+                aria-controls="workspace-navigation" aria-expanded={isMobile ? mobileSidebarOpen : !collapsed}
+                aria-label={isMobile ? (mobileSidebarOpen ? 'Close sidebar' : 'Open sidebar') : (collapsed ? 'Expand sidebar' : 'Collapse sidebar')}>
+                <ReferencePanelIcon collapsed={isMobile ? !mobileSidebarOpen : collapsed} />
               </button>
+              <h1>{navigationSections.flatMap((section) => section.items).find((item) => item.key === selectedKey)?.label || 'Dashboard'}</h1>
             </div>
-
-            <div className="flex items-center gap-2">
+            <div className={styles.actions}>
               <button
                 type="button"
                 onClick={toggleTheme}
-                className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
+                className={styles.iconButton}
                 aria-label="Toggle theme"
               >
                 {mode === 'dark' ? <SunOutlined /> : <MoonOutlined />}
@@ -695,7 +682,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                     <button
                       type="button"
                       onClick={() => { setAdminNotifOpen(true); markPendingSeen(); markNotificationsSeen(); }}
-                      className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
+                      className={styles.iconButton}
                       aria-label="Notifications"
                     >
                       <Badge count={pendingEqCount + unseenNotifCount} size="small" offset={[-2, 2]}>
@@ -730,7 +717,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                   >
                     <button
                       type="button"
-                      className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
+                      className={styles.iconButton}
                       aria-label="Notifications"
                     >
                       <Badge count={pendingEqCount + unseenNotifCount} size="small" offset={[-2, 2]}>
@@ -747,7 +734,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                     <button
                       type="button"
                       onClick={() => { setNotifOpen(true); markResponsesSeen(); markNotificationsSeen(); }}
-                      className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
+                      className={styles.iconButton}
                       aria-label="Notifications"
                     >
                       <Badge count={unseenResponseCount + unseenNotifCount} size="small" offset={[-2, 2]}>
@@ -785,7 +772,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                   >
                     <button
                       type="button"
-                      className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--subtle-bg)] hover:text-[var(--text-primary)]"
+                      className={styles.iconButton}
                       aria-label="Notifications"
                     >
                       <Badge count={unseenResponseCount + unseenNotifCount} size="small" offset={[-2, 2]}>
@@ -796,36 +783,23 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                 )
               )}
 
-            <Dropdown
-              menu={{
-                items: userMenuItems,
-                onClick: ({ key }) => {
-                  if (key === 'logout') handleLogout();
-                },
-              }}
-              placement="bottomRight"
-            >
-              <button
-                type="button"
-                className="flex cursor-pointer items-center rounded-full px-1 py-1 transition hover:opacity-85"
-                aria-label="Profile"
-              >
-                <Avatar
-                  className="bg-[#1677ff]!"
-                  icon={<UserOutlined />}
-                />
-              </button>
-            </Dropdown>
+
+              <Dropdown menu={{ items: userMenuItems, onClick: ({ key }) => { if (key === 'logout') handleLogout(); } }} placement="bottomRight" trigger={['click']}>
+                <button type="button" className={styles.iconButton} aria-label="Profile" aria-haspopup="menu">
+                  <UserOutlined />
+                </button>
+              </Dropdown>
             </div>
           </Header>
 
-          <Content className="bg-[var(--page-bg)] px-4 pt-4 sm:px-6 sm:pt-5">
-            <div className="mx-auto w-full max-w-[1600px]" style={{ marginBottom: 80 }}>
+          <Content className={styles.content}>
+            <div className={styles.contentInner}>
               {children}
             </div>
           </Content>
         </Layout>
       </Layout>
     </App>
+    </ConfigProvider>
 );
 }
