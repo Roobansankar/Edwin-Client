@@ -135,6 +135,8 @@ export function ProjectsClient({ projects, projectCategories, users }: ProjectsC
   const gstPercentWatch = useWatch({ control, name: 'gstPercent' }) || 0;
 
   useEffect(() => {
+    // Initialize each drawer session, including consecutive new projects.
+    if (!open) return;
     if (editingProject) {
       setValue('name', editingProject.name);
       setValue('projectCode', editingProject.projectCode || '');
@@ -191,7 +193,7 @@ export function ProjectsClient({ projects, projectCategories, users }: ProjectsC
         resourceIds: [],
       });
     }
-  }, [editingProject, setValue, reset]);
+  }, [open, editingProject, setValue, reset]);
 
   const handleEdit = (project: Project) => {
     setEditingProject(project);
