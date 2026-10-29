@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { App, Button, Card, Col, DatePicker, Descriptions, Drawer, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { App, Button, Col, DatePicker, Descriptions, Drawer, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { CheckOutlined, CloseOutlined, DollarOutlined, FileTextOutlined, SearchOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -12,7 +12,8 @@ import { PaymentRowForm } from './PaymentRowForm';
 import { PaymentApprovalTag } from './PaymentApprovalTag';
 import type { Payment, SubcontractorPaymentRequest } from '@/types/erp';
 import { useAuthStore } from '@/store/auth';
-import { cardClassName, formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
+import { formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
+import { PaginationCard, StatusCards, TableCard, TABLE_BODY_HEIGHT, useClientPagination } from './DataTablePanel';
 
 // Amount accounts must pay: admin's final amount when set, else the request amount.
 const payableAmount = (r: SubcontractorPaymentRequest) =>
@@ -358,6 +359,10 @@ export function SubcontractorPaymentRequestsClient({ requests, payments, embedde
     { title: 'Action', key: 'actions', width: 300, render: (_, r) => renderActions(r) },
   ];
 
+  // Rows shown in the table (Payments shows only approved ones), paged 5 at a time.
+  const tableRows = mode === 'payments' ? filtered.filter((row) => row.request.status === 'admin_approved') : filtered;
+  const pager = useClientPagination(tableRows);
+
   return (
     <div>
       {!embedded && (
@@ -368,67 +373,58 @@ export function SubcontractorPaymentRequestsClient({ requests, payments, embedde
         </Flex>
       )}
 
-      <Card className={cardClassName}>
-        <Row gutter={[16, 16]} className="mb-4">
-          <Col xs={12} sm={6}>
-            <Card size="small" className="border! border-amber-500/20! bg-amber-500/5!">
-              <Statistic title={<Tag color="warning">Pending</Tag>} value={counts.pending} />
-            </Card>
-          </Col>
-          <Col xs={12} sm={6}>
-            <Card size="small" className="border! border-blue-500/20! bg-blue-500/5!">
-              <Statistic title={<Tag color="blue">Accepted</Tag>} value={counts.accepted} />
-            </Card>
-          </Col>
-          <Col xs={12} sm={6}>
-            <Card size="small" className="border! border-yellow-500/20! bg-yellow-500/5!">
-              <Statistic title={<Tag color="gold">Payment Pending</Tag>} value={counts.paymentPending} />
-            </Card>
-          </Col>
-          <Col xs={12} sm={6}>
-            <Card size="small" className="border! border-emerald-500/20! bg-emerald-500/5!">
-              <Statistic title={<Tag color="success">Paid</Tag>} value={counts.paid} />
-            </Card>
-          </Col>
-        </Row>
+      <StatusCards
+        items={[
+          { key: 'pending', label: 'Pending', value: counts.pending },
+          { key: 'accepted', label: 'Accepted', value: counts.accepted },
+          { key: 'paymentPending', label: 'Payment Pending', value: counts.paymentPending },
+          { key: 'paid', label: 'Paid', value: counts.paid },
+        ]}
+      />
 
-        <Flex justify="flex-end" gap={12} wrap="wrap" className="mb-4!">
-          <Input.Search
-            placeholder="Search WO, subcontractor, project..."
-            allowClear
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
-            style={{ width: isMobile ? '100%' : 220 }}
-          />
-          <DatePicker.RangePicker
-            value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
-            onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
-            allowClear
-            style={{ width: isMobile ? '100%' : undefined }}
-            placeholder={['From date', 'To date']}
-          />
-          <Select
-            allowClear
-            placeholder="Filter by status"
-            style={{ width: isMobile ? '100%' : 200 }}
-            value={statusFilter || undefined}
-            onChange={(val) => setStatusFilter(val || '')}
-            options={mode === 'reports'
-              ? STATUS_OPTIONS.filter((option) => ['', 'accepted', 'admin_approved', 'paid'].includes(option.value)).map((option) => ({
-                  ...option,
-                  label: option.value === 'accepted' ? 'Accounts Approved' : option.value === 'admin_approved' ? 'Admin Approved' : option.label,
-                }))
-              : STATUS_OPTIONS}
-          />
-        </Flex>
-
+      <TableCard
+        title="Subcontractor Payment Requests"
+        subtitle={`${tableRows.length} of ${rows.length} requests`}
+        toolbar={(
+          <>
+            <Input
+              placeholder="Search WO, subcontractor, project..."
+              allowClear
+              value={searchText}
+              onChange={(e) => { setSearchText(e.target.value); pager.reset(); }}
+              prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+              style={{ width: isMobile ? '100%' : 220 }}
+            />
+            <DatePicker.RangePicker
+              value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
+              onChange={(dates) => { setDateRange(dates ? [dates[0], dates[1]] : [null, null]); pager.reset(); }}
+              allowClear
+              style={{ width: isMobile ? '100%' : undefined }}
+              placeholder={['From date', 'To date']}
+            />
+            <Select
+              allowClear
+              placeholder="Filter by status"
+              style={{ width: isMobile ? '100%' : 200 }}
+              value={statusFilter || undefined}
+              onChange={(val) => { setStatusFilter(val || ''); pager.reset(); }}
+              options={mode === 'reports'
+                ? STATUS_OPTIONS.filter((option) => ['', 'accepted', 'admin_approved', 'paid'].includes(option.value)).map((option) => ({
+                    ...option,
+                    label: option.value === 'accepted' ? 'Accounts Approved' : option.value === 'admin_approved' ? 'Admin Approved' : option.label,
+                  }))
+                : STATUS_OPTIONS}
+            />
+          </>
+        )}
+      >
         <Table
-          dataSource={mode === 'payments' ? filtered.filter((row) => row.request.status === 'admin_approved') : filtered}
+          className="approvals-table"
+          dataSource={pager.pageRows}
           columns={columns}
           rowKey={(row) => row.request.id}
-          pagination={{ pageSize: 10 }}
-          scroll={{ x: 1100 }}
+          pagination={false}
+          scroll={{ x: 1100, y: TABLE_BODY_HEIGHT }}
           locale={{ emptyText: 'No subcontractor payment requests from purchase team' }}
           expandable={{
             expandedRowRender: (row) => {
@@ -460,7 +456,17 @@ export function SubcontractorPaymentRequestsClient({ requests, payments, embedde
             },
           }}
         />
-      </Card>
+      </TableCard>
+
+      <PaginationCard
+        total={pager.total}
+        start={pager.start}
+        page={pager.page}
+        size={pager.size}
+        onPageChange={pager.setPage}
+        onSizeChange={pager.setSize}
+        noun="requests"
+      />
 
       <Drawer
         title={payTarget ? `Record Payment — ${payTarget.request.subcontractor?.name || ''}` : 'Record Payment'}

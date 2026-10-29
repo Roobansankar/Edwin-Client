@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition, type ReactNode } from 'react';
-import { App, Button, Card, Col, DatePicker, Flex, Input, Modal, Popconfirm, Row, Select, Space, Statistic, Table, Tabs, Tag, Typography } from 'antd';
+import { App, Button, DatePicker, Flex, Input, Modal, Popconfirm, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
 import type { TableProps } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -19,9 +19,9 @@ import { clientApiFetch } from '@/lib/client-api';
 import { AdvanceRequestsClient } from './AdvanceRequestsClient';
 import { SubcontractorPaymentRequestsClient } from './SubcontractorPaymentRequestsClient';
 import { missingDocs } from './BillDocumentsMenu';
+import { DEFAULT_PAGE_SIZE, PaginationCard, StatusCards, TableCard, TABLE_BODY_HEIGHT } from './DataTablePanel';
 import {
   StatusTag,
-  cardClassName,
   formatCurrency,
   formatDate,
   pageHeaderClassName,
@@ -1135,7 +1135,19 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
     },
   ];
 
+  // Pagination per tab (the table shows one page; data and filters unchanged).
+  const [pageState, setPageState] = useState<Record<string, { page: number; size: number }>>({});
+  const pageOf = (key: string) => pageState[key] || { page: 1, size: DEFAULT_PAGE_SIZE };
+  const setPageOf = (key: string, next: Partial<{ page: number; size: number }>) =>
+    setPageState((prev) => ({ ...prev, [key]: { ...pageOf(key), ...next } }));
+
+  // Layout shared by the Daily Labour, Purchase Bills, Subcontractor Bills and
+  // Expenses tabs, matching the Projects page: status cards, a table card with
+  // its filters in the header, a fixed-height scrolling table and a pagination
+  // card. Only presentation lives here.
   const renderContent = <T extends object>(
+    tabKey: string,
+    title: string,
     counts: Record<string, number>,
     dataSource: T[],
     columns: ColumnsType<T>,
@@ -1143,56 +1155,73 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
     scrollX = 1300,
     tableProps: { rowKey?: string; expandable?: TableProps<T>['expandable'] } = {},
     extraFilters?: ReactNode,
-  ) => (
-    <>
-      <Row gutter={16} className="mb-4">
-        {Object.entries(counts).map(([key, val]) => {
-          const cfg: Record<string, { color: string; label: string; bg: string; border: string }> = {
-            pending: { color: 'warning', label: 'Pending', bg: 'bg-amber-500/5!', border: 'border-amber-500/20!' },
-            verified: { color: 'purple', label: 'Verified', bg: 'bg-purple-500/5!', border: 'border-purple-500/20!' },
-            admin_approved: { color: 'purple', label: 'Admin Approved', bg: 'bg-purple-500/5!', border: 'border-purple-500/20!' },
-            approved: { color: 'success', label: 'Approved', bg: 'bg-emerald-500/5!', border: 'border-emerald-500/20!' },
-            rejected: { color: 'error', label: 'Rejected', bg: 'bg-red-500/5!', border: 'border-red-500/20!' },
-          };
-          const c = cfg[key] || { color: 'default', label: key, bg: '', border: '' };
-          return (
-            <Col key={key} xs={12} sm={6} md={4} lg={3}>
-              <Card size="small" className={`border! ${c.border} ${c.bg}`}>
-                <Statistic title={<Tag color={c.color}>{c.label}</Tag>} value={val} />
-              </Card>
-            </Col>
-          );
-        })}
-      </Row>
-      <div className="flex flex-col gap-4">
-        <Row gutter={16}>
-          <Col xs={24} sm={12} md={8}>
-            <Input.Search
-              placeholder="Search..."
-              allowClear value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
-            />
-          </Col>
-          <Col xs={24} sm={12} md={6}>
-            <Select
-              allowClear placeholder="Filter by status" className="w-full"
-              value={statusFilter || undefined}
-              onChange={(val) => setStatusFilter(val || '')}
-              options={APPROVAL_STATUS_OPTIONS}
-            />
-          </Col>
-          {extraFilters}
-        </Row>
-        <Table
-          dataSource={dataSource} columns={columns} rowKey="id"
-          pagination={{ pageSize: 10 }} scroll={{ x: scrollX }}
-          locale={{ emptyText }}
-          {...tableProps}
+  ) => {
+    const { page, size } = pageOf(tabKey);
+    const total = dataSource.length;
+    const pageCount = Math.max(1, Math.ceil(total / size));
+    const current = Math.min(page, pageCount);
+    const start = (current - 1) * size;
+    const pageRows = dataSource.slice(start, start + size);
+    const statusLabel: Record<string, string> = {
+      pending: 'Pending',
+      verified: 'Verified',
+      admin_approved: 'Admin Approved',
+      approved: 'Approved',
+      rejected: 'Rejected',
+    };
+
+    return (
+      <div>
+        <StatusCards items={Object.entries(counts).map(([key, val]) => ({ key, label: statusLabel[key] || key, value: val }))} />
+
+        <TableCard
+          title={title}
+          subtitle={`${total} ${total === 1 ? 'record' : 'records'}`}
+          toolbar={(
+            <>
+              <Input
+                allowClear
+                placeholder="Search..."
+                value={searchText}
+                onChange={(e) => { setSearchText(e.target.value); setPageOf(tabKey, { page: 1 }); }}
+                prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+                style={{ width: 220 }}
+              />
+              <Select
+                allowClear
+                placeholder="All Status"
+                value={statusFilter || undefined}
+                onChange={(val) => { setStatusFilter(val || ''); setPageOf(tabKey, { page: 1 }); }}
+                options={APPROVAL_STATUS_OPTIONS}
+                style={{ width: 160 }}
+              />
+              {extraFilters}
+            </>
+          )}
+        >
+          <Table
+            className="approvals-table"
+            dataSource={pageRows}
+            columns={columns}
+            rowKey="id"
+            pagination={false}
+            scroll={{ x: scrollX, y: TABLE_BODY_HEIGHT }}
+            locale={{ emptyText }}
+            {...tableProps}
+          />
+        </TableCard>
+
+        <PaginationCard
+          total={total}
+          start={start}
+          page={current}
+          size={size}
+          onPageChange={(nextPage) => setPageOf(tabKey, { page: nextPage })}
+          onSizeChange={(nextSize) => setPageOf(tabKey, { size: nextSize, page: 1 })}
         />
       </div>
-    </>
-  );
+    );
+  };
 
   return (
     <div style={{ marginBottom: 80 }}>
@@ -1247,7 +1276,7 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
         />
       </Modal>
 
-      <Card className={cardClassName}>
+      <div>
         <Tabs
           activeKey={activeTab}
           onChange={(key) => { setActiveTab(key); setSearchText(''); setStatusFilter(''); }}
@@ -1265,44 +1294,40 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
             {
               key: 'daily',
               label: <span><CalendarOutlined /> Daily Labour List</span>,
-              children: renderContent(dailyCounts, dailyWeekRows, dailyWeekColumns, 'No daily labour reports', 1200, dailyWeekTableProps),
+              children: renderContent('daily', 'Daily Labour List', dailyCounts, dailyWeekRows, dailyWeekColumns, 'No daily labour reports', 1200, dailyWeekTableProps),
             },
             {
               key: 'bills',
               label: <span><FileDoneOutlined /> Purchase Bills (Material)</span>,
-              children: renderContent(billCounts, filteredBills, billColumns, 'No purchase bills', 2320, {}, (
-                <Col xs={24} sm={12} md={6}>
-                  <Select
-                    showSearch
-                    allowClear
-                    placeholder="Filter by vendor"
-                    aria-label="Filter purchase bills by vendor"
-                    className="w-full"
-                    value={billVendorFilter}
-                    onChange={setBillVendorFilter}
-                    options={billVendorOptions}
-                    optionFilterProp="label"
-                  />
-                </Col>
+              children: renderContent('bills', 'Purchase Bills (Material)', billCounts, filteredBills, billColumns, 'No purchase bills', 2320, {}, (
+                <Select
+                  showSearch
+                  allowClear
+                  placeholder="Filter by vendor"
+                  aria-label="Filter purchase bills by vendor"
+                  style={{ width: 200 }}
+                  value={billVendorFilter}
+                  onChange={(v) => { setBillVendorFilter(v); setPageOf('bills', { page: 1 }); }}
+                  options={billVendorOptions}
+                  optionFilterProp="label"
+                />
               )),
             },
             {
               key: 'subBills',
               label: <span><FileDoneOutlined /> Subcontractor Bills</span>,
-              children: renderContent(subcontractorBillCounts, filteredSubcontractorBills, subcontractorBillColumns, 'No subcontractor bills', 1650, {}, (
-                <Col xs={24} sm={12} md={6}>
-                  <Select
-                    showSearch
-                    allowClear
-                    placeholder="Filter by subcontractor"
-                    aria-label="Filter subcontractor bills by subcontractor"
-                    className="w-full"
-                    value={subcontractorFilter}
-                    onChange={setSubcontractorFilter}
-                    options={subcontractorOptions}
-                    optionFilterProp="label"
-                  />
-                </Col>
+              children: renderContent('subBills', 'Subcontractor Bills', subcontractorBillCounts, filteredSubcontractorBills, subcontractorBillColumns, 'No subcontractor bills', 1650, {}, (
+                <Select
+                  showSearch
+                  allowClear
+                  placeholder="Filter by subcontractor"
+                  aria-label="Filter subcontractor bills by subcontractor"
+                  style={{ width: 200 }}
+                  value={subcontractorFilter}
+                  onChange={(v) => { setSubcontractorFilter(v); setPageOf('subBills', { page: 1 }); }}
+                  options={subcontractorOptions}
+                  optionFilterProp="label"
+                />
               )),
             },
             {
@@ -1317,19 +1342,19 @@ export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, e
                         key={f.label}
                         size="small"
                         type={expenseRoleFilter === f.value ? 'primary' : 'default'}
-                        onClick={() => setExpenseRoleFilter(f.value)}
+                        onClick={() => { setExpenseRoleFilter(f.value); setPageOf('expenses', { page: 1 }); }}
                       >
                         {f.label}
                       </Button>
                     ))}
                   </Flex>
-                  {renderContent(expenseCounts, expenseWeekRows, expenseWeekColumns, 'No expenses found', 900, expenseWeekTableProps)}
+                  {renderContent('expenses', 'Expenses', expenseCounts, expenseWeekRows, expenseWeekColumns, 'No expenses found', 900, expenseWeekTableProps)}
                 </>
               ),
             },
           ]}
         />
-      </Card>
+      </div>
 
       <Modal
         title="Reject Expense — Remarks"

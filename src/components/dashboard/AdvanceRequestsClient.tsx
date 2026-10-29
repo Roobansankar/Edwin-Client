@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { App, Button, Card, Col, DatePicker, Descriptions, Drawer, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { App, Button, Col, DatePicker, Descriptions, Drawer, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { CheckOutlined, CloseOutlined, DollarOutlined, EyeOutlined, FilePdfOutlined, HistoryOutlined, SearchOutlined } from '@ant-design/icons';
 import Link from 'next/link';
@@ -13,7 +13,8 @@ import { PaymentRowForm } from './PaymentRowForm';
 import { PaymentApprovalTag } from './PaymentApprovalTag';
 import type { AdvanceRequest, Payment, PurchaseBill } from '@/types/erp';
 import { useAuthStore } from '@/store/auth';
-import { cardClassName, formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
+import { formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
+import { PaginationCard, StatusCards, TableCard, TABLE_BODY_HEIGHT, useClientPagination } from './DataTablePanel';
 
 // Status shown in the table. A request stays 'admin_approved' in the database
 // (Purchase Order advances depend on that), and it is shown as Paid once the
@@ -380,18 +381,20 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
       },
     },
     {
-      title: 'History', key: 'history', width: 160,
+      // What is still owed to the vendor on the whole PO (request balance if no PO).
+      title: 'PO Balance', key: 'poBalance', width: 140, align: 'right',
+      render: (_, r) => (
+        <Typography.Text strong>{formatCurrency(Math.max(r.po ? r.po.balance : r.balance, 0))}</Typography.Text>
+      ),
+    },
+    {
+      title: 'History', key: 'history', width: 130,
       render: (_, r) => {
         const list = r.po ? r.po.payments : r.paymentList;
-        const balance = r.po ? r.po.balance : r.balance;
-        return (
-          <Flex vertical gap={4}>
-            {list.length === 0 && <Typography.Text type="secondary" className="text-xs">No payments yet</Typography.Text>}
-            <Typography.Text strong className="text-xs">{r.po ? 'PO Balance' : 'Request Balance'}: {formatCurrency(Math.max(balance, 0))}</Typography.Text>
-            {list.length > 0 && (
-              <Button size="small" icon={<HistoryOutlined />} onClick={() => setHistoryRow(r)}>History</Button>
-            )}
-          </Flex>
+        return list.length > 0 ? (
+          <Button size="small" icon={<HistoryOutlined />} onClick={() => setHistoryRow(r)}>History</Button>
+        ) : (
+          <Typography.Text type="secondary" className="text-xs">No payments yet</Typography.Text>
         );
       },
     },
@@ -428,8 +431,12 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
     },
   ];
 
+  // Rows shown in the table (Payments shows only approved ones), paged 5 at a time.
+  const tableRows = mode === 'payments' ? filtered.filter((row) => row.request.status === 'admin_approved') : filtered;
+  const pager = useClientPagination(tableRows);
+
   return (
-    <div className="flex flex-col gap-4">
+    <div>
       {!embedded && (
         <Flex justify="space-between" align="center" className={pageHeaderClassName} gap={16} wrap="wrap">
           <Typography.Title level={3} className={pageTitleClassName}>
@@ -438,75 +445,63 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
         </Flex>
       )}
 
-      <Row gutter={[12, 12]}>
-        <Col xs={12} sm={6}>
-          <Card size="small" className={`${cardClassName} !border-amber-500/30 !bg-amber-500/5`}>
-            <Statistic title={<span className="text-xs">Pending</span>} value={counts.pending} valueStyle={{ color: '#fa8c16' }} />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card size="small" className={`${cardClassName} !border-blue-500/30 !bg-blue-500/5`}>
-            <Statistic title={<span className="text-xs">Accepted</span>} value={counts.accepted} valueStyle={{ color: '#1677ff' }} />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card size="small" className={`${cardClassName} !border-yellow-500/30 !bg-yellow-500/5`}>
-            <Statistic title={<span className="text-xs">Payment Pending</span>} value={counts.paymentPending} valueStyle={{ color: '#d48806' }} />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card size="small" className={`${cardClassName} !border-green-500/30 !bg-green-500/5`}>
-            <Statistic title={<span className="text-xs">Paid</span>} value={counts.paid} valueStyle={{ color: '#52c41a' }} />
-          </Card>
-        </Col>
-      </Row>
+      <StatusCards
+        items={[
+          { key: 'pending', label: 'Pending', value: counts.pending },
+          { key: 'accepted', label: 'Accepted', value: counts.accepted },
+          { key: 'paymentPending', label: 'Payment Pending', value: counts.paymentPending },
+          { key: 'paid', label: 'Paid', value: counts.paid },
+        ]}
+      />
 
-      <Card className={cardClassName}>
-        <Flex justify="flex-end" align="center" className="mb-3! gap-3!" wrap="wrap">
-          <Typography.Text type="secondary" className="text-xs">
-            {filtered.length} of {rows.length} requests
-          </Typography.Text>
-          <Input.Search
-            placeholder="Search bill, PO, vendor, project..."
-            allowClear
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
-            style={{ width: 220 }}
-          />
-          <DatePicker.RangePicker
-            value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
-            onChange={(dates) => setDateRange(dates ? [dates[0], dates[1]] : [null, null])}
-            allowClear
-            placeholder={['From date', 'To date']}
-          />
-          <Select
-            placeholder="Filter by status"
-            style={{ width: 200 }}
-            value={statusFilter || undefined}
-            onChange={(val) => setStatusFilter(val || '')}
-            options={mode === 'reports'
-              ? STATUS_OPTIONS.filter((option) => ['', 'accepted', 'admin_approved', 'paid'].includes(option.value)).map((option) => ({
-                  ...option,
-                  label: option.value === 'accepted' ? 'Accounts Approved' : option.value === 'admin_approved' ? 'Admin Approved' : option.label,
-                }))
-              : mode === 'approvals'
-                ? STATUS_OPTIONS.map((option) => ({
+      <TableCard
+        title="Vendor Payment Requests"
+        subtitle={`${tableRows.length} of ${rows.length} requests`}
+        toolbar={(
+          <>
+            <Input
+              placeholder="Search bill, PO, vendor, project..."
+              allowClear
+              value={searchText}
+              onChange={(e) => { setSearchText(e.target.value); pager.reset(); }}
+              prefix={<SearchOutlined className="text-[var(--text-muted)]" />}
+              style={{ width: 220 }}
+            />
+            <DatePicker.RangePicker
+              value={dateRange[0] || dateRange[1] ? dateRange : [null, null]}
+              onChange={(dates) => { setDateRange(dates ? [dates[0], dates[1]] : [null, null]); pager.reset(); }}
+              allowClear
+              placeholder={['From date', 'To date']}
+            />
+            <Select
+              placeholder="Filter by status"
+              style={{ width: 200 }}
+              value={statusFilter || undefined}
+              onChange={(val) => { setStatusFilter(val || ''); pager.reset(); }}
+              options={mode === 'reports'
+                ? STATUS_OPTIONS.filter((option) => ['', 'accepted', 'admin_approved', 'paid'].includes(option.value)).map((option) => ({
                     ...option,
-                    label: option.value === 'pending' ? 'Accounts Pending' : option.value === 'accepted' ? 'Accounts Approved' : option.value === 'admin_approved' ? 'Admin Approved' : option.label,
+                    label: option.value === 'accepted' ? 'Accounts Approved' : option.value === 'admin_approved' ? 'Admin Approved' : option.label,
                   }))
-                : STATUS_OPTIONS}
-            allowClear
-            onClear={() => setStatusFilter('')}
-          />
-        </Flex>
-
+                : mode === 'approvals'
+                  ? STATUS_OPTIONS.map((option) => ({
+                      ...option,
+                      label: option.value === 'pending' ? 'Accounts Pending' : option.value === 'accepted' ? 'Accounts Approved' : option.value === 'admin_approved' ? 'Admin Approved' : option.label,
+                    }))
+                  : STATUS_OPTIONS}
+              allowClear
+              onClear={() => setStatusFilter('')}
+            />
+          </>
+        )}
+      >
         <Table
-          dataSource={mode === 'payments' ? filtered.filter((row) => row.request.status === 'admin_approved') : filtered}
+          className="approvals-table"
+          dataSource={pager.pageRows}
           columns={columns}
           rowKey={(row) => row.request.id}
-          pagination={{ pageSize: 10, showSizeChanger: false, showTotal: (total) => `Total ${total} requests` }}
-          scroll={{ x: 1100 }}
+          pagination={false}
+          scroll={{ x: 1100, y: TABLE_BODY_HEIGHT }}
           locale={{ emptyText: 'No vendor payment requests found' }}
           size="middle"
           expandable={{
@@ -544,7 +539,17 @@ export function AdvanceRequestsClient({ requests, bills, payments, embedded = fa
             },
           }}
         />
-      </Card>
+      </TableCard>
+
+      <PaginationCard
+        total={pager.total}
+        start={pager.start}
+        page={pager.page}
+        size={pager.size}
+        onPageChange={pager.setPage}
+        onSizeChange={pager.setSize}
+        noun="requests"
+      />
 
       <Drawer
         title={payTarget ? `Record Payment — ${payTarget.request.vendor?.name || ''}` : 'Record Payment'}

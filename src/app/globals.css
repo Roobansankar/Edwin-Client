@@ -175,3 +175,43 @@ body {
   background: #64748b;
 }
 
+
+/* Approvals tables (same look as the Projects table): bold uppercase header,
+   row hover, visible scrollbars. */
+.approvals-table .ant-table-thead > tr > th {
+  background: var(--card-bg) !important;
+  color: var(--text-primary) !important;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+.approvals-table .ant-table-tbody > tr > td {
+  vertical-align: middle;
+}
+
+.approvals-table .ant-table-tbody > tr.ant-table-row:hover > td {
+  background: var(--subtle-bg) !important;
+}
+
+.approvals-table .ant-table-body {
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 var(--subtle-bg);
+}
+
+.approvals-table .ant-table-body::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.approvals-table .ant-table-body::-webkit-scrollbar-track {
+  background: var(--subtle-bg);
+  border-radius: 999px;
+}
+
+.approvals-table .ant-table-body::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 999px;
+}
