@@ -298,3 +298,17 @@ body {
 .bill-detail .vendor-compare .compare-selected-row > td {
   background: rgba(16, 185, 129, 0.07) !important;
 }
+
+/* Login: stop Chrome/Edge autofill painting the email/password boxes light
+   blue. background-clip:text hides the autofill fill; the long transition
+   is a fallback for older browsers. */
+.login-form input:-webkit-autofill,
+.login-form input:-webkit-autofill:hover,
+.login-form input:-webkit-autofill:focus,
+.login-form input:-webkit-autofill:active {
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+  caret-color: var(--text-primary);
+  transition: background-color 600000s 0s, color 600000s 0s;
+}

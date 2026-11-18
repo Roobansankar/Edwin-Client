@@ -487,6 +487,14 @@ export type DashboardData = {
     headcount: number;
   }>;
   criticalActions: unknown[];
+  monthlyTrend?: Array<{
+    month: string;
+    inflow: number;
+    outflow: number;
+    count: number;
+  }>;
+  projectStatusCounts?: Record<string, number>;
+  insights?: MasterInsights;
   materialRequirementCounts?: {
     total: number;
     pending: number;
@@ -1010,4 +1018,17 @@ export type VendorCategory = {
   name: string;
   createdAt?: string;
   updatedAt?: string;
+};
+
+export type ApprovalBucket = { count: number; amount: number };
+
+export type MasterInsights = {
+  receivable: number;
+  openInvoiceCount: number;
+  overdueAmount: number;
+  overdueCount: number;
+  pendingApprovals: { expenses: ApprovalBucket; purchaseBills: ApprovalBucket; subcontractorBills: ApprovalBucket };
+  projectFinancials: Array<{ id: string; name: string; status: string; completionPct: number; budget: number; spent: number; received: number }>;
+  outflowByType: Array<{ type: string; amount: number }>;
+  recentPayments: Array<{ id: string; type: string; amount: number; date: string; payee: string | null; projectName: string | null; mode?: string | null }>;
 };

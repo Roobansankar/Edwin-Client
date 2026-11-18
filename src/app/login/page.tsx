@@ -57,7 +57,7 @@ function LoginForm() {
           onFinish={onFinish}
           layout="vertical"
           size="large"
-          className="text-left"
+          className="login-form text-left"
         >
           <Form.Item
             name="email"
