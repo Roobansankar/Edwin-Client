@@ -90,7 +90,7 @@ function LoginForm() {
               htmlType="submit"
               loading={loading}
               block
-              className="h-12 rounded-[10px] border-0 bg-linear-to-br! from-blue-500! to-violet-500! text-[15px] font-semibold"
+              className="h-12 rounded-[10px] border-0! bg-[var(--text-primary)]! text-[15px] font-semibold text-[var(--page-bg)]! shadow-none! transition-opacity hover:bg-[var(--text-primary)]! hover:text-[var(--page-bg)]! hover:opacity-90"
             >
               Sign In
             </Button>

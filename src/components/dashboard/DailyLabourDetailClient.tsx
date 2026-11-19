@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Card, Descriptions, Flex, Typography, Tag, Row, Col, Image, Button, Spin, Alert, Divider, Select, Modal, Input, message } from 'antd';
+import { Card, Descriptions, Flex, Typography, Tag, Row, Col, Image, Button, Alert, Divider, Select, Modal, Input, message } from 'antd';
 import { CalendarOutlined, ArrowLeftOutlined, ProjectOutlined, TeamOutlined, PictureOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { clientApiFetch } from '@/lib/client-api';
@@ -10,6 +10,7 @@ import type { DailyLabourReport, DailyWorker, Trade } from '@/types/erp';
 import { useAuthStore } from '@/store/auth';
 import { formatCurrency } from './ui';
 import { StatusCards } from './DataTablePanel';
+import { PageSkeleton } from '@/components/dashboard/Skeletons';
 
 const PHOTO_SLOTS = [1, 2, 3, 4, 5] as const;
 
@@ -61,7 +62,7 @@ export function DailyLabourDetailClient() {
     return Number(trade?.shiftWiseAmount ?? worker.shiftAmount ?? 0);
   };
 
-  if (loading) return <div className="flex h-screen items-center justify-center bg-[var(--page-bg)]"><Spin size="large" /></div>;
+  if (loading) return <PageSkeleton />;
   if (error) return <Alert type="error" message={error} showIcon />;
   if (!report) return null;
 

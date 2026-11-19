@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Card, Segmented, Typography, Spin, Space } from 'antd';
+import { Card, Segmented, Typography, Space } from 'antd';
+import { InlineLoader } from './Skeletons';
 import { NodeIndexOutlined, DatabaseOutlined, ClusterOutlined } from '@ant-design/icons';
 
 const erDiagram = `
@@ -160,7 +161,7 @@ export function ArchitectureDiagram() {
       <div className="relative min-h-[500px] w-full overflow-auto rounded-lg bg-[var(--page-bg)]/50 p-6">
         {loading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-[var(--page-bg)]/80">
-            <Spin size="large" description="Generating Diagram..." />
+            <InlineLoader label="Generating diagram…" />
           </div>
         )}
         <div 

@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { App, Avatar, Button, Card, DatePicker, Flex, Select, Spin, Table, Typography } from 'antd';
+import { useParams } from 'next/navigation';
+import { App, Avatar, Button, Card, DatePicker, Flex, Select, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { ArrowLeftOutlined, EyeOutlined, UserOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -10,6 +10,8 @@ import { clientApiFetch } from '@/lib/client-api';
 import type { WeeklyTimesheet, PagedResponse } from '@/types/erp';
 import { verifyTimesheet, approveTimesheet, rejectTimesheet, resetTimesheetStatus } from '@/actions/timesheet-approval';
 import { cardClassName, formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName } from './ui';
+import { PageSkeleton } from '@/components/dashboard/Skeletons';
+import { useDashboardRouter } from '@/components/dashboard/navigation';
 
 const STATUS_OPTIONS = [
   { label: 'Pending', value: 'pending' },
@@ -21,7 +23,7 @@ const STATUS_COLORS: Record<string, string> = { pending: 'orange', verified: 'pu
 
 export function EmployeeAttendanceDetailClient() {
   const { employeeId } = useParams<{ employeeId: string }>();
-  const router = useRouter();
+  const router = useDashboardRouter();
   const { message } = App.useApp();
   const [isPending, startTransition] = useTransition();
   const [timesheets, setTimesheets] = useState<WeeklyTimesheet[]>([]);
@@ -140,7 +142,7 @@ export function EmployeeAttendanceDetailClient() {
     },
   ];
 
-  if (loading) return <div className="flex h-[60vh] items-center justify-center"><Spin size="large" /></div>;
+  if (loading) return <PageSkeleton />;
 
   return (
     <div>

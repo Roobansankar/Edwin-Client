@@ -11,8 +11,8 @@ import type { Project, Trade, Team, DailyLabourReport } from '@/types/erp';
 import { cardClassName, formatCurrency } from './ui';
 import { useAuthStore } from '@/store/auth';
 import { GeoTagPhotoCapture, type GeoTagFile } from './GeoTagPhotoCapture';
+import { useDashboardRouter } from '@/components/dashboard/navigation';
 
-import { useRouter } from 'next/navigation';
 
 const MAX_PHOTOS_PER_SESSION = 5;
 const PHOTO_SLOTS = [1, 2, 3, 4, 5] as const;
@@ -27,7 +27,7 @@ type Props = {
 };
 
 export function DpwForm({ projects, trades, teams = [], initialValues, onSuccess, onCancel }: Props) {
-  const router = useRouter();
+  const router = useDashboardRouter();
   const [isPending, startTransition] = useTransition();
   const [isDeleting, setIsDeleting] = useState(false);
   const [isAddingTrade, setIsAddingTrade] = useState(false);

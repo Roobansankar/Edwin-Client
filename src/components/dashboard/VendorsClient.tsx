@@ -7,7 +7,6 @@ import type { ColumnsType } from 'antd/es/table';
 import { DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined, SearchOutlined, TeamOutlined } from '@ant-design/icons';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { useRouter } from 'next/navigation';
 import { createVendor, deleteVendor, updateVendor } from '@/actions/vendors';
 import { createVendorCategory, deleteVendorCategory } from '@/actions/vendor-categories';
 import type { Vendor, VendorCategory } from '@/types/erp';
@@ -18,6 +17,7 @@ import {
   titleIconClassName,
 } from './ui';
 import { PagedTableCard, StatusCards } from './DataTablePanel';
+import { useDashboardRouter } from '@/components/dashboard/navigation';
 
 const vendorSchema = z.object({
   name: z.string().min(2, 'Vendor name is required'),
@@ -63,7 +63,7 @@ export function VendorsClient({ vendors, categories }: VendorsClientProps) {
   const [dropdownNewCat, setDropdownNewCat] = useState('');
   const [isPending, startTransition] = useTransition();
   const { message } = App.useApp();
-  const router = useRouter();
+  const router = useDashboardRouter();
 
   const categoryOptions = useMemo(() => {
     const set = new Set<string>();

@@ -39,6 +39,7 @@ import { SubcontractorPaymentRequestsClient } from './SubcontractorPaymentReques
 import { LabourPaymentHistory } from './LabourPaymentHistory';
 import { paymentStatus } from '@/lib/payment-status';
 import { exportToExcel } from '@/lib/excel';
+import { exportTableToPdf, type ExportFormat } from '@/lib/pdf-export';
 import {
   formatCurrency,
   formatDate,
@@ -570,8 +571,17 @@ export function ReportsClient({
   };
   const paymentTag = (paid: number, balance: number) => <Tag color={paid <= 0 ? 'default' : balance > 0.005 ? 'warning' : 'success'}>{paymentStatus(paid, balance)}</Tag>;
 
-  const exportProjectBills = () => {
-    exportToExcel({
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const exportAs = (format: ExportFormat, spec: Parameters<typeof exportToExcel>[0]) => {
+    if (format === 'excel') { exportToExcel(spec); return; }
+    setPdfBusy(true);
+    exportTableToPdf({ ...spec, subtitle: 'Report' })
+      .catch((err) => { console.error(err); window.alert('Could not create the PDF. Please try again.'); })
+      .finally(() => setPdfBusy(false));
+  };
+
+  const exportProjectBills = (format: ExportFormat = 'excel') => {
+    exportAs(format, {
       filename: `Project-Bills-${selectedProjectId && selectedProjectId !== ALL_PROJECTS ? (projectNameById.get(selectedProjectId) || 'report') : 'all'}`,
       sheetName: 'Purchase Bills',
       headers: [
@@ -603,8 +613,8 @@ export function ReportsClient({
     });
   };
 
-  const exportProjectExpenses = () => {
-    exportToExcel({
+  const exportProjectExpenses = (format: ExportFormat = 'excel') => {
+    exportAs(format, {
       filename: `Project-Expenses-${expProjectId && expProjectId !== ALL_PROJECTS ? (projectNameById.get(expProjectId) || 'report') : 'all'}`,
       sheetName: 'Expenses',
       headers: [
@@ -640,8 +650,8 @@ export function ReportsClient({
     });
   };
 
-  const exportDailyLabour = () => {
-    exportToExcel({
+  const exportDailyLabour = (format: ExportFormat = 'excel') => {
+    exportAs(format, {
       filename: 'Daily-Labour-List',
       sheetName: 'Daily Labour',
       headers: hideProjectReport
@@ -672,8 +682,8 @@ export function ReportsClient({
     });
   };
 
-  const exportVendorBills = () => {
-    exportToExcel({
+  const exportVendorBills = (format: ExportFormat = 'excel') => {
+    exportAs(format, {
       filename: 'Vendor-Bills-Report',
       sheetName: 'Vendor Bills',
       headers: ['Created Date', 'MR Ref', 'PO Number', 'Bill No', 'Vendor', 'Project', 'Status', 'GST', 'Total Amount', 'Paid Amount', 'Balance Amount', 'Bill Date', 'Payment Status'],
@@ -695,8 +705,8 @@ export function ReportsClient({
     });
   };
 
-  const exportSubcontractorBills = () => {
-    exportToExcel({
+  const exportSubcontractorBills = (format: ExportFormat = 'excel') => {
+    exportAs(format, {
       filename: 'Subcontractor-Bills-Report',
       sheetName: 'Subcontractor Bills',
       headers: ['Subcontractor', 'Project', 'WO Number', 'Total Amount', 'WO Amount', 'Notes', 'Requested At', 'Status', 'Paid Amount', 'Balance', 'Payment Status'],
@@ -1088,14 +1098,24 @@ export function ReportsClient({
               placeholder={['From', 'To']}
             />
           </Flex>
-          <Button
-            type="primary"
-            icon={<FileExcelOutlined />}
-            disabled={projectBills.length === 0}
-            onClick={exportProjectBills}
-          >
-            Export to Excel
-          </Button>
+          <Flex gap={8} wrap="wrap">
+            <Button
+              icon={<FilePdfOutlined />}
+              disabled={projectBills.length === 0}
+              loading={pdfBusy}
+              onClick={() => exportProjectBills('pdf')}
+            >
+              Export to PDF
+            </Button>
+            <Button
+              type="primary"
+              icon={<FileExcelOutlined />}
+              disabled={projectBills.length === 0}
+              onClick={() => exportProjectBills()}
+            >
+              Export to Excel
+            </Button>
+          </Flex>
         </Flex>
 
         {!selectedProjectId ? (
@@ -1218,14 +1238,24 @@ export function ReportsClient({
                   placeholder={['From date', 'To date']}
                 />
               </Flex>
-              <Button
-                type="primary"
-                icon={<FileExcelOutlined />}
-                disabled={projectExpenses.length === 0}
-                onClick={exportProjectExpenses}
-              >
-                Export to Excel
-              </Button>
+              <Flex gap={8} wrap="wrap">
+                <Button
+                  icon={<FilePdfOutlined />}
+                  disabled={projectExpenses.length === 0}
+                  loading={pdfBusy}
+                  onClick={() => exportProjectExpenses('pdf')}
+                >
+                  Export to PDF
+                </Button>
+                <Button
+                  type="primary"
+                  icon={<FileExcelOutlined />}
+                  disabled={projectExpenses.length === 0}
+                  onClick={() => exportProjectExpenses()}
+                >
+                  Export to Excel
+                </Button>
+              </Flex>
             </Flex>
 
             <Flex gap={8} wrap="wrap" align="center" className="mb-4!">
@@ -1342,14 +1372,24 @@ export function ReportsClient({
               style={{ width: 280 }}
             />
           </Flex>
-          <Button
-            type="primary"
-            icon={<FileExcelOutlined />}
-            disabled={filteredDailyLabour.length === 0}
-            onClick={exportDailyLabour}
-          >
-            Export to Excel
-          </Button>
+          <Flex gap={8} wrap="wrap">
+            <Button
+              icon={<FilePdfOutlined />}
+              disabled={filteredDailyLabour.length === 0}
+              loading={pdfBusy}
+              onClick={() => exportDailyLabour('pdf')}
+            >
+              Export to PDF
+            </Button>
+            <Button
+              type="primary"
+              icon={<FileExcelOutlined />}
+              disabled={filteredDailyLabour.length === 0}
+              onClick={() => exportDailyLabour()}
+            >
+              Export to Excel
+            </Button>
+          </Flex>
         </Flex>
 
         {!hideProjectReport && <Row gutter={[16, 16]} className="mb-4">
@@ -1450,14 +1490,24 @@ export function ReportsClient({
               placeholder={['From', 'To']}
             />
           </Flex>
-          <Button
-            type="primary"
-            icon={<FileExcelOutlined />}
-            disabled={vendorBillRows.length === 0}
-            onClick={exportVendorBills}
-          >
-            Export to Excel
-          </Button>
+          <Flex gap={8} wrap="wrap">
+            <Button
+              icon={<FilePdfOutlined />}
+              disabled={vendorBillRows.length === 0}
+              loading={pdfBusy}
+              onClick={() => exportVendorBills('pdf')}
+            >
+              Export to PDF
+            </Button>
+            <Button
+              type="primary"
+              icon={<FileExcelOutlined />}
+              disabled={vendorBillRows.length === 0}
+              onClick={() => exportVendorBills()}
+            >
+              Export to Excel
+            </Button>
+          </Flex>
         </Flex>
 
         <Row gutter={[16, 16]} className="mb-4">
@@ -1542,14 +1592,24 @@ export function ReportsClient({
               placeholder={['From', 'To']}
             />
           </Flex>
-          <Button
-            type="primary"
-            icon={<FileExcelOutlined />}
-            disabled={subcontractorBillRows.length === 0}
-            onClick={exportSubcontractorBills}
-          >
-            Export to Excel
-          </Button>
+          <Flex gap={8} wrap="wrap">
+            <Button
+              icon={<FilePdfOutlined />}
+              disabled={subcontractorBillRows.length === 0}
+              loading={pdfBusy}
+              onClick={() => exportSubcontractorBills('pdf')}
+            >
+              Export to PDF
+            </Button>
+            <Button
+              type="primary"
+              icon={<FileExcelOutlined />}
+              disabled={subcontractorBillRows.length === 0}
+              onClick={() => exportSubcontractorBills()}
+            >
+              Export to Excel
+            </Button>
+          </Flex>
         </Flex>
 
         <Row gutter={[16, 16]} className="mb-4">

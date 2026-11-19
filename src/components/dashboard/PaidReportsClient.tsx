@@ -1,10 +1,10 @@
 'use client';
 
 import { useMemo, useState, type ReactNode } from 'react';
-import { Button, DatePicker, Flex, Input, Select, Table, Tabs, Tag, Typography } from 'antd';
+import { App, Button, DatePicker, Flex, Input, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { Dayjs } from 'dayjs';
-import { FileExcelOutlined, SearchOutlined } from '@ant-design/icons';
+import { FileExcelOutlined, FilePdfOutlined, SearchOutlined } from '@ant-design/icons';
 import { buildPaidReport, type PaidReportRow, type PaidReportSources } from '@/lib/paid-report';
 import { labourHistoryText } from '@/lib/labour-payment-history';
 import { LabourPaymentHistory } from './LabourPaymentHistory';
@@ -91,6 +91,41 @@ export function PaidReportsClient(props: PaidReportSources) {
     return `${row.name} ${row.project} ${row.description} ${row.billNo} ${row.type}`.toLowerCase().includes(search.toLowerCase()) &&
       (!range[0] || end >= range[0].format('YYYY-MM-DD')) && (!range[1] || row.week <= range[1].format('YYYY-MM-DD'));
   });
+  const { message } = App.useApp();
+  const [pdfBusy, setPdfBusy] = useState<string | null>(null);
+
+  // Builds the PDF only when asked (the PDF library loads on demand), then
+  // downloads it. Uses the same rows as the table, so filters apply.
+  const exportPdf = async (records: PaidReportRow[], key: string, label: string) => {
+    setPdfBusy(key);
+    try {
+      const [{ pdf }, { PaidReportPdf }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('./PaidReportPdf'),
+      ]);
+      const filters = [
+        search.trim() && `Search: "${search.trim()}"`,
+        (range[0] || range[1]) && `Dates: ${range[0]?.format('DD MMM YYYY') || '…'} – ${range[1]?.format('DD MMM YYYY') || '…'}`,
+        key === 'vendor' && vendorFilter && `Vendor: ${vendorFilter}`,
+        key === 'subcontractor' && subcontractorFilter && `Subcontractor: ${subcontractorFilter}`,
+      ].filter(Boolean).join('  ·  ');
+      const generatedAt = new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date());
+      const blob = await pdf(<PaidReportPdf title={label} records={records} filters={filters} generatedAt={generatedAt} />).toBlob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Paid-Report-${key}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : 'Could not create the PDF.');
+    } finally {
+      setPdfBusy(null);
+    }
+  };
+
   const exportRows = (records: PaidReportRow[], name: string) => exportToExcel({
     filename: `Paid-Report-${name}`, sheetName: 'Paid Report', headers,
     rows: records.map((row, index) => [index + 1, weekRangeLabel(row.week), weekNumber(row.week), row.project, row.item, row.type, row.name, row.description,
@@ -120,7 +155,10 @@ export function PaidReportsClient(props: PaidReportSources) {
     <div>
       <Flex justify="space-between" align="center" wrap="wrap" gap={12} className={pageHeaderClassName}>
         <Typography.Title level={3} className={pageTitleClassName}>Paid Report</Typography.Title>
-        <Button type="primary" icon={<FileExcelOutlined />} disabled={!filtered.length} onClick={() => exportRows(filtered, 'All')}>Export All to Excel</Button>
+        <Space wrap>
+          <Button icon={<FilePdfOutlined />} disabled={!filtered.length} loading={pdfBusy === 'all-header'} onClick={() => void exportPdf(filtered, 'all-header', 'All')}>Export All to PDF</Button>
+          <Button type="primary" icon={<FileExcelOutlined />} disabled={!filtered.length} onClick={() => exportRows(filtered, 'All')}>Export All to Excel</Button>
+        </Space>
       </Flex>
 
       <Tabs
@@ -158,7 +196,10 @@ export function PaidReportsClient(props: PaidReportSources) {
                 />
               )}
               {key !== 'all' && (
-                <Button icon={<FileExcelOutlined />} disabled={!records.length} onClick={() => exportRows(records, key)}>Export to Excel</Button>
+                <>
+                  <Button icon={<FilePdfOutlined />} disabled={!records.length} loading={pdfBusy === key} onClick={() => void exportPdf(records, key, label)}>Export to PDF</Button>
+                  <Button icon={<FileExcelOutlined />} disabled={!records.length} onClick={() => exportRows(records, key)}>Export to Excel</Button>
+                </>
               )}
             </>
           );

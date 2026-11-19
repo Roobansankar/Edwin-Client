@@ -5,12 +5,13 @@ import dayjs from 'dayjs';
 import { clientApiFetch } from '@/lib/client-api';
 import { ExpenseForm } from '@/components/dashboard/ExpenseForm';
 import { deleteExpense } from '@/actions/expenses';
-import { Alert, Spin, Typography, Button, DatePicker, Drawer, Input, Space, Image, Flex, Popconfirm, Tooltip, App } from 'antd';
+import { Alert, Typography, Button, DatePicker, Drawer, Input, Space, Image, Flex, Popconfirm, Tooltip, App } from 'antd';
 import type { Project, Trade, Expense, ExpenseType } from '@/types/erp';
 import { DollarOutlined, PlusOutlined, FileTextOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
 import { formatCurrency, formatDate, StatusTag, pageHeaderClassName, pageTitleClassName, titleIconClassName } from '@/components/dashboard/ui';
 import type { ColumnsType } from 'antd/es/table';
 import { PagedTableCard, StatusCards } from '@/components/dashboard/DataTablePanel';
+import { PageSkeleton } from '@/components/dashboard/Skeletons';
 
 export default function NewExpensePage() {
   const [data, setData] = useState<{ projects: Project[], trades: Trade[], expenseTypes: ExpenseType[], expenses: Expense[] } | null>(null);
@@ -229,7 +230,7 @@ export default function NewExpensePage() {
     },
   ];
 
-  if (loading) return <div className="p-10 text-center"><Spin size="large" /></div>;
+  if (loading) return <PageSkeleton />;
   if (error) return <Alert title="Error" description={error} type="error" showIcon />;
   if (!data) return null;
 

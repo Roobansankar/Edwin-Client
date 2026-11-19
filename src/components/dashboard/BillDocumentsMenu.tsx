@@ -2,12 +2,13 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Alert, App, Button, Card, Drawer, Dropdown, Flex, Spin, Tag, Typography } from 'antd';
+import { Alert, App, Button, Card, Drawer, Dropdown, Flex, Tag, Typography } from 'antd';
 import { CheckCircleFilled, FilePdfOutlined, FileTextOutlined } from '@ant-design/icons';
 import { markBillDocumentChecked } from '@/actions/invoices';
 import { clientApiFetch } from '@/lib/client-api';
 import type { BillTrail, PurchaseBill } from '@/types/erp';
 import { StatusTag, formatCurrency, formatDate } from './ui';
+import { ListSkeleton } from '@/components/dashboard/Skeletons';
 
 // The three documents accounts must open and tick before a bill can be
 // accounts-approved. Shared by the Bills page and the Approvals page.
@@ -221,7 +222,7 @@ export function BillDocumentsMenu({ bill, canApprove }: Props) {
               </Flex>
             </Card>
 
-            {trailLoading ? <Flex justify="center" className="py-6!"><Spin /></Flex> : renderDocBody(doc)}
+            {trailLoading ? <ListSkeleton rows={3} avatar={false} /> : renderDocBody(doc)}
 
             {canApprove && (
               <Flex justify="flex-end">

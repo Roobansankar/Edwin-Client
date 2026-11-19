@@ -37,7 +37,7 @@ function TrailStage({
   muted?: boolean;
 }) {
   return (
-    <Card size="small" className={`trail-stage min-w-44 flex-1 border! border-[var(--border)]! bg-[var(--subtle-bg)]! ${muted ? 'opacity-50' : ''}`}>
+    <Card size="small" className={`trail-stage min-w-44 flex-1 border! border-[var(--border)]! bg-[var(--card-bg)]! ${muted ? 'opacity-50' : ''}`}>
       <Typography.Text type="secondary" className="text-[10px] uppercase tracking-wide block">{label}</Typography.Text>
       <Typography.Text strong className="block">{refNo || '-'}</Typography.Text>
       {sub && <Typography.Text type="secondary" className="text-xs block">{sub}</Typography.Text>}

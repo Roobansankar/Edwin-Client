@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useTransition, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { App, Button, Card, Col, DatePicker, Divider, Drawer, Flex, Form, Row, Select, Space, Table, Typography, Modal, Input, InputNumber, Popconfirm, Dropdown, MenuProps } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
@@ -24,6 +23,7 @@ import {
   secondaryTextClassName,
   titleIconClassName,
 } from './ui';
+import { useDashboardRouter } from '@/components/dashboard/navigation';
 
 const invoiceSchema = z.object({
   projectId: z.string().min(1, 'Select a project'),
@@ -48,7 +48,7 @@ type InvoicesClientProps = {
 };
 
 export function InvoicesClient({ invoices, projects }: InvoicesClientProps) {
-  const router = useRouter();
+  const router = useDashboardRouter();
   const [open, setOpen] = useState(false);
   const [previewInvoice, setPreviewInvoice] = useState<SalesInvoice | null>(null);
   const [paymentInvoice, setPaymentInvoice] = useState<SalesInvoice | null>(null);

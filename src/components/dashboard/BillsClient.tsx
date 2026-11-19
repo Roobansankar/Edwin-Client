@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { App, Button, DatePicker, Drawer, Flex, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, Typography, Upload, Divider } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
@@ -27,6 +26,7 @@ import {
   titleIconClassName,
 } from './ui';
 import { PagedTableCard, StatusCards } from './DataTablePanel';
+import { useDashboardRouter } from '@/components/dashboard/navigation';
 
 const ordinal = (n: number) => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`);
 
@@ -82,7 +82,7 @@ export function BillsClient({ bills, vendors, projects, purchaseOrders, userRole
   // Recording a bill is purchase team's job (they're the ones receiving
   // vendor bills); accounts only reviews/approves and manages payments.
   const canRecordBill = userRole === 'admin' || userRole === 'purchase_team';
-  const router = useRouter();
+  const router = useDashboardRouter();
   const [open, setOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<PurchaseBill | null>(null);
   const [paymentBill, setPaymentBill] = useState<PurchaseBill | null>(null);

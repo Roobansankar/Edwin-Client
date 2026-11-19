@@ -1,11 +1,11 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Avatar, Badge, Card, Col, Empty, Flex, Input, Row, Tabs, Tag, Typography } from 'antd';
 import { SearchOutlined, TeamOutlined, UserOutlined } from '@ant-design/icons';
 import type { WeeklyTimesheet } from '@/types/erp';
 import { cardClassName, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
+import { useDashboardRouter } from '@/components/dashboard/navigation';
 
 const TAB_ROLES = [
   { key: 'site_engineer', label: 'Site Engineers' },
@@ -27,7 +27,7 @@ type PersonSummary = {
 };
 
 export function SiteEngineerAttendanceClient({ timesheets }: Props) {
-  const router = useRouter();
+  const router = useDashboardRouter();
   const [activeTab, setActiveTab] = useState('site_engineer');
   const [peopleSearch, setPeopleSearch] = useState('');
 

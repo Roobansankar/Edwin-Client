@@ -7,7 +7,6 @@ import type { ColumnsType } from 'antd/es/table';
 import {
   CalendarOutlined, CameraOutlined, HistoryOutlined, CheckCircleOutlined, EyeOutlined, FileDoneOutlined, FilePdfOutlined, SearchOutlined, WalletOutlined
 } from '@ant-design/icons';
-import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 
 import dayjs from 'dayjs';
@@ -30,6 +29,7 @@ import {
   weekRangeLabel,
   weekStartOf,
 } from './ui';
+import { useDashboardRouter } from '@/components/dashboard/navigation';
 
 const { Title } = Typography;
 
@@ -241,7 +241,7 @@ function expenseWeekStatus(expenses: Expense[]): { label: string; color: string 
 const APPROVAL_TAB_KEYS = ['daily', 'bills', 'subBills', 'expenses', 'vendor', 'subcontractor'];
 
 export function ApprovalsClient({ bills, subcontractorBills, vendorQuotations, expenses, dailyReports, advanceRequests, subcontractorPaymentRequests, payments, initialTab }: Props) {
-  const router = useRouter();
+  const router = useDashboardRouter();
   const [isPending, startTransition] = useTransition();
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
   const [searchText, setSearchText] = useState('');

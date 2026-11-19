@@ -1,75 +1,38 @@
 'use client';
 
-import { Alert, Button, Card, Col, Row, Skeleton, Statistic, Typography } from 'antd';
+import { Alert, Button, Typography } from 'antd';
 import {
   ReloadOutlined,
-  ArrowUpOutlined,
-  ArrowDownOutlined,
   FileTextOutlined,
   ShoppingCartOutlined,
   SolutionOutlined,
+  SwapOutlined,
   TeamOutlined,
-  WalletOutlined
+  WalletOutlined,
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
 import type { AccountsDashboardData, PayableCategory } from '@/types/erp';
 import { clientApiFetch } from '@/lib/client-api';
-import {
-  KpiCard,
-  cardClassName,
-  formatCurrency,
-  kpiCardClassNames,
-  mutedTextClassName,
-  pageTitleClassName,
-  secondaryTextClassName,
-  statisticClassNames,
-} from './ui';
+import type { KpiTone } from './ui';
+import { KpiCard, formatCurrency, mutedTextClassName, pageTitleClassName } from './ui';
+import { PageSkeleton } from './Skeletons';
+import { useDashboardRouter } from '@/components/dashboard/navigation';
 
-// One card per payable category. `href` is the page where that category
-// gets paid; `unit` labels the count shown under the amount.
-const PAYABLE_CARDS: Array<{ key: PayableCategory; title: string; icon: React.ReactNode; unit: string; href: string }> = [
-  { key: 'labour', title: 'Labour Payable', icon: <TeamOutlined className="text-rose-500" />, unit: 'pending weekly payments', href: '/dashboard/labour-payments' },
-  { key: 'material', title: 'Material Payable', icon: <ShoppingCartOutlined className="text-rose-500" />, unit: 'unpaid bills', href: '/dashboard/accounts/bills' },
-  { key: 'subcontractor', title: 'Sub Contractor Payable', icon: <SolutionOutlined className="text-rose-500" />, unit: 'admin-approved bills unpaid', href: '/dashboard/accounts/subcontractor-bills' },
-  { key: 'expenses', title: 'Expenses Payable', icon: <WalletOutlined className="text-rose-500" />, unit: 'pending weekly payments', href: '/dashboard/expense-payments' },
+// One card per payable category, each with its own colour. `href` is the page
+// where that category gets paid; `unit` labels the count under the amount.
+const PAYABLE_CARDS: Array<{ key: PayableCategory; title: string; icon: React.ReactNode; tone: KpiTone; unit: string; href: string }> = [
+  { key: 'labour', title: 'Labour Payable', icon: <TeamOutlined />, tone: 'amber', unit: 'pending weekly payments', href: '/dashboard/labour-payments' },
+  { key: 'material', title: 'Material Payable', icon: <ShoppingCartOutlined />, tone: 'blue', unit: 'unpaid bills', href: '/dashboard/accounts/bills' },
+  { key: 'subcontractor', title: 'Sub Contractor Payable', icon: <SolutionOutlined />, tone: 'violet', unit: 'admin-approved bills unpaid', href: '/dashboard/accounts/subcontractor-bills' },
+  { key: 'expenses', title: 'Expenses Payable', icon: <WalletOutlined />, tone: 'rose', unit: 'pending weekly payments', href: '/dashboard/expense-payments' },
 ];
 
 async function loadAccountsDashboard(): Promise<AccountsDashboardData> {
   return await clientApiFetch<AccountsDashboardData>('/dashboard/accounts');
 }
 
-function DashboardSkeleton() {
-  return (
-    <div>
-      <div className="mb-6 flex items-center justify-between">
-        <Skeleton.Input active size="large" className="w-64!" />
-        <Skeleton.Button active />
-      </div>
-      <Row gutter={[16, 16]} className="mb-4">
-        {[0, 1, 2].map((item) => (
-          <Col key={item} xs={24} sm={12} md={8}>
-            <Card className={cardClassName}>
-              <Skeleton active paragraph={{ rows: 1 }} />
-            </Card>
-          </Col>
-        ))}
-      </Row>
-      <Row gutter={[16, 16]}>
-        {[0, 1, 2, 3].map((item) => (
-          <Col key={item} xs={24} sm={12} lg={6}>
-            <Card className={cardClassName}>
-              <Skeleton active paragraph={{ rows: 1 }} />
-            </Card>
-          </Col>
-        ))}
-      </Row>
-    </div>
-  );
-}
-
 export function AccountsManagerDashboardClient() {
-  const router = useRouter();
+  const router = useDashboardRouter();
   const {
     data,
     error,
@@ -83,10 +46,13 @@ export function AccountsManagerDashboardClient() {
   });
 
   if (isPending) {
-    return <DashboardSkeleton />;
+    return <PageSkeleton />;
   }
 
   const kpis = data?.kpis;
+  const inflow = Number(kpis?.monthInflow || 0);
+  const outflow = Number(kpis?.monthOutflow || 0);
+  const net = inflow - outflow;
 
   // Material is the long-standing Total Payables figure, so it still has a
   // value when the API response carries no per-category breakdown.
@@ -120,79 +86,92 @@ export function AccountsManagerDashboardClient() {
             Receivables, collections, payments and payables at a glance
           </Typography.Text>
         </div>
-        <Button
-          icon={<ReloadOutlined />}
-          onClick={() => void refetch()}
-          loading={isFetching}
-        >
+        <Button icon={<ReloadOutlined />} onClick={() => void refetch()} loading={isFetching}>
           Refresh
         </Button>
       </div>
 
-      <Row gutter={[16, 16]} className="mb-6">
-        <Col xs={24} sm={12} md={8}>
-          <KpiCard
-            tone="green"
-            title="Total Receivables"
-            value={formatCurrency(kpis?.totalReceivable || 0)}
-            icon={<FileTextOutlined className="text-emerald-500" />}
-            note={kpis ? `${kpis.pendingInvoiceCount} pending invoices` : 'Not available'}
-            onClick={() => router.push('/dashboard/accounts/invoices')}
-          />
-        </Col>
-        <Col xs={24} sm={12} md={16}>
-          {/* Inflow and outflow for the current month, side by side in one card. */}
-          <Card
-            className={`${kpiCardClassNames.blue} h-full cursor-pointer`}
-            size="small"
-            hoverable
-            onClick={() => router.push('/dashboard/payments')}
-          >
-            <Typography.Text className={secondaryTextClassName}>Inflow &amp; Outflow (This Month)</Typography.Text>
-            <Row gutter={16} className="mt-2">
-              <Col span={12}>
-                <Statistic
-                  title={<Typography.Text className={secondaryTextClassName}>Inflow</Typography.Text>}
-                  value={kpis ? formatCurrency(kpis.monthInflow) : '—'}
-                  prefix={<ArrowUpOutlined className="text-emerald-500" />}
-                  classNames={statisticClassNames}
-                />
-              </Col>
-              <Col span={12}>
-                <Statistic
-                  title={<Typography.Text className={secondaryTextClassName}>Outflow</Typography.Text>}
-                  value={kpis ? formatCurrency(kpis.monthOutflow) : '—'}
-                  prefix={<ArrowDownOutlined className="text-amber-500" />}
-                  classNames={statisticClassNames}
-                />
-              </Col>
-            </Row>
-            {kpis && (
-              <Typography.Text className={`mt-1 block ${secondaryTextClassName}`} style={{ fontSize: 14 }}>
-                Net: <Typography.Text strong>{formatCurrency(Number(kpis.monthInflow || 0) - Number(kpis.monthOutflow || 0))}</Typography.Text>
-              </Typography.Text>
-            )}
-          </Card>
-        </Col>
-      </Row>
+      <div className="rise-stagger mb-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <KpiCard
+          tone="green"
+          title="Total Receivables"
+          value={formatCurrency(kpis?.totalReceivable || 0)}
+          icon={<FileTextOutlined />}
+          note={kpis ? `${kpis.pendingInvoiceCount} pending invoices` : 'Not available'}
+          onClick={() => router.push('/dashboard/accounts/invoices')}
+        />
 
-      <Row gutter={[16, 16]}>
+        {/* Inflow and outflow for the current month, side by side in one card. */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => router.push('/dashboard/payments')}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/dashboard/payments'); } }}
+          className="group cursor-pointer rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-4 transition-colors hover:border-[var(--text-muted)] md:col-span-2"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm text-[var(--text-muted)]">Inflow &amp; Outflow (This Month)</span>
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm text-sky-500">
+              <SwapOutlined />
+            </span>
+          </div>
+          <div className="mt-3 grid grid-cols-2 divide-x divide-[var(--border)]">
+            <div className="pr-4">
+              <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" /> Inflow
+              </div>
+              <div className="mt-1 text-2xl font-bold tabular-nums text-[var(--text-primary)]">{kpis ? formatCurrency(inflow) : '—'}</div>
+            </div>
+            <div className="pl-4">
+              <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+                <span className="h-2 w-2 rounded-full bg-amber-500" /> Outflow
+              </div>
+              <div className="mt-1 text-2xl font-bold tabular-nums text-[var(--text-primary)]">{kpis ? formatCurrency(outflow) : '—'}</div>
+            </div>
+          </div>
+
+          {/* Share of money in vs money out this month */}
+          <div className="mt-3 flex h-1.5 overflow-hidden rounded-full bg-[var(--subtle-hover-bg)]">
+            {inflow + outflow > 0 && (
+              <>
+                <div className="h-full bg-emerald-500" style={{ width: `${(inflow / (inflow + outflow)) * 100}%` }} />
+                <div className="h-full bg-amber-500" style={{ width: `${(outflow / (inflow + outflow)) * 100}%` }} />
+              </>
+            )}
+          </div>
+
+          <div className="mt-2 flex items-center justify-between text-xs text-[var(--text-muted)]">
+            {kpis ? (
+              <span>
+                Net this month{' '}
+                <span className={`ml-1 font-semibold ${net >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                  {net >= 0 ? '+' : ''}{formatCurrency(net)}
+                </span>
+              </span>
+            ) : (
+              <span>Not available</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Payables</div>
+      <div className="rise-stagger grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {PAYABLE_CARDS.map((card) => {
           const payable = payableFor(card.key);
           return (
-            <Col key={card.key} xs={24} sm={12} lg={6}>
-              <KpiCard
-                tone="rose"
-                title={card.title}
-                value={payable ? formatCurrency(payable.amount) : '—'}
-                icon={card.icon}
-                note={payable ? `${payable.count} ${card.unit}` : 'Not available'}
-                onClick={() => router.push(card.href)}
-              />
-            </Col>
+            <KpiCard
+              key={card.key}
+              tone={card.tone}
+              title={card.title}
+              value={payable ? formatCurrency(payable.amount) : '—'}
+              icon={card.icon}
+              note={payable ? `${payable.count} ${card.unit}` : 'Not available'}
+              onClick={() => router.push(card.href)}
+            />
           );
         })}
-      </Row>
+      </div>
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import dayjs from 'dayjs';
-import { Card, Statistic, Tag, Typography } from 'antd';
+import { Tag } from 'antd';
 
 const statusColors: Record<string, string> = {
   planning: 'blue',
@@ -34,7 +34,7 @@ const statusColors: Record<string, string> = {
   staff_expense: 'geekblue',
 };
 
-export const cardClassName = 'rounded-xl! border! border-[var(--border)]! bg-[var(--subtle-bg)]!';
+export const cardClassName = 'rounded-xl! border! border-[var(--border)]! bg-[var(--card-bg)]!';
 export const pageHeaderClassName = 'mb-[13px]! flex flex-wrap items-center justify-between gap-4';
 export const pageTitleClassName = 'm-0! text-[var(--text-primary)]!';
 export const titleIconClassName = 'mr-2';
@@ -59,6 +59,16 @@ export type KpiTone = keyof typeof kpiCardClassNames;
 
 // One KPI tile, drawn the same way on the Master, Purchase, Accounts Manager
 // and Engineer dashboards: muted title, bold value, coloured icon, optional note.
+const kpiToneColors: Record<KpiTone, string> = {
+  blue: '#3b82f6',
+  green: '#10b981',
+  amber: '#f59e0b',
+  violet: '#8b5cf6',
+  purple: '#a855f7',
+  orange: '#f97316',
+  rose: '#f43f5e',
+};
+
 export function KpiCard({
   tone,
   title,
@@ -74,25 +84,29 @@ export function KpiCard({
   note?: ReactNode;
   onClick?: () => void;
 }) {
+  const color = kpiToneColors[tone];
   return (
-    <Card
-      className={`${kpiCardClassNames[tone]} h-full ${onClick ? 'cursor-pointer' : ''}`}
-      size="small"
-      hoverable={!!onClick}
+    <div
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
       onClick={onClick}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
+      className={`group h-full rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-4 transition-colors ${onClick ? 'cursor-pointer hover:border-[var(--text-muted)]' : ''}`}
     >
-      <Statistic
-        title={<Typography.Text className={secondaryTextClassName}>{title}</Typography.Text>}
-        value={value}
-        prefix={icon}
-        classNames={statisticClassNames}
-      />
-      {note && (
-        <Typography.Text className={`mt-1 block ${secondaryTextClassName}`} style={{ fontSize: 14 }}>
-          {note}
-        </Typography.Text>
-      )}
-    </Card>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm text-[var(--text-muted)]">{title}</span>
+        <span
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm [&_.anticon]:text-inherit!"
+          style={{ background: `${color}1a`, color }}
+        >
+          {icon}
+        </span>
+      </div>
+      <div className="mt-2 text-2xl font-bold tabular-nums text-[var(--text-primary)]">{value}</div>
+      <div className="mt-1 flex min-h-4 items-center justify-between gap-2 text-xs text-[var(--text-muted)]">
+        <span className="min-w-0 truncate">{note}</span>
+      </div>
+    </div>
   );
 }
 

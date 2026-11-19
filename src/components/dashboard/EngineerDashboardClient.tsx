@@ -1,6 +1,5 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { Alert, Button, Card, Col, Progress, Row, Skeleton, Space, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { CheckCircleOutlined, ProjectOutlined, ReloadOutlined, ShoppingCartOutlined, FileTextOutlined } from '@ant-design/icons';
@@ -8,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { DashboardData, DashboardProject } from '@/types/erp';
 import { clientApiFetch } from '@/lib/client-api';
 import { KpiCard, cardClassName, mutedTextClassName, pageTitleClassName } from './ui';
+import { useDashboardRouter } from '@/components/dashboard/navigation';
 
 const emptyDashboard: DashboardData = {
   totalProjects: 0,
@@ -43,7 +43,7 @@ function DashboardSkeleton() {
 }
 
 export function EngineerDashboardClient() {
-  const router = useRouter();
+  const router = useDashboardRouter();
   const {
     data: dashboardData,
     error,

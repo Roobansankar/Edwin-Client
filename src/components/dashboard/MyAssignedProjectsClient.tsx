@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, Table, Typography, Progress, Alert, Spin } from 'antd';
+import { Card, Table, Typography, Progress, Alert } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { ProjectOutlined } from '@ant-design/icons';
 import { fetchPurchaseAssignedProjects } from '@/lib/client-api';
 import { StatusTag, cardClassName, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
+import { TableSkeleton } from '@/components/dashboard/Skeletons';
 
 type AssignedProject = {
   id: string;
@@ -54,7 +55,7 @@ export function MyAssignedProjectsClient() {
 
       <Card className={cardClassName}>
         {loading ? (
-          <div className="flex h-40 items-center justify-center"><Spin size="large" /></div>
+          <TableSkeleton />
         ) : (
           <Table
             dataSource={projects}

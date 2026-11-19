@@ -1,14 +1,16 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { App, Avatar, Button, Card, Col, Flex, Popconfirm, Row, Spin, Statistic, Table, Typography } from 'antd';
+import { useParams } from 'next/navigation';
+import { App, Avatar, Button, Card, Col, Flex, Popconfirm, Row, Statistic, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { ArrowLeftOutlined, CheckCircleOutlined, CloseCircleOutlined, SafetyCertificateOutlined, UndoOutlined, UserOutlined } from '@ant-design/icons';
 import { clientApiFetch } from '@/lib/client-api';
 import type { WeeklyTimesheet, TimesheetRow, Project } from '@/types/erp';
 import { verifyTimesheet, approveTimesheet, rejectTimesheet, resetTimesheetStatus } from '@/actions/timesheet-approval';
 import { StatusTag, cardClassName, formatCurrency, formatDate, pageHeaderClassName, pageTitleClassName } from './ui';
+import { PageSkeleton } from '@/components/dashboard/Skeletons';
+import { useDashboardRouter } from '@/components/dashboard/navigation';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const DAYS = ['monHours', 'tueHours', 'wedHours', 'thuHours', 'friHours', 'satHours', 'sunHours'] as const;
@@ -16,7 +18,7 @@ const FIXED_LABELS: Record<string, string> = { holiday: 'Holiday', idle: 'Idle',
 
 export function TimesheetWeekDetailClient() {
   const { employeeId, timesheetId } = useParams<{ employeeId: string; timesheetId: string }>();
-  const router = useRouter();
+  const router = useDashboardRouter();
   const { message } = App.useApp();
   const [isPending, startTransition] = useTransition();
   const [timesheet, setTimesheet] = useState<WeeklyTimesheet | null>(null);
@@ -70,7 +72,7 @@ export function TimesheetWeekDetailClient() {
     });
   };
 
-  if (loading) return <div className="flex h-[60vh] items-center justify-center"><Spin size="large" /></div>;
+  if (loading) return <PageSkeleton />;
   if (error) return <Typography.Text type="danger">{error}</Typography.Text>;
   if (!timesheet) return null;
 

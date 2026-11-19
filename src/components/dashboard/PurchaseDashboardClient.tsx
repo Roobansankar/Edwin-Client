@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Alert, Card, Col, Divider, Flex, Row, Spin, Typography } from 'antd';
+import { Alert, Card, Col, Divider, Flex, Row, Typography } from 'antd';
 import { ShoppingCartOutlined, InboxOutlined, FileTextOutlined, WarningOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { fetchPurchaseDashboard } from '@/lib/client-api';
 import {
@@ -13,9 +12,11 @@ import {
   StatusTag,
   formatDate,
 } from './ui';
+import { PageSkeleton } from '@/components/dashboard/Skeletons';
+import { useDashboardRouter } from '@/components/dashboard/navigation';
 
 export function PurchaseDashboardClient() {
-  const router = useRouter();
+  const router = useDashboardRouter();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +35,7 @@ export function PurchaseDashboardClient() {
     loadData();
   }, []);
 
-  if (loading) return <div className="flex h-[400px] items-center justify-center"><Spin size="large" /></div>;
+  if (loading) return <PageSkeleton />;
   if (error) return <Alert type="error" message={error} showIcon />;
   if (!data) return null;
 
@@ -51,8 +52,7 @@ export function PurchaseDashboardClient() {
         </div>
       </div>
 
-      <Row gutter={[16, 16]} className="mb-6">
-        <Col xs={24} sm={12} lg={6}>
+      <div className="rise-stagger mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <KpiCard
             tone="blue"
             title="Material Request"
@@ -60,8 +60,6 @@ export function PurchaseDashboardClient() {
             icon={<FileTextOutlined className="text-blue-500" />}
             onClick={() => router.push('/dashboard/material-requirement')}
           />
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
           <KpiCard
             tone="green"
             title="Active POs"
@@ -70,8 +68,6 @@ export function PurchaseDashboardClient() {
             note="Approved"
             onClick={() => router.push('/dashboard/purchase-orders')}
           />
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
           <KpiCard
             tone="purple"
             title="Material Received"
@@ -79,8 +75,6 @@ export function PurchaseDashboardClient() {
             icon={<InboxOutlined className="text-purple-500" />}
             onClick={() => router.push('/dashboard/material-received')}
           />
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
           <KpiCard
             tone="amber"
             title="Pending POs"
@@ -89,8 +83,6 @@ export function PurchaseDashboardClient() {
             note="Awaiting Approval"
             onClick={() => router.push('/dashboard/purchase-orders')}
           />
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
           <KpiCard
             tone="orange"
             title="Bills"
@@ -99,8 +91,7 @@ export function PurchaseDashboardClient() {
             note="Unpaid bills"
             onClick={() => router.push('/dashboard/accounts/bills')}
           />
-        </Col>
-      </Row>
+      </div>
 
       <Row gutter={[16, 16]}>
         <Col xs={24}>

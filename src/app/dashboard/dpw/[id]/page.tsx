@@ -3,11 +3,12 @@
 import { useEffect, useState, use } from 'react';
 import { clientApiFetch } from '@/lib/client-api';
 import { DpwForm } from '@/components/dashboard/DpwForm';
-import { Typography, Breadcrumb, Flex, Alert, Spin } from 'antd';
+import { Typography, Breadcrumb, Flex, Alert } from 'antd';
 import { CalendarOutlined } from '@ant-design/icons';
 import { pageHeaderClassName, pageTitleClassName, titleIconClassName } from '@/components/dashboard/ui';
 import Link from 'next/link';
 import type { Project, Trade, Team, DailyLabourReport } from '@/types/erp';
+import { PageSkeleton } from '@/components/dashboard/Skeletons';
 
 export default function EditDpwPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -35,7 +36,7 @@ export default function EditDpwPage({ params }: { params: Promise<{ id: string }
     loadData();
   }, [id]);
 
-  if (loading) return <div className="p-10 text-center"><Spin size="large" /></div>;
+  if (loading) return <PageSkeleton />;
   if (error) return <Alert title="Error" description={error} type="error" showIcon />;
   if (!data) return null;
 

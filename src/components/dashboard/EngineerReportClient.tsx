@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import {
-  Alert, Button, Card, Collapse, Descriptions, Flex, Progress, Space, Spin, Table, Tag, Typography, Statistic, Row, Col, Select, DatePicker,
+  Alert, Button, Card, Collapse, Descriptions, Flex, Progress, Space, Table, Tag, Typography, Statistic, Row, Col, Select, DatePicker,
 } from 'antd';
 import {
   ProjectOutlined, ShoppingCartOutlined, CalendarOutlined, UserOutlined,
@@ -11,6 +11,7 @@ import {
 import { useAuthStore } from '@/store/auth';
 import { clientApiFetch } from '@/lib/client-api';
 import { cardClassName, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
+import { PageSkeleton } from '@/components/dashboard/Skeletons';
 
 type EngineerReport = {
   engineer: { id: string; name: string; email: string; employeeId: string | null; phone: string | null };
@@ -70,9 +71,7 @@ export function EngineerReportClient() {
 
   if (loading) {
     return (
-      <Flex justify="center" align="center" className="min-h-64">
-        <Spin size="large" />
-      </Flex>
+      <PageSkeleton />
     );
   }
 

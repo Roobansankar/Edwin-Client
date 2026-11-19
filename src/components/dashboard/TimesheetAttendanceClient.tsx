@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import {
-  Button, Card, Checkbox, DatePicker, Flex, Input, Modal, Select, Spin, Tag, Typography, App,
+  Button, Card, Checkbox, DatePicker, Flex, Input, Modal, Select, Tag, Typography, App,
 } from 'antd';
+import { TableSkeleton } from '@/components/dashboard/Skeletons';
 import {
   LeftOutlined, RightOutlined, SaveOutlined, ClockCircleOutlined, PlusOutlined, DeleteOutlined, EditOutlined, CheckCircleOutlined,
 } from '@ant-design/icons';
@@ -536,7 +537,8 @@ export function TimesheetAttendanceClient({ projects }: Props) {
           </Flex>
         </Flex>
 
-        <Spin spinning={loading}>
+        {loading ? <TableSkeleton rows={8} columns={7} /> : (
+        <>
         <div className="overflow-x-auto" style={{ marginTop: 20 }}>
           <table className="w-full border-collapse text-sm" style={{ tableLayout: 'fixed' }}>
             <thead>
@@ -712,7 +714,8 @@ export function TimesheetAttendanceClient({ projects }: Props) {
             )}
           </table>
         </div>
-        </Spin>
+        </>
+        )}
 
         <Typography.Text type="secondary" className="mt-2 block text-xs">
           Each day is 8 hrs — split it across projects (e.g. 4 hrs on Project A and 4 hrs on Project B). Submitted hours lock; add another project row to enter more for the same day. Use Public Holiday, Idle Time or Leave for non-project days.

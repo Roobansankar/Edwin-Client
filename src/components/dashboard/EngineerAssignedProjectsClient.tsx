@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Input, Typography, Progress, Alert, Spin } from 'antd';
+import { Input, Typography, Progress, Alert } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { ProjectOutlined, SearchOutlined } from '@ant-design/icons';
 import { fetchEngineerAssignedProjects } from '@/lib/client-api';
 import { StatusTag, pageHeaderClassName, pageTitleClassName, titleIconClassName } from './ui';
 import { PagedTableCard, StatusCards } from './DataTablePanel';
+import { TableSkeleton } from '@/components/dashboard/Skeletons';
 
 type AssignedProject = {
   id: string;
@@ -70,7 +71,7 @@ export function EngineerAssignedProjectsClient() {
       {error && <Alert type="error" showIcon message={error} className="mb-4" />}
 
       {loading ? (
-        <div className="flex h-40 items-center justify-center"><Spin size="large" /></div>
+        <TableSkeleton />
       ) : (
         <>
           <StatusCards

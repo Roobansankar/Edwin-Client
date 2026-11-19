@@ -3,8 +3,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { clientApiFetch } from '@/lib/client-api';
 import { DpwClient } from '@/components/dashboard/DpwClient';
-import { Alert, Spin } from 'antd';
+import { Alert } from 'antd';
 import type { Project, Trade, Team, DailyLabourReport } from '@/types/erp';
+import { PageSkeleton } from '@/components/dashboard/Skeletons';
 
 export default function NewDpwPage() {
   const [data, setData] = useState<{ projects: Project[], trades: Trade[], teams: Team[], reports: DailyLabourReport[] } | null>(null);
@@ -32,7 +33,7 @@ export default function NewDpwPage() {
     load();
   }, [load]);
 
-  if (loading) return <div className="p-10 text-center"><Spin size="large" /></div>;
+  if (loading) return <PageSkeleton />;
   if (error) return <Alert title="Error" description={error} type="error" showIcon />;
   if (!data) return null;
 

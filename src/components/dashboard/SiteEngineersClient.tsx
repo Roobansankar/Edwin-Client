@@ -36,6 +36,8 @@ type SiteEngineersClientProps = {
 
 export function SiteEngineersClient({ siteEngineers, salaries }: SiteEngineersClientProps) {
   const [open, setOpen] = useState(false);
+  // Current page + size so S.No keeps counting across pages.
+  const [tablePage, setTablePage] = useState({ current: 1, pageSize: 10 });
   const [editingEngineer, setEditingEngineer] = useState<SiteEngineer | null>(null);
   const [isPending, startTransition] = useTransition();
   const { message } = App.useApp();
@@ -103,6 +105,13 @@ export function SiteEngineersClient({ siteEngineers, salaries }: SiteEngineersCl
   };
 
   const columns: ColumnsType<SiteEngineer> = [
+    {
+      title: 'S.No',
+      key: 'sno',
+      width: 70,
+      align: 'center',
+      render: (_, __, index) => (tablePage.current - 1) * tablePage.pageSize + index + 1,
+    },
     {
       title: 'Employee ID',
       dataIndex: 'employeeId',
@@ -275,7 +284,13 @@ export function SiteEngineersClient({ siteEngineers, salaries }: SiteEngineersCl
           rowKey="id"
           size="middle"
           scroll={{ x: 1200 }}
-          pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `${total} engineers` }}
+          pagination={{
+            current: tablePage.current,
+            pageSize: tablePage.pageSize,
+            showSizeChanger: true,
+            showTotal: (total) => `${total} engineers`,
+            onChange: (current, pageSize) => setTablePage({ current, pageSize }),
+          }}
         />
       </Card>
 

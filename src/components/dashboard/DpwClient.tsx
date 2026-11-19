@@ -6,12 +6,12 @@ import type { ColumnsType } from 'antd/es/table';
 import { CalendarOutlined, PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, SearchOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { deleteDailyLabourReport } from '@/actions/daily-labour';
 import { DpwForm } from './DpwForm';
 import type { DailyLabourReport, Project, Trade, Team, DailyWorker } from '@/types/erp';
 import { pageHeaderClassName, pageTitleClassName, titleIconClassName, weekRangeLabel, weekStartOf } from './ui';
 import { PagedTableCard, StatusCards } from './DataTablePanel';
+import { useDashboardRouter } from '@/components/dashboard/navigation';
 
 // One row of the weekly Daily Entry List: a site engineer's reports for one
 // project in one Monday-to-Sunday week.
@@ -38,7 +38,7 @@ export function DpwClient({
   title = 'Daily Entry List',
   showActions = true
 }: Props) {
-  const router = useRouter();
+  const router = useDashboardRouter();
   const { message, modal } = App.useApp();
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [open, setOpen] = useState(defaultOpen);

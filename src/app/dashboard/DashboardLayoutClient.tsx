@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { flushSync } from 'react-dom';
 import { useRouter, usePathname } from 'next/navigation';
 import { ConfigProvider, Layout, Typography, Dropdown, Popover, Drawer, App, Badge, Flex, Tag } from 'antd';
 import type { MenuProps } from 'antd';
@@ -10,6 +11,7 @@ import {
   BankOutlined,
   BellOutlined,
   CalendarOutlined,
+  CheckOutlined,
   CloseOutlined,
   CreditCardOutlined,
   DollarOutlined,
@@ -34,6 +36,8 @@ import {
   WalletOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '@/store/auth';
+import { PageLoader } from '@/components/dashboard/Skeletons';
+import { DashboardNavigationProvider } from '@/components/dashboard/navigation';
 import { useThemeStore } from '@/store/theme';
 import { formatDate, titleCase } from '@/components/dashboard/ui';
 import type { EmployeeQuery } from '@/types/erp';
@@ -43,7 +47,7 @@ import { PageSearch } from '@/components/dashboard/layout/PageSearch';
 
 const { Sider, Content, Header } = Layout;
 
-const SIDEBAR_WIDTH = 280;
+const SIDEBAR_WIDTH = 256;
 
 // Payment pages reached from the Payments page (not listed in the sidebar).
 const PAYMENTS_SUB_PAGES = [
@@ -52,7 +56,60 @@ const PAYMENTS_SUB_PAGES = [
   '/dashboard/expense-payments',
   '/dashboard/labour-payments',
 ];
-const COLLAPSED_WIDTH = 64;
+const COLLAPSED_WIDTH = 72;
+
+// Each sidebar icon gets its own colour, grouped by meaning (money = greens,
+// bills = orange/red, reports = sky/indigo, people = pink/purple). Mid-tone
+// shades so they read on both the light and the black sidebar.
+const NAV_ICON_COLORS: Record<string, string> = {
+  '/dashboard': '#8b5cf6',
+  '/dashboard/ai': '#ec4899',
+  '/dashboard/notifications': '#f59e0b',
+  '/dashboard/timesheet-attendance': '#14b8a6',
+  '/dashboard/my-todos': '#84cc16',
+  '/dashboard/expenses/new': '#f97316',
+  '/dashboard/expenses': '#f97316',
+  '/dashboard/vendors': '#06b6d4',
+  '/dashboard/material-requirement': '#eab308',
+  '/dashboard/purchase-enquiry': '#a855f7',
+  '/dashboard/purchase-orders': '#6366f1',
+  '/dashboard/material-received': '#22c55e',
+  '/dashboard/subcontractors': '#f43f5e',
+  '/dashboard/subcontractor-enquiry': '#d946ef',
+  '/dashboard/subcontract-work-orders': '#0ea5e9',
+  '/dashboard/subcontractor-work': '#fb7185',
+  '/dashboard/site-engineer-attendance': '#2dd4bf',
+  '/dashboard/approvals': '#10b981',
+  '/dashboard/weekly-report': '#38bdf8',
+  '/dashboard/all-reports': '#818cf8',
+  '/dashboard/my-projects': '#fb923c',
+  '/dashboard/projects': '#fb923c',
+  '/dashboard/new': '#a3e635',
+  '/dashboard/site-engineers': '#60a5fa',
+  '/dashboard/assigned-projects': '#c084fc',
+  '/dashboard/office-staff': '#f472b6',
+  '/dashboard/employee-queries': '#facc15',
+  '/dashboard/report': '#818cf8',
+  '/dashboard/project-access': '#34d399',
+  '/dashboard/architecture': '#94a3b8',
+  '/dashboard/accounts': '#10b981',
+  '/dashboard/payments': '#22c55e',
+  '/dashboard/accounts-ledger': '#14b8a6',
+  '/dashboard/accounts/invoices': '#0ea5e9',
+  '/dashboard/accounts/bills': '#f97316',
+  '/dashboard/accounts/subcontractor-bills': '#f43f5e',
+  '/dashboard/purchase-ledger': '#14b8a6',
+  '/dashboard/advance': '#22c55e',
+  '/dashboard/subcontractor-payments': '#f43f5e',
+  '/dashboard/dpr': '#38bdf8',
+  '/dashboard/drawings': '#a855f7',
+  '/dashboard/profile': '#8b5cf6',
+  '/dashboard/salary': '#eab308',
+};
+const NAV_ICON_FALLBACK = ['#8b5cf6', '#10b981', '#f59e0b', '#0ea5e9', '#f43f5e', '#14b8a6'];
+const navIconColor = (key: string) =>
+  NAV_ICON_COLORS[key] ??
+  NAV_ICON_FALLBACK[[...key].reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % NAV_ICON_FALLBACK.length];
 
 type NavItem = {
   key: string;
@@ -169,8 +226,40 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
+  // True from a sidebar/search click until the new page has rendered; covers
+  // server-rendered pages that would otherwise show no loader at all.
+  const [navigating, startNavigation] = useTransition();
+  const navigateTo = useCallback((href: string) => {
+    setMobileSidebarOpen(false);
+    const targetPath = href.split(/[?#]/)[0];
+    if (targetPath === pathname) {
+      // Same page (maybe a different ?tab=): navigate without the loader.
+      if (href !== pathname) router.push(href);
+      return;
+    }
+    startNavigation(() => router.push(href));
+  }, [pathname, router]);
 
-  const { mode, toggle: toggleTheme } = useThemeStore();
+  // Any plain click on an internal dashboard link (next/link renders <a>)
+  // goes through navigateTo, so in-page links also show the loader. Runs in
+  // the capture phase, before next/link's own handler, which then skips
+  // because the event is already handled.
+  useEffect(() => {
+    const onClick = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const anchor = (event.target as Element | null)?.closest?.('a');
+      if (!anchor || (anchor.target && anchor.target !== '_self') || anchor.hasAttribute('download')) return;
+      const href = anchor.getAttribute('href');
+      if (!href || !href.startsWith('/dashboard')) return;
+      event.preventDefault();
+      navigateTo(href);
+    };
+    document.addEventListener('click', onClick, true);
+    return () => document.removeEventListener('click', onClick, true);
+  }, [navigateTo]);
+
+  const { mode, darkStyle, setMode, setDarkStyle } = useThemeStore();
+  const themeChoice = mode === 'light' ? 'light' : darkStyle === 'navy' ? 'navy' : 'black';
 
   const [pendingEqCount, setPendingEqCount] = useState(0);
   const [pendingQueries, setPendingQueries] = useState<EmployeeQuery[]>([]);
@@ -407,6 +496,58 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
   }, [pathname, navItems]);
 
 
+  const searchPages = filteredNavigationSections.flatMap((section) =>
+    section.items.map((item) => ({
+      key: item.key,
+      label: navigationSections.flatMap((group) => group.items).find((entry) => entry.key === item.key)?.label || item.key,
+    })),
+  );
+
+  const userInitials = (user?.name || 'U')
+    .split(/s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('');
+
+  const themeButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Theme change with a full-page circular reveal that grows out of the theme
+  // button (View Transitions API). Falls back to an instant switch when the
+  // browser lacks it or the user prefers reduced motion.
+  const switchTheme = (choice: 'light' | 'black' | 'navy') => {
+    if (choice === themeChoice) return;
+    const apply = () => {
+      const nextMode = choice === 'light' ? 'light' : 'dark';
+      if (choice !== 'light') setDarkStyle(choice);
+      setMode(nextMode);
+      // Set the attributes now so the new frame is fully themed.
+      document.documentElement.dataset.theme = nextMode;
+      if (choice !== 'light') document.documentElement.dataset.darkStyle = choice;
+    };
+    const doc = document as Document & {
+      startViewTransition?: (update: () => void) => { ready: Promise<void> };
+    };
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!doc.startViewTransition || reduce) {
+      apply();
+      return;
+    }
+    const rect = themeButtonRef.current?.getBoundingClientRect();
+    const x = rect ? rect.left + rect.width / 2 : window.innerWidth - 40;
+    const y = rect ? rect.top + rect.height / 2 : 40;
+    const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+    const transition = doc.startViewTransition(() => {
+      flushSync(apply);
+    });
+    void transition.ready.then(() => {
+      document.documentElement.animate(
+        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+        { duration: 700, easing: 'cubic-bezier(0.65, 0, 0.35, 1)', pseudoElement: '::view-transition-new(root)' },
+      );
+    });
+  };
+
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     logout();
@@ -414,10 +555,22 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
   };
 
   const userMenuItems: MenuProps['items'] = [
-    { key: 'profile', icon: <UserOutlined />, label: `${user?.name || 'User'} (${user?.role || ''})` },
+    {
+      key: 'who',
+      disabled: true,
+      label: (
+        <div className="py-0.5 leading-tight">
+          <div className="text-sm font-semibold text-[var(--text-primary)]">{user?.name || 'User'}</div>
+          <div className="text-xs text-[var(--text-muted)]">{titleCase(user?.role || '')}</div>
+        </div>
+      ),
+    },
     { type: 'divider' },
-    { key: 'logout', icon: <LogoutOutlined />, label: 'Sign Out', danger: true },
+    { key: 'logout', icon: <LogoutOutlined />, label: 'Sign out', danger: true },
   ];
+  const onUserMenu: MenuProps['onClick'] = ({ key }) => {
+    if (key === 'logout') void handleLogout();
+  };
 
   const adminNotifBody = (
     <>
@@ -436,7 +589,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                 onClick={() => {
                   setAdminNotifOpen(false);
                   if (!n.isRead) markNotificationRead(n.id);
-                  router.push(n.link || '/dashboard/advance-requests');
+                  navigateTo(n.link || '/dashboard/advance-requests');
                 }}
               >
                 <button
@@ -476,7 +629,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
             className="relative cursor-pointer rounded-lg border border-[var(--border)] p-2 pr-7 transition hover:bg-[var(--subtle-hover-bg)]"
             onClick={() => {
               setAdminNotifOpen(false);
-              router.push('/dashboard/employee-queries');
+              navigateTo('/dashboard/employee-queries');
             }}
           >
             <button
@@ -523,7 +676,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                 onClick={() => {
                   setNotifOpen(false);
                   if (!n.isRead) markNotificationRead(n.id);
-                  router.push(n.link || (user?.role === 'accounts_manager' ? '/dashboard/accounts/bills' : '/dashboard/material-requirement'));
+                  navigateTo(n.link || (user?.role === 'accounts_manager' ? '/dashboard/accounts/bills' : '/dashboard/material-requirement'));
                 }}
               >
                 <button
@@ -586,17 +739,15 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
     </>
   );
 
+  // Brief first paint before the layout mounts: plain background, no loader.
   if (!mounted) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--page-bg)]">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--primary)] border-t-transparent"></div>
-      </div>
-    );
+    return <div className="min-h-screen bg-[var(--page-bg)]" />;
   }
 
   return (
-    <ConfigProvider theme={{ token: { colorPrimary: '#1677ff', borderRadius: 6, colorBgContainer: mode === 'dark' ? '#101827' : '#fff', colorBgLayout: mode === 'dark' ? '#0b1120' : '#fff' } }}>
+    <ConfigProvider theme={{ token: { borderRadius: 6, colorBgContainer: mode === 'dark' ? (darkStyle === 'navy' ? '#0b1120' : '#0a0a0a') : '#fff', colorBgLayout: mode === 'dark' ? (darkStyle === 'navy' ? '#0b1120' : '#0a0a0a') : '#fff' } }}>
     <App>
+    <DashboardNavigationProvider value={navigateTo}>
       <Layout className={styles.root}>
         <Sider
           trigger={null}
@@ -614,14 +765,22 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
           }`}
           style={isMobile ? { width: `${SIDEBAR_WIDTH}px` } : { boxShadow: effectiveCollapsed ? 'none' : 'none' }}
         >
-          <div className="flex h-full flex-col">
+          <div className={styles.sidebarBox}>
             <div className={styles.brand}>
-              <img src="/logo.png" alt="Edwin Constructions" />
-              {!effectiveCollapsed && <span className={styles.brandName}>Edwin Constructions</span>}
+              <span className={styles.brandMark}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/logo.png" alt="Edwin Constructions" />
+              </span>
+              {!effectiveCollapsed && (
+                <span className={styles.brandText}>
+                  <span className={styles.brandName}>Edwin Constructions</span>
+                  <span className={styles.brandTag}>{titleCase(user?.role || '') || 'ERP'}</span>
+                </span>
+              )}
+              {!effectiveCollapsed && !isMobile && <span className={styles.brandBadge}>ERP</span>}
               {isMobile && <button type="button" className={styles.brandClose} aria-label="Close sidebar" onClick={() => setMobileSidebarOpen(false)}><CloseOutlined /></button>}
             </div>
             <div className={styles.sidebarBody}>
-              <PageSearch collapsed={effectiveCollapsed} pages={filteredNavigationSections.flatMap((section) => section.items.map((item) => ({ key: item.key, label: navigationSections.flatMap((group) => group.items).find((entry) => entry.key === item.key)?.label || item.key })))} onNavigate={(key) => { router.push(key); setMobileSidebarOpen(false); }} />
               <nav id="workspace-navigation" aria-label="Main navigation">
                 {filteredNavigationSections.map((section, index) => (
                   <div key={`${section.title}-${index}`} className={styles.section}>
@@ -630,8 +789,9 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                       <button key={item.key} type="button" className={`${styles.navItem} ${selectedKey === item.key ? styles.active : ''}`}
                         aria-current={selectedKey === item.key ? 'page' : undefined}
                         title={navigationSections.flatMap((group) => group.items).find((entry) => entry.key === item.key)?.label}
-                        onClick={() => { router.push(item.key); setMobileSidebarOpen(false); }}>
-                        {item.icon}{!effectiveCollapsed && <span>{item.label}</span>}
+                        onClick={() => navigateTo(item.key)}>
+                        <span className={styles.navIcon} style={{ color: navIconColor(item.key) }}>{item.icon}</span>
+                        {!effectiveCollapsed && <span>{item.label}</span>}
                       </button>
                     ))}
                   </div>
@@ -639,6 +799,24 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
               </nav>
             </div>
 
+            <div className={styles.sidebarFooter}>
+              <Dropdown menu={{ items: userMenuItems, onClick: onUserMenu }} placement="topRight" trigger={['click']}>
+                <button type="button" className={styles.profile} aria-label="Account menu" aria-haspopup="menu" title={user?.name || 'Account'}>
+                  <span className={styles.avatar}>{userInitials}</span>
+                  {!effectiveCollapsed && (
+                    <>
+                      <span className={styles.profileMeta}>
+                        <span className={styles.profileName}>{user?.name || 'User'}</span>
+                        <span className={styles.profileEmail}>{user?.email || titleCase(user?.role || '')}</span>
+                      </span>
+                      <svg className={styles.profileChevron} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="m7 15 5 5 5-5" /><path d="m7 9 5-5 5 5" />
+                      </svg>
+                    </>
+                  )}
+                </button>
+              </Dropdown>
+            </div>
           </div>
         </Sider>
 
@@ -652,8 +830,9 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
         <Layout
           className={`${styles.main} transition-[margin-left,width] duration-300 ease-in-out`}
           style={{
-            marginLeft: sidebarWidth,
-            width: isMobile ? '100%' : `calc(100% - ${sidebarWidth}px)`,
+            marginLeft: isMobile ? 0 : sidebarWidth + 8,
+            marginRight: isMobile ? 0 : 8,
+            width: isMobile ? '100%' : `calc(100% - ${sidebarWidth}px - 16px)`,
           }}
         >
           <Header className={styles.header}>
@@ -664,17 +843,36 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                 aria-label={isMobile ? (mobileSidebarOpen ? 'Close sidebar' : 'Open sidebar') : (collapsed ? 'Expand sidebar' : 'Collapse sidebar')}>
                 <ReferencePanelIcon collapsed={isMobile ? !mobileSidebarOpen : collapsed} />
               </button>
-              <h1>{navigationSections.flatMap((section) => section.items).find((item) => item.key === selectedKey)?.label || 'Dashboard'}</h1>
+              <span className={styles.headerDivider} aria-hidden="true" />
+              <PageSearch pages={searchPages} onNavigate={navigateTo} />
             </div>
             <div className={styles.actions}>
-              <button
-                type="button"
-                onClick={toggleTheme}
-                className={styles.iconButton}
-                aria-label="Toggle theme"
+              <Dropdown
+                trigger={['click']}
+                placement="bottomRight"
+                menu={{
+                  selectedKeys: [themeChoice],
+                  items: [
+                    { key: 'light', label: 'Light', swatch: '#ffffff' },
+                    { key: 'black', label: 'Dark – Black', swatch: '#0a0a0a' },
+                    { key: 'navy', label: 'Dark – Blue', swatch: '#0b1120' },
+                  ].map((option) => ({
+                    key: option.key,
+                    label: (
+                      <span className={styles.themeOption}>
+                        <span className={styles.themeSwatch} style={{ background: option.swatch }} />
+                        {option.label}
+                        {themeChoice === option.key && <CheckOutlined className={styles.themeCheck} />}
+                      </span>
+                    ),
+                  })),
+                  onClick: ({ key }) => switchTheme(key as 'light' | 'black' | 'navy'),
+                }}
               >
-                {mode === 'dark' ? <SunOutlined /> : <MoonOutlined />}
-              </button>
+                <button ref={themeButtonRef} type="button" className={styles.iconButton} aria-label="Change theme" aria-haspopup="menu" title="Theme">
+                  {mode === 'dark' ? <MoonOutlined /> : <SunOutlined />}
+                </button>
+              </Dropdown>
 
               {user?.role === 'admin' && (
                 isMobile ? (
@@ -783,22 +981,17 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
                 )
               )}
 
-
-              <Dropdown menu={{ items: userMenuItems, onClick: ({ key }) => { if (key === 'logout') handleLogout(); } }} placement="bottomRight" trigger={['click']}>
-                <button type="button" className={styles.iconButton} aria-label="Profile" aria-haspopup="menu">
-                  <UserOutlined />
-                </button>
-              </Dropdown>
             </div>
           </Header>
 
-          <Content className={styles.content}>
-            <div className={styles.contentInner}>
-              {children}
+          <Content id="main-scroll" className={styles.content}>
+            <div className={`${styles.contentInner} page-anim`}>
+              {navigating ? <PageLoader /> : children}
             </div>
           </Content>
         </Layout>
       </Layout>
+    </DashboardNavigationProvider>
     </App>
     </ConfigProvider>
 );

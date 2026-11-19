@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AutoComplete, Button, DatePicker, Divider, Drawer, Flex, Form, Input, InputNumber, Select, Space, Typography, App } from 'antd';
 import { PlusOutlined, ProjectOutlined } from '@ant-design/icons';
-import { useRouter } from 'next/navigation';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import dayjs from 'dayjs';
@@ -18,6 +17,7 @@ import {
   pageTitleClassName,
   titleIconClassName,
 } from './ui';
+import { useDashboardRouter } from '@/components/dashboard/navigation';
 
 function generateFinancialYears(): string[] {
   const currentYear = dayjs().year();
@@ -67,7 +67,7 @@ export function ProjectsClient({ projects, projectCategories, users }: ProjectsC
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isPending, startTransition] = useTransition();
   const { message } = App.useApp();
-  const router = useRouter();
+  const router = useDashboardRouter();
 
   // For adding a new project category inline
   const [newCategoryName, setNewCategoryName] = useState('');

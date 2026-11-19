@@ -6,7 +6,6 @@ import { Button, Divider, Drawer, Flex, Form, Input, Popconfirm, Space, Typograp
 import type { ColumnsType } from 'antd/es/table';
 import { DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined, SearchOutlined, TeamOutlined, CloseOutlined } from '@ant-design/icons';
 import { Controller, useForm } from 'react-hook-form';
-import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { createSubcontractor, deleteSubcontractor, updateSubcontractor } from '@/actions/subcontractors';
 import { createWorkCategory, deleteWorkCategory } from '@/actions/work-categories';
@@ -18,6 +17,7 @@ import {
   titleIconClassName,
 } from './ui';
 import { PagedTableCard, StatusCards } from './DataTablePanel';
+import { useDashboardRouter } from '@/components/dashboard/navigation';
 
 const subcontractorSchema = z.object({
   name: z.string().min(2, 'Subcontractor name is required'),
@@ -59,7 +59,7 @@ export function SubcontractorsClient({ subcontractors, workCategories }: Subcont
   const [searchText, setSearchText] = useState('');
   const [isPending, startTransition] = useTransition();
   const { message } = App.useApp();
-  const router = useRouter();
+  const router = useDashboardRouter();
 
   const filteredSubcontractors = useMemo(() => {
     const q = searchText.trim().toLowerCase();
