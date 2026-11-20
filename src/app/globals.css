@@ -82,6 +82,8 @@ html {
 
 body {
   min-height: 100vh;
+  min-height: 100dvh; /* phones: visible height, not behind the browser bars */
+  overscroll-behavior-y: none;
 }
 
 /* Global thin scrollbar */

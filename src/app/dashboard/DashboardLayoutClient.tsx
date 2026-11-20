@@ -38,6 +38,7 @@ import {
 import { useAuthStore } from '@/store/auth';
 import { PageLoader } from '@/components/dashboard/Skeletons';
 import { DashboardNavigationProvider } from '@/components/dashboard/navigation';
+import { endSession } from '@/lib/client-api';
 import { useThemeStore } from '@/store/theme';
 import { formatDate, titleCase } from '@/components/dashboard/ui';
 import type { EmployeeQuery } from '@/types/erp';
@@ -268,6 +269,13 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // The saved user lives in this browser's storage (per address, e.g. a
+  // different port starts empty). Without it the app cannot tell who is
+  // signed in, so sign out cleanly and explain on the login page.
+  useEffect(() => {
+    if (mounted && !user) void endSession('session');
+  }, [mounted, user]);
 
   useEffect(() => {
     if (user?.role !== 'admin') {
@@ -741,7 +749,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
 
   // Brief first paint before the layout mounts: plain background, no loader.
   if (!mounted) {
-    return <div className="min-h-screen bg-[var(--page-bg)]" />;
+    return <div className="min-h-dvh bg-[var(--page-bg)]" />;
   }
 
   return (
@@ -756,7 +764,7 @@ export function DashboardLayoutClient({ children }: { children: React.ReactNode 
           collapsed={effectiveCollapsed}
           collapsedWidth={effectiveCollapsedWidth}
           width={SIDEBAR_WIDTH}
-          className={`${styles.sidebar} ${effectiveCollapsed ? styles.collapsed : ''} fixed! left-0 top-0 bottom-0 z-100 h-screen overflow-hidden transition-all duration-300 ease-in-out ${
+          className={`${styles.sidebar} ${effectiveCollapsed ? styles.collapsed : ''} fixed! left-0 top-0 bottom-0 z-100 h-dvh overflow-hidden transition-all duration-300 ease-in-out ${
             isMobile
               ? mobileSidebarOpen
                 ? 'translate-x-0 shadow-2xl'

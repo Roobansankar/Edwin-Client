@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
       httpOnly: true,
       sameSite: 'lax' as const,
       path: '/',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: 60 * 60 * 8, // 8 hours, same as the API token (JWT_EXPIRES_IN)
     };
 
     // Set under both 'token' and 'access_token' so middleware & client cookies both pass
